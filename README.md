@@ -92,9 +92,24 @@ never published.
 
 ## WhatsApp setup
 
-Pick one provider and set `notification.provider` in `config.yaml`.
+Pick one provider and set `notification.provider` in `config.yaml` (default: `greenapi`).
 
-**CallMeBot (free, easiest; sends only to your own number).**
+**Green API (free; recommended).** Links your own WhatsApp, like WhatsApp Web, and sends
+the news, with the top story's photo, to your *Message yourself* chat.
+1. Sign up at <https://green-api.com> and create an instance on the free **Developer** plan.
+2. In the instance, scan the QR code from your phone: WhatsApp → Settings → Linked devices →
+   Link a device.
+3. Copy `idInstance`, `apiTokenInstance` and `apiUrl` from the console. Save them as the
+   secrets `GREENAPI_ID_INSTANCE`, `GREENAPI_API_TOKEN` and `GREENAPI_API_URL`.
+4. Save your number as `WHATSAPP_PHONE`, e.g. `+5491122334455`.
+
+Green API is not an official WhatsApp product, so treat it as "use at your own risk".
+The risk is low for one message a day to yourself. If you unlink the device in WhatsApp,
+the messages stop until you scan the QR code again. On the free plan the instance can
+pause if you don't log into the Green API console for a while. If messages stop, check
+the console.
+
+**CallMeBot (free; sends only to your own number).**
 1. Follow the WhatsApp steps on <https://www.callmebot.com/blog/free-api-whatsapp-messages/>:
    add their number to your contacts and send them the activation message.
 2. They reply with an API key. Save it as the secret `CALLMEBOT_APIKEY`.

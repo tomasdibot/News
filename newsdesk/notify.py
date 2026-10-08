@@ -5,6 +5,9 @@ Providers (pick with notification.provider):
               Env: WHATSAPP_PHONE, CALLMEBOT_APIKEY
   twilio    - Twilio WhatsApp API (sandbox or approved sender); also sends the top photo.
               Env: WHATSAPP_PHONE, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM
+  greenapi  - Green API (green-api.com): links YOUR WhatsApp by QR code and sends to your
+              "Message yourself" chat, with the top story's photo. Free Developer plan.
+              Env: WHATSAPP_PHONE, GREENAPI_ID_INSTANCE, GREENAPI_API_TOKEN, optional GREENAPI_API_URL
   console   - just prints the message (for testing).
 """
 
@@ -106,13 +109,32 @@ def send_twilio(text: str, image: str | None = None) -> None:
         raise NotifyError(f"Twilio answered {resp.status_code}: {resp.text[:300]}")
 
 
+def send_greenapi(text: str, image: str | None = None) -> None:
+    instance, token = os.environ.get("GREENAPI_ID_INSTANCE"), os.environ.get("GREENAPI_API_TOKEN")
+    if not (instance and token):
+        raise NotifyError("GREENAPI_ID_INSTANCE and GREENAPI_API_TOKEN must be set (see README: 'WhatsApp setup')")
+    # Each instance lives on a specific host; the console shows it as "apiUrl".
+    base = (os.environ.get("GREENAPI_API_URL") or "https://api.green-api.com").rstrip("/")
+    chat_id = _phone().lstrip("+") + "@c.us"
+    url = f"{base}/waInstance{instance}/{{method}}/{token}"
+    if image:
+        resp = requests.post(url.format(method="sendFileByUrl"), timeout=30,
+                             json={"chatId": chat_id, "urlFile": image, "fileName": "news.jpg", "caption": text})
+        if resp.status_code < 300:
+            return
+        log.warning("Green API could not send the photo (%s), sending text only", resp.status_code)
+    resp = requests.post(url.format(method="sendMessage"), json={"chatId": chat_id, "message": text}, timeout=30)
+    if resp.status_code >= 300:
+        raise NotifyError(f"Green API answered {resp.status_code}: {resp.text[:300]}")
+
+
 def send_console(text: str, image: str | None = None) -> None:
     print(text)
     if image:
         print(f"[image] {image}")
 
 
-PROVIDERS = {"callmebot": send_callmebot, "twilio": send_twilio, "console": send_console}
+PROVIDERS = {"callmebot": send_callmebot, "greenapi": send_greenapi, "twilio": send_twilio, "console": send_console}
 
 
 def notify(edition: dict, cfg: dict, provider: str | None = None) -> str:

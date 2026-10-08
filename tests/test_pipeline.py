@@ -114,3 +114,23 @@ def test_installable_on_phone(articles, cfg, tmp_path):
     assert "newsdesk-" in (site / "sw.js").read_text()
     html = (site / "index.html").read_text()
     assert 'rel="manifest"' in html and "apple-touch-icon" in html and "viewport-fit=cover" in html
+
+
+def test_greenapi_sends_photo_to_own_chat(monkeypatch):
+    from newsdesk import notify as n
+
+    calls = []
+
+    class Resp:
+        status_code = 200
+        text = "{}"
+
+    monkeypatch.setattr(n.requests, "post", lambda url, json, timeout: calls.append((url, json)) or Resp())
+    monkeypatch.setenv("WHATSAPP_PHONE", "+5491122334455")
+    monkeypatch.setenv("GREENAPI_ID_INSTANCE", "1101")
+    monkeypatch.setenv("GREENAPI_API_TOKEN", "tok")
+    monkeypatch.setenv("GREENAPI_API_URL", "https://7103.api.greenapi.com/")
+    n.send_greenapi("hola", "https://img/x.jpg")
+    url, body = calls[0]
+    assert url == "https://7103.api.greenapi.com/waInstance1101/sendFileByUrl/tok"
+    assert body["chatId"] == "5491122334455@c.us" and body["caption"] == "hola"

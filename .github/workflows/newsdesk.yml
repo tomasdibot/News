@@ -73,6 +73,10 @@ jobs:
           NEWSDESK_SITE_URL: ${{ steps.pages.outputs.base_url }}/
           WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
           CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+          GREENAPI_ID_INSTANCE: ${{ secrets.GREENAPI_ID_INSTANCE }}
+          GREENAPI_API_TOKEN: ${{ secrets.GREENAPI_API_TOKEN }}
+          GREENAPI_API_URL: ${{ secrets.GREENAPI_API_URL }}
+          NEWSDESK_NOTIFY_PROVIDER: ${{ vars.NEWSDESK_NOTIFY_PROVIDER }}
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
           TWILIO_WHATSAPP_FROM: ${{ secrets.TWILIO_WHATSAPP_FROM }}
