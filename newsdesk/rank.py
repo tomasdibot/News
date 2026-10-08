@@ -121,6 +121,10 @@ def score_stories(stories: list[Story], cfg: dict, now: datetime) -> list[Story]
         sobriety = 1 - 0.35 * s.hype
 
         s.score = importance * (0.4 + relevance) * freshness * sobriety
+        # Parts the app needs to re-rank by the topics chosen on the phone:
+        # score = base * (0.4 + fixed + best topic match x its weight)
+        s.base = importance * freshness * sobriety
+        s.fixed = local + age_rel
         s.headline = pick_headline(s, ui_lang)
         s.image = s.headline.image or next((a.image for a in s.articles if a.image), None)
         s.reasons = [n for n in weights if s.topic_scores.get(n, 0) >= 0.45]
@@ -128,6 +132,23 @@ def score_stories(stories: list[Story], cfg: dict, now: datetime) -> list[Story]
 
     kept.sort(key=lambda s: s.score, reverse=True)
     return kept
+
+
+def select_pool(stories: list[Story], cfg: dict, per_topic: int = 15, overall: int = 100) -> list[Story]:
+    """Stories shipped to the app: the best overall plus the best of every topic,
+    so any topic chosen in the app has something to show."""
+    picked: dict[int, Story] = {}
+    for s in stories[:overall]:
+        picked[id(s)] = s
+    names = set(topic_keywords(cfg["profile"]))
+    for name in names:
+        pool = [s for s in stories if s.topic_scores.get(name, 0) >= 0.45]
+        pool.sort(key=lambda s: s.base * (0.5 + s.topic_scores[name]), reverse=True)
+        for s in pool[:per_topic]:
+            picked[id(s)] = s
+    for s in [s for s in stories if s.local][:per_topic]:
+        picked[id(s)] = s
+    return sorted(picked.values(), key=lambda s: s.score, reverse=True)
 
 
 def select_sections(stories: list[Story], cfg: dict) -> dict:

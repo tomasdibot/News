@@ -1,4 +1,5 @@
 import json
+import re
 
 from conftest import NOW
 from newsdesk.cluster import cluster
@@ -66,7 +67,12 @@ def test_build_render_and_message(articles, cfg, tmp_path):
     assert edition["top"][0]["image"]
     page = render(edition, cfg, out_dir=tmp_path / "site", data_path=tmp_path / "edition.json")
     html = page.read_text()
-    assert "Lo más importante" in html and "3 medios" in html
+    data = json.loads(re.search(r'<script type="application/json" id="nd-data">(.*?)</script>', html, re.S).group(1))
+    assert data["t"]["top"] == "Lo más importante" and data["t"]["many"] == "{n} medios"
+    assert {"economy", "world", "sports"} <= set(data["catalog"])
+    assert data["defaults"]["topics"][:2] == ["world", "economy"]
+    first = data["stories"][0]
+    assert first["base"] > 0 and "topics" in first and len(first["outlets"]) == 3
     assert json.loads((tmp_path / "edition.json").read_text())["top"]
     assert not (tmp_path / "site" / "edition.json").exists()
     msg = compose_message(edition, cfg, now=NOW)

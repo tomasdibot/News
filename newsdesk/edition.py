@@ -19,7 +19,8 @@ from .fetch import fetch_all, fetch_og_image
 from .lexicon import COUNTRY_NAMES, LOCK_UI, UI
 from .lock import encrypt, password_from_env, site_salt
 from .push import public_key_b64
-from .rank import score_stories, select_sections
+from .lexicon import TOPIC_KEYWORDS
+from .rank import score_stories, select_pool, select_sections
 from .text import truncate
 
 log = logging.getLogger(__name__)
@@ -55,7 +56,10 @@ def story_dict(s: Story, ui_lang: str) -> dict:
         "published": s.latest.isoformat(),
         "outlets": s.outlets,
         "local": s.local,
-        "reasons": s.reasons,
+        "topics": {k: round(v, 2) for k, v in s.topic_scores.items() if v >= 0.2},
+        "base": round(s.base, 4),
+        "fixed": round(s.fixed, 3),
+        "hype": bool(s.hype),
         "score": round(s.score, 3),
         "sources": [
             {"outlet": a.outlet, "title": a.title, "link": a.link, "lang": a.source.lang}
@@ -70,11 +74,10 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     if articles is None:
         articles = fetch_all(load_sources(cfg))
     stories = score_stories(cluster(articles), cfg, now)
-    sections = select_sections(stories, cfg)
-
-    shown = sections["top"] + sections["local"] + [s for _, items in sections["topics"] for s in items]
+    sections = select_sections(stories, cfg)  # what the morning notification uses
+    pool = select_pool(stories, cfg)            # what the app shows and re-ranks
     if articles and cfg.get("_fetch_images", True):
-        fill_missing_images(shown)
+        fill_missing_images(pool, limit=90)
 
     tz = ZoneInfo(cfg["notification"]["timezone"])
     return {
@@ -84,11 +87,20 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
         "outlet_count": len({a.outlet for a in articles}),
         "top": [story_dict(s, ui_lang) for s in sections["top"]],
         "local": [story_dict(s, ui_lang) for s in sections["local"]],
-        "topics": [
-            {"name": name, "stories": [story_dict(s, ui_lang) for s in items]}
-            for name, items in sections["topics"]
-        ],
+        "stories": [story_dict(s, ui_lang) for s in pool],
+        "catalog": topic_catalog(cfg),
+        "defaults": {
+            "topics": [t["name"] for t in sorted(cfg["profile"]["topics"], key=lambda t: -float(t.get("weight", 1)))
+                       if t["name"] not in set(cfg["profile"].get("muted_topics") or [])],
+        },
     }
+
+
+def topic_catalog(cfg: dict) -> list[str]:
+    """Every topic the app can offer: the built-in ones plus custom ones from config.yaml."""
+    names = list(TOPIC_KEYWORDS)
+    names += [t["name"] for t in cfg["profile"]["topics"] if t["name"] not in names]
+    return names
 
 
 def render(edition: dict, cfg: dict, out_dir: Path = SITE_DIR, data_path: Path = DATA_PATH,

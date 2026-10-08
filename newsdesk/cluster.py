@@ -64,6 +64,8 @@ class Story:
     topic: str | None = None
     topic_scores: dict[str, float] = field(default_factory=dict)
     local: bool = False
+    base: float = 0.0
+    fixed: float = 0.0
     hype: float = 0.0  # share of the story's headlines with sensational wording
     reasons: list[str] = field(default_factory=list)
     headline: Article | None = None

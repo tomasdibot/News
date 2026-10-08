@@ -27,6 +27,10 @@ The rules are kept in plain lists in `newsdesk/lexicon.py` and `sources.yaml`, s
 
 ## Your profile (`config.yaml`)
 
+Topics can be changed from the app itself (⚙ button, see *On your phone*). `config.yaml`
+sets the defaults for a new device, and the topics the morning notification favours.
+
+
 - `topics` with weights (built in: world, politics, economy, business, science,
   technology, health, environment, education, culture, sports, security, latam), plus
   custom topics with your own keywords.
@@ -56,9 +60,18 @@ its own icon.
 - **iPhone (Safari):** open the site → Share button → **Add to Home Screen**.
 - **Android (Chrome):** open the site → ⋮ menu → **Add to Home screen** / **Install app**.
 
-On a phone, stories after the lead show as compact rows with a thumbnail, the topic tabs
-stay pinned at the top, and every link and button is big enough to tap. Other features:
+How the app works:
 
+- **Tabs you swipe:** *Most important now*, *Your country*, then one tab per topic. Swipe left
+  or right to move between them, or tap a tab name.
+- **Short by default:** each story is one compact row (topic, time, how many outlets, headline,
+  photo). Tap a story to open its summary, the outlets that covered it, and a *Read the full
+  story* button. The first story of each tab has a bigger photo and a two-line summary.
+- **Your topics, set in the app:** tap the sliders button ⚙ next to ↻. Tick the topics you want
+  as tabs, use ↑ ↓ to set their order, or add your own topic with a name and keywords (e.g.
+  *Energía: petróleo, gas, litio, Vaca Muerta*). The order also decides what comes first in
+  *Most important now*. Settings are saved on that device. *Reset to defaults* goes back to
+  the topics in `config.yaml`.
 - **Fresh news:** coming back to the app after 15 minutes or more reloads it with the
   latest edition. The ↻ button refreshes on demand.
 - **Offline:** the last edition you opened still loads without signal (photos need a

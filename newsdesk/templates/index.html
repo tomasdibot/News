@@ -11,270 +11,332 @@
 :root {
   --bg: #f7f5f0; --card: #ffffff; --ink: #1a1a1a; --muted: #6b6b6b; --line: #e3dfd6;
   --accent: #9b2c2c; --chip: #efece5; --local: #1f5f8b;
+  --serif: "Source Serif 4", Georgia, serif; --sans: Inter, system-ui, -apple-system, sans-serif;
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #141414; --card: #1d1d1d; --ink: #ececec; --muted: #9a9a9a; --line: #2e2e2e;
           --accent: #e07a6e; --chip: #2a2a2a; --local: #7db7e0; }
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif;
-       -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent;
-       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-html { scroll-padding-top: 64px; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--sans);
+       -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; overflow: hidden; }
 a { color: inherit; }
-header { max-width: 1180px; margin: 0 auto; padding: 28px 16px 4px; }
-.masthead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.refresh { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 20px; cursor: pointer; }
-.actions { display: flex; gap: 8px; flex: none; }
-.refresh { display: grid; place-items: center; }
+button { font: inherit; color: inherit; }
+
+/* App shell: header + tab bar fixed, the news area fills the rest and swipes sideways. */
+.app { height: 100vh; height: 100dvh; max-width: 760px; margin: 0 auto; display: flex; flex-direction: column;
+       padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
+header { padding: 10px 16px 0; flex: none; }
+.masthead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+header h1 { font: 700 26px/1.1 var(--serif); margin: 0; letter-spacing: -.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meta { color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.actions { display: flex; gap: 6px; flex: none; }
+.refresh { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--card);
+           color: var(--ink); font-size: 19px; cursor: pointer; display: grid; place-items: center; padding: 0; }
 .refresh[hidden] { display: none; }
+.refresh.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .bell.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .bell.on path { fill: currentColor; }
+
+.tabs { flex: none; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 8px 12px 0;
+        border-bottom: 1px solid var(--line); -webkit-overflow-scrolling: touch; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { flex: none; border: 0; background: none; padding: 10px 10px 9px; font-size: 14.5px; font-weight: 500;
+       color: var(--muted); border-bottom: 3px solid transparent; cursor: pointer; white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 600; }
+
+.pager { flex: 1; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
+         scrollbar-width: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.pager::-webkit-scrollbar { display: none; }
+.panel { flex: 0 0 100%; width: 100%; scroll-snap-align: start; scroll-snap-stop: always; overflow-y: auto;
+         overscroll-behavior-y: contain; padding: 10px 12px calc(24px + env(safe-area-inset-bottom)); }
+
+/* Stories: compact rows; tap to open summary + sources. */
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; overflow: hidden; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 12px; align-items: start; width: 100%;
+       text-align: left; background: none; border: 0; padding: 11px 12px; cursor: pointer; }
+.thumb { width: 76px; height: 76px; border-radius: 8px; background: var(--chip); overflow: hidden; position: relative; }
+.thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.kick { font-size: 11px; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); font-weight: 600;
+        display: flex; gap: 0 8px; margin-bottom: 3px; white-space: nowrap; overflow: hidden; }
+.kick > * { flex: none; }
+.kick .loc { margin: 0 -4px; }
+.kick .t { color: var(--accent); }
+.kick .loc { color: var(--local); }
+.kick .single { color: var(--accent); }
+.row h3 { font: 700 16.5px/1.28 var(--serif); margin: 0; display: -webkit-box; -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical; overflow: hidden; }
+.card.open .row h3 { -webkit-line-clamp: unset; }
+.more { display: none; padding: 0 12px 12px; }
+.card.open .more { display: block; }
+.more p { margin: 0 0 10px; opacity: .88; }
+.cov { font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+.srcs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.srcs a { background: var(--chip); padding: 6px 10px; border-radius: 8px; text-decoration: none; font-size: 13px; }
+.read { display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 8px;
+        background: var(--ink); color: var(--bg); text-decoration: none; font-weight: 600; font-size: 14.5px; }
+
+/* The first story of each tab gets a photo banner and its summary visible. */
+.card.lead .banner { aspect-ratio: 12 / 5; background: var(--chip); position: relative; overflow: hidden; }
+.card.lead .banner img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.card.lead .row { grid-template-columns: 1fr; }
+.card.lead .row h3 { font-size: 19px; -webkit-line-clamp: 3; }
+.card.lead .lede { margin: 6px 0 0; font: 14px/1.45 var(--sans); opacity: .85; display: -webkit-box;
+                   -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.card.lead.open .lede { display: none; }
+.empty { color: var(--muted); padding: 40px 8px; text-align: center; }
+
+/* Dialogs (settings + notifications) */
 dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink);
-         width: min(440px, calc(100vw - 32px)); padding: 20px; }
+         width: min(460px, calc(100vw - 24px)); padding: 18px; max-height: calc(100dvh - 32px); }
 dialog::backdrop { background: rgba(0,0,0,.45); }
 dialog p { margin: 0 0 12px; }
+dialog h2 { font: 700 20px var(--serif); margin: 0 0 6px; }
+dialog h3 { font: 600 15px var(--sans); margin: 18px 0 8px; }
+dialog .hint { color: var(--muted); font-size: 13px; }
 dialog textarea { width: 100%; height: 96px; font: 12px/1.4 ui-monospace, monospace; padding: 8px; border-radius: 8px;
                   border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: none; }
-dialog .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-dialog .row > * { flex: 1 1 auto; min-height: 44px; border-radius: 8px; font: 600 15px Inter, system-ui, sans-serif;
+dialog input[type=text] { width: 100%; font: inherit; font-size: 16px; min-height: 44px; padding: 8px 10px; margin-bottom: 8px;
+                          border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+dialog .row2 { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+dialog .row2 > * { flex: 1 1 auto; min-height: 44px; border-radius: 8px; font: 600 15px var(--sans);
+                   display: grid; place-items: center; text-decoration: none; border: 1px solid var(--line);
+                   background: var(--chip); color: var(--ink); cursor: pointer; padding: 0 12px; }
+dialog .row2 > .primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+/* keep the old class name used by the notification dialog */
+dialog .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; grid-template-columns: none; padding: 0; }
+dialog .row > * { flex: 1 1 auto; min-height: 44px; border-radius: 8px; font: 600 15px var(--sans);
                   display: grid; place-items: center; text-decoration: none; border: 1px solid var(--line);
                   background: var(--chip); color: var(--ink); cursor: pointer; padding: 0 12px; }
 dialog .row > .primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-.refresh.spin { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-header h1 { font: 700 clamp(30px, 6vw, 48px)/1.05 "Source Serif 4", Georgia, serif; margin: 0; letter-spacing: -.5px; }
-.meta { color: var(--muted); font-size: 13px; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
-main { max-width: 1180px; margin: 0 auto; padding: 8px 16px 48px; }
-nav { display: flex; gap: 8px; overflow-x: auto; max-width: 1180px; margin: 0 auto; padding: 12px 16px; border-bottom: 3px double var(--line); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-nav::-webkit-scrollbar { display: none; }
-nav a { text-decoration: none; background: var(--chip); padding: 8px 14px; border-radius: 999px; font-size: 14px; white-space: nowrap; }
-nav a.on { background: var(--ink); color: var(--bg); }
-section { margin-top: 28px; }
-section > h2 { font: 700 22px "Source Serif 4", Georgia, serif; margin: 0 0 14px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
-.grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
-.grid.top > .story:first-child { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 0; }
-.grid.top > .story:first-child .img { aspect-ratio: auto; min-height: 320px; }
-.grid.top > .story:first-child h3 { font-size: 28px; }
-@media (max-width: 720px) { .grid.top > .story:first-child { display: flex; } .grid.top > .story:first-child .img { min-height: 0; aspect-ratio: 16/9; } }
-.story { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
-.img { display: block; aspect-ratio: 16/9; background: var(--chip) center/cover no-repeat; position: relative; }
-.img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
-.img .ph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted);
-           font: 600 13px Inter, sans-serif; letter-spacing: 1.5px; text-transform: uppercase; }
-.body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
-.kicker { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); font-weight: 600; display: flex; gap: 8px; flex-wrap: wrap; }
-.kicker .loc { color: var(--local); }
-h3 { font: 700 19px/1.25 "Source Serif 4", Georgia, serif; margin: 0; }
-h3 a { text-decoration: none; }
-h3 a:hover { text-decoration: underline; }
-.summary { margin: 0; color: var(--ink); opacity: .85; }
-.foot { margin-top: auto; font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
-.cov { font-weight: 600; }
-.cov.single { color: var(--accent); }
-.srcs { display: flex; flex-wrap: wrap; gap: 6px; }
-.srcs a { background: var(--chip); padding: 2px 8px; border-radius: 6px; text-decoration: none; font-size: 12px; }
-.srcs a:hover { text-decoration: underline; }
-.about { color: var(--muted); font-size: 13px; max-width: 760px; margin-top: 40px; }
-.empty { color: var(--muted); padding: 40px 0; }
-
-/* ---- Phones ------------------------------------------------------------ */
-@media (max-width: 640px) {
-  header { padding: 14px 16px 0; }
-  header h1 { font-size: 30px; }
-  nav { position: sticky; top: 0; z-index: 5; margin: 8px 0 0; padding: 10px 16px;
-        background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
-  main { padding: 0 12px 40px; }
-  section { margin-top: 22px; }
-  section > h2 { font-size: 21px; margin-bottom: 10px; }
-  .grid { grid-template-columns: 1fr; gap: 10px; }
-  .grid.top > .story:first-child h3 { font-size: 24px; }
-  /* Compact rows: headline left, thumbnail right */
-  .story:not(.lead) { display: grid; grid-template-columns: minmax(0, 1fr) 96px; grid-template-areas: "body img"; border-radius: 12px; }
-  .story:not(.lead) .img { grid-area: img; aspect-ratio: 1; margin: 12px 12px 0 0; border-radius: 8px; overflow: hidden; align-self: start; }
-  .story:not(.lead) .img .ph { font-size: 9px; letter-spacing: .5px; text-align: center; padding: 4px; }
-  .story:not(.lead) .body { grid-area: body; padding: 12px 12px 12px 14px; gap: 6px; }
-  .story:not(.lead) h3 { font-size: 17px; }
-  .story:not(.lead) .summary { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; }
-  .kicker { font-size: 11px; }
-  .srcs { gap: 6px; }
-  .srcs a { padding: 6px 10px; font-size: 13px; border-radius: 8px; }
-  .about { margin: 32px 4px 0; }
-}
-@media (display-mode: standalone) { header { padding-top: 6px; } }
+.tlist { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.tlist li { display: flex; align-items: center; gap: 4px; padding: 0 4px 0 12px; border-top: 1px solid var(--line); min-height: 46px; }
+.tlist li:first-child { border-top: 0; }
+.tlist label { flex: 1; display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.tlist input[type=checkbox], .switch input { width: 20px; height: 20px; accent-color: var(--accent); }
+.tlist li.off label span { color: var(--muted); }
+.tlist .mv { width: 40px; height: 40px; border: 0; background: none; font-size: 18px; color: var(--muted); cursor: pointer; border-radius: 8px; }
+.tlist .mv:disabled { opacity: .25; }
+.switch { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.about { color: var(--muted); font-size: 12.5px; margin-top: 16px; }
 </style>
 </head>
 <body>
-<header>
-  <div class="masthead">
-    <h1>{{ cfg.site.title }}</h1>
-    <div class="actions">
-      {% if push_key %}<button class="refresh bell" id="bell" type="button" aria-label="{{ ui.bell_off }}" title="{{ ui.bell_off }}" hidden>
-        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-      </button>{% endif %}
-      <button class="refresh" id="refresh" type="button" aria-label="{{ ui.refresh }}" title="{{ ui.refresh }}">↻</button>
-    </div>
-  </div>
-  <div class="meta">
-    <span>{{ ui.updated }}: <time class="rel" datetime="{{ e.generated_at }}">{{ e.generated_local }}</time></span>
-    <span>{{ ui.articles.format(n=e.article_count) }} · {{ ui.sources_many.format(n=e.outlet_count) }}</span>
-  </div>
-</header>
-<nav>
-    <a href="#top">{{ ui.top }}</a>
-    {% if e.local %}<a href="#local">{{ ui.local }}</a>{% endif %}
-    {% for t in e.topics %}<a href="#t-{{ t.name }}">{{ t.name|topic_label }}</a>{% endfor %}
-</nav>
-
-{% macro card(s, lead=False) -%}
-<article class="story{{ ' lead' if lead }}">
-  <a class="img" href="{{ s.link }}" target="_blank" rel="noopener" aria-hidden="true" tabindex="-1">
-    <span class="ph">{{ s.topic|topic_label if s.topic else cfg.site.title }}</span>
-    {% if s.image %}<img src="{{ s.image }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
-  </a>
-  <div class="body">
-    <div class="kicker">
-      {% if s.topic %}<span>{{ s.topic|topic_label }}</span>{% endif %}
-      {% if s.local %}<span class="loc">{{ country_name }}</span>{% endif %}
-      <time class="rel" datetime="{{ s.published }}"></time>
-    </div>
-    <h3><a href="{{ s.link }}" target="_blank" rel="noopener">{{ s.title }}</a></h3>
-    {% if s.summary %}<p class="summary">{{ s.summary }}</p>{% endif %}
-    <div class="foot">
-      {% set n = s.outlets|length %}
-      <span class="cov {{ 'single' if n == 1 }}" title="{{ ui.why }}: {{ ui.covered.format(n=n) }}{% if s.reasons %}; {{ ui.matches }} {% for r in s.reasons %}{{ r|topic_label }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}{% if s.local %}; {{ ui.local_match.format(country=country_name) }}{% endif %}">
-        {{ ui.sources_one if n == 1 else ui.sources_many.format(n=n) }}{% if n == 1 %} · {{ ui.single_source }}{% endif %}
-      </span>
-      <div class="srcs">
-        {% for src in s.sources %}<a href="{{ src.link }}" target="_blank" rel="noopener" title="{{ src.title }}">{{ src.outlet }}{% if src.lang != lang %} ({{ src.lang }}){% endif %}</a>{% endfor %}
+<div class="app">
+  <header>
+    <div class="masthead">
+      <h1>{{ cfg.site.title }}</h1>
+      <div class="actions">
+        {% if push_key %}<button class="refresh bell" id="bell" type="button" aria-label="{{ ui.bell_off }}" title="{{ ui.bell_off }}" hidden>
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </button>{% endif %}
+        <button class="refresh" id="gear" type="button" aria-label="{{ ui.settings }}" title="{{ ui.settings }}">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+        </button>
+        <button class="refresh" id="refresh" type="button" aria-label="{{ ui.refresh }}" title="{{ ui.refresh }}">↻</button>
       </div>
     </div>
+    <div class="meta">{{ ui.updated }} <time class="rel" datetime="{{ e.generated_at }}">{{ e.generated_local }}</time> · {{ ui.sources_many.format(n=e.outlet_count) }}</div>
+  </header>
+  <nav class="tabs" id="tabs" role="tablist"></nav>
+  <main class="pager" id="pager"></main>
+</div>
+
+<dialog id="setdlg">
+  <h2>{{ ui.topics_title }}</h2>
+  <p class="hint">{{ ui.topics_hint }}</p>
+  <ul class="tlist" id="tlist"></ul>
+  <label class="switch"><input type="checkbox" id="showlocal"> <span>{{ ui.show_local }}</span></label>
+  <h3>{{ ui.add_topic_title }}</h3>
+  <input type="text" id="newname" placeholder="{{ ui.topic_name }}" autocomplete="off">
+  <input type="text" id="newkw" placeholder="{{ ui.topic_keywords }}" autocomplete="off">
+  <div class="row2"><button type="button" id="addtopic">{{ ui.add }}</button></div>
+  <div class="row2">
+    <button type="button" id="setcancel">{{ ui.cancel }}</button>
+    <button type="button" class="primary" id="setsave">{{ ui.save }}</button>
   </div>
-</article>
-{%- endmacro %}
-
-<main>
-  <section id="top">
-    <h2>{{ ui.top }}</h2>
-    {% if e.top %}
-    <div class="grid top">{% for s in e.top %}{{ card(s, lead=loop.first) }}{% endfor %}</div>
-    {% else %}<p class="empty">{{ ui.empty }}</p>{% endif %}
-  </section>
-
-  {% if e.local %}
-  <section id="local">
-    <h2>{{ ui.local }} · {{ country_name }}</h2>
-    <div class="grid">{% for s in e.local %}{{ card(s) }}{% endfor %}</div>
-  </section>
-  {% endif %}
-
-  {% for t in e.topics %}
-  <section id="t-{{ t.name }}">
-    <h2>{{ t.name|topic_label }}</h2>
-    <div class="grid">{% for s in t.stories %}{{ card(s) }}{% endfor %}</div>
-  </section>
-  {% endfor %}
-
-  <p class="about">{{ ui.about }}</p>
-</main>
-
-{% if push_key %}
-<dialog id="pushdlg">
-  <p id="pushmsg"></p>
-  <div id="pushcode" hidden>
-    <textarea id="pushtext" readonly></textarea>
-    <div class="row">
-      <button type="button" class="primary" id="pushcopy">{{ ui.push_copy }}</button>
-      {% if repo %}<a href="https://github.com/{{ repo }}/settings/secrets/actions" target="_blank" rel="noopener">{{ ui.push_open_github }}</a>{% endif %}
-    </div>
-  </div>
-  <div class="row"><button type="button" id="pushclose">{{ ui.push_done }}</button></div>
+  <div class="row2"><button type="button" id="setreset">{{ ui.reset }}</button></div>
+  <p class="about">{{ ui.settings_note }} {{ ui.about }}</p>
 </dialog>
+
+<script type="application/json" id="nd-data">{{ {
+  "stories": e.stories, "catalog": e.catalog, "defaults": e.defaults,
+  "labels": ui.topics, "country": country_name, "lang": lang,
+  "t": {"top": ui.top, "local": ui.local, "empty": ui.empty_tab, "read": ui.read_full, "covered": ui.covered_by,
+        "one": ui.sources_one, "many": ui.sources_many, "single": ui.single_source,
+        "remove": ui.remove, "up": ui.move_up, "down": ui.move_down}
+}|tojson }}</script>
+
 <script>
 (function () {
-  var KEY = {{ push_key|tojson }}, T = {{ ui|tojson }};
-  var bell = document.getElementById("bell"), dlg = document.getElementById("pushdlg");
-  var msg = document.getElementById("pushmsg"), codeBox = document.getElementById("pushcode");
-  var text = document.getElementById("pushtext"), copyBtn = document.getElementById("pushcopy");
-  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  var standalone = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
-  var supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  var D = JSON.parse(document.getElementById("nd-data").textContent), T = D.t;
+  var PREF_KEY = "newsdesk-prefs-v1";
+  var tabsEl = document.getElementById("tabs"), pager = document.getElementById("pager");
+  var current = 0, tabs = [];
 
-  function b64url(buf) {
-    return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  // ---------- preferences (saved on this device) ----------
+  function defaults() { return { v: 1, topics: D.defaults.topics.slice(), custom: [], local: true }; }
+  function load() {
+    try {
+      var p = JSON.parse(localStorage.getItem(PREF_KEY));
+      if (p && p.v === 1 && Array.isArray(p.topics)) return p;
+    } catch (e) {}
+    return defaults();
   }
-  function keyBytes(s) {
-    s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "=";
-    return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); });
-  }
-  function show(message, code) {
-    msg.textContent = message;
-    codeBox.hidden = !code;
-    if (code) { text.value = code; copyBtn.textContent = T.push_copy; }
-    if (dlg.showModal) dlg.showModal(); else alert(message);
-  }
-  function setOn(on) {
-    bell.classList.toggle("on", on);
-    bell.title = on ? T.bell_on : T.bell_off;
-    bell.setAttribute("aria-label", bell.title);
-  }
-  function codeFor(sub) {
-    var j = sub.toJSON();
-    return b64url(new TextEncoder().encode(JSON.stringify({ endpoint: j.endpoint, keys: j.keys })));
-  }
-  function ready() {
-    // If the app's background worker failed to install, .ready never settles: don't hang silently.
-    return Promise.race([navigator.serviceWorker.ready, new Promise(function (_, reject) {
-      setTimeout(function () { reject(new Error("service worker not available, reload the app and try again")); }, 10000);
-    })]);
-  }
-  function current() {
-    return ready().then(function (reg) {
-      return reg.pushManager.getSubscription().then(function (sub) {
-        // A new password means a new sender key: the old subscription can't be used.
-        if (sub && sub.options && sub.options.applicationServerKey &&
-            b64url(sub.options.applicationServerKey) !== KEY) {
-          return sub.unsubscribe().then(function () { return null; });
-        }
-        return sub;
-      });
+  function save(p) { try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (e) {} }
+  var prefs = load();
+
+  // ---------- helpers ----------
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
+  function norm(s) { return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+  function customOf(name) { return prefs.custom.filter(function (c) { return c.name === name; })[0]; }
+  function label(name) { return D.labels[name] || name; }
+  function weight(i) { return Math.max(0.4, 1 - 0.1 * i); }
 
-  if (supported || isIOS) bell.hidden = false;
-  if (supported && Notification.permission === "granted") {
-    current().then(function (sub) { setOn(!!sub); }).catch(function () {});
+  D.stories.forEach(function (s, i) {
+    s.id = i;
+    s.text = norm(s.title + " " + s.summary + " " + s.sources.map(function (x) { return x.title; }).join(" "));
+    s.titleN = norm(s.sources.map(function (x) { return x.title; }).join(" ") + " " + s.title);
+  });
+
+  var kwCache = {};
+  function topicScore(s, name) {
+    var c = customOf(name);
+    if (!c) return (s.topics && s.topics[name]) || 0;
+    var key = name + "|" + s.id;
+    if (key in kwCache) return kwCache[key];
+    var inTitle = 0, inBody = 0;
+    c.keywords.forEach(function (k) {
+      var re = new RegExp("(^|[^a-z0-9])" + norm(k).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "($|[^a-z0-9])");
+      if (re.test(s.titleN)) inTitle++; else if (re.test(s.text)) inBody++;
+    });
+    return (kwCache[key] = Math.min(1, 0.45 * inTitle + 0.2 * inBody));
+  }
+  function score(s) {
+    var best = 0;
+    prefs.topics.forEach(function (n, i) { best = Math.max(best, weight(i) * topicScore(s, n)); });
+    return s.base * (0.4 + s.fixed + best);
   }
 
-  bell.addEventListener("click", function () {
-    if (!supported) { show(isIOS && !standalone ? T.push_ios : T.push_unsupported); return; }
-    Notification.requestPermission().then(function (perm) {
-      if (perm !== "granted") { show(T.push_denied); return; }
-      return current().then(function (sub) {
-        return sub || ready().then(function (reg) {
-          return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(KEY) });
-        });
-      }).then(function (sub) {
-        setOn(true);
-        show(T.push_off_hint + " " + T.push_step1, codeFor(sub));
-      });
-    }).catch(function (e) { show(T.push_failed.replace("{err}", (e && e.message) || e)); });
+  // ---------- which stories go in each tab ----------
+  function buildTabs() {
+    var ranked = D.stories.slice().sort(function (a, b) { return score(b) - score(a); });
+    var top = [], perTopic = {};
+    ranked.forEach(function (s) {
+      if (top.length >= 10 || s.outlets.length < 2) return;
+      var k = s.topic || "-";
+      if ((perTopic[k] || 0) >= 3) return;
+      perTopic[k] = (perTopic[k] || 0) + 1; top.push(s);
+    });
+    ranked.forEach(function (s) {
+      if (top.length < 10 && top.indexOf(s) < 0 && !s.hype) top.push(s);
+    });
+    var out = [{ id: "top", label: T.top, items: top }];
+    if (prefs.local) {
+      var loc = ranked.filter(function (s) { return s.local; }).slice(0, 12);
+      if (loc.length) out.push({ id: "local", label: T.local, items: loc });
+    }
+    prefs.topics.forEach(function (n) {
+      var items = D.stories.filter(function (s) { return topicScore(s, n) >= 0.45; })
+        .sort(function (a, b) { return b.base * (0.5 + topicScore(b, n)) - a.base * (0.5 + topicScore(a, n)); })
+        .slice(0, 15);
+      out.push({ id: "t-" + n, label: label(n), items: items, topic: n });
+    });
+    return out;
+  }
+
+  // ---------- rendering ----------
+  function img(src) {
+    return src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : "";
+  }
+  function card(s, lead) {
+    var n = s.outlets.length;
+    var kick = (s.topic ? '<span class="t">' + esc(label(s.topic)) + "</span>" : "")
+      + (s.local ? '<span class="loc" title="' + esc(D.country) + '" aria-label="' + esc(D.country) + '">📍</span>' : "")
+      + '<time class="rel" datetime="' + esc(s.published) + '"></time>'
+      + (n > 1 ? "<span>" + esc(T.many.replace("{n}", n)) + "</span>" : '<span class="single">' + esc(T.single) + "</span>");
+    var srcs = s.sources.map(function (x) {
+      return '<a href="' + esc(x.link) + '" target="_blank" rel="noopener" title="' + esc(x.title) + '">'
+        + esc(x.outlet) + (x.lang !== D.lang ? " (" + esc(x.lang) + ")" : "") + "</a>";
+    }).join("");
+    return '<article class="card' + (lead ? " lead" : "") + '">'
+      + (lead && s.image ? '<div class="banner">' + img(s.image) + "</div>" : "")
+      + '<button class="row" type="button" aria-expanded="false"><div>'
+      + '<div class="kick">' + kick + "</div><h3>" + esc(s.title) + "</h3>"
+      + (lead && s.summary ? '<p class="lede">' + esc(s.summary) + "</p>" : "")
+      + "</div>" + (lead ? "" : '<div class="thumb">' + img(s.image) + "</div>") + "</button>"
+      + '<div class="more">' + (s.summary ? "<p>" + esc(s.summary) + "</p>" : "")
+      + '<div class="cov">' + esc(T.covered) + ":</div>"
+      + '<div class="srcs">' + srcs + "</div>"
+      + '<a class="read" href="' + esc(s.link) + '" target="_blank" rel="noopener">' + esc(T.read) + " →</a></div>"
+      + "</article>";
+  }
+  function render() {
+    tabs = buildTabs();
+    tabsEl.innerHTML = tabs.map(function (t, i) {
+      return '<button class="tab" role="tab" type="button" id="tab-' + i + '" aria-controls="panel-' + i
+        + '" aria-selected="false" data-i="' + i + '">' + esc(t.label) + "</button>";
+    }).join("");
+    pager.innerHTML = tabs.map(function (t, i) {
+      return '<section class="panel" role="tabpanel" id="panel-' + i + '" aria-labelledby="tab-' + i + '">'
+        + (t.items.length ? t.items.map(function (s, j) { return card(s, j === 0); }).join("")
+                          : '<p class="empty">' + esc(T.empty) + "</p>")
+        + "</section>";
+    }).join("");
+    current = Math.min(current, tabs.length - 1);
+    pager.scrollLeft = current * pager.clientWidth;
+    setActive(current);
+    tick();
+  }
+
+  // ---------- tabs <-> swipe ----------
+  function setActive(i) {
+    current = i;
+    Array.prototype.forEach.call(tabsEl.children, function (b, j) { b.setAttribute("aria-selected", j === i ? "true" : "false"); });
+    var b = tabsEl.children[i];
+    if (b) tabsEl.scrollTo({ left: b.offsetLeft - (tabsEl.clientWidth - b.offsetWidth) / 2, behavior: "smooth" });
+  }
+  function go(i, smooth) {
+    pager.scrollTo({ left: i * pager.clientWidth, behavior: smooth === false ? "auto" : "smooth" });
+    setActive(i);
+  }
+  tabsEl.addEventListener("click", function (ev) {
+    var b = ev.target.closest(".tab");
+    if (b) go(+b.dataset.i);
+  });
+  var raf = 0;
+  pager.addEventListener("scroll", function () {
+    if (raf) return;
+    raf = requestAnimationFrame(function () {
+      raf = 0;
+      var i = Math.round(pager.scrollLeft / Math.max(1, pager.clientWidth));
+      if (i !== current) setActive(i);
+    });
+  }, { passive: true });
+  window.addEventListener("resize", function () { pager.scrollLeft = current * pager.clientWidth; });
+  document.addEventListener("keydown", function (ev) {
+    if (document.querySelector("dialog[open]") || /input|textarea/i.test((ev.target || {}).tagName)) return;
+    if (ev.key === "ArrowRight" && current < tabs.length - 1) go(current + 1);
+    if (ev.key === "ArrowLeft" && current > 0) go(current - 1);
   });
 
-  copyBtn.addEventListener("click", function () {
-    var done = function () { copyBtn.textContent = T.push_copied; };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text.value).then(done, function () { text.select(); document.execCommand("copy"); done(); });
-    } else { text.select(); document.execCommand("copy"); done(); }
+  // Tap a story to open its summary and sources (tap again to close).
+  pager.addEventListener("click", function (ev) {
+    var row = ev.target.closest(".row");
+    if (!row) return;
+    var c = row.parentNode, open = !c.classList.contains("open");
+    c.classList.toggle("open", open);
+    row.setAttribute("aria-expanded", open ? "true" : "false");
   });
-  document.getElementById("pushclose").addEventListener("click", function () { dlg.close(); });
-})();
-</script>
-{% endif %}
-<script>
-(function () {
-  var rtf = new Intl.RelativeTimeFormat({{ lang|tojson }}, { numeric: "auto" });
+
+  // ---------- relative times ----------
+  var rtf = new Intl.RelativeTimeFormat(D.lang, { numeric: "auto" });
   function rel(iso) {
     var mins = Math.round((new Date(iso) - Date.now()) / 60000);
     if (Math.abs(mins) < 60) return rtf.format(mins, "minute");
@@ -285,34 +347,93 @@ h3 a:hover { text-decoration: underline; }
   function tick() {
     document.querySelectorAll("time.rel").forEach(function (t) { t.textContent = rel(t.getAttribute("datetime")); });
   }
-  tick(); setInterval(tick, 60000);
+  setInterval(tick, 60000);
 
-  // The edition is rebuilt every hour. Phones keep pages around for days, so
-  // when you come back to it after a while, fetch the latest edition.
+  // ---------- refresh ----------
   var loaded = Date.now();
-  function reload() {
-    document.getElementById("refresh").classList.add("spin");
-    location.reload();
-  }
+  function reload() { document.getElementById("refresh").classList.add("spin"); location.reload(); }
   document.getElementById("refresh").addEventListener("click", reload);
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "visible" && Date.now() - loaded > 15 * 60000) reload();
   });
 
-  // Highlight the section you are reading in the tab bar.
-  var links = {};
-  document.querySelectorAll("nav a").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
-  if ("IntersectionObserver" in window) {
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        if (!en.isIntersecting || !links[en.target.id]) return;
-        Object.keys(links).forEach(function (k) { links[k].classList.toggle("on", k === en.target.id); });
-        links[en.target.id].scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
-      });
-    }, { rootMargin: "-70px 0px -70% 0px" });
-    document.querySelectorAll("main section[id]").forEach(function (sec) { io.observe(sec); });
+  // ---------- settings ----------
+  var dlg = document.getElementById("setdlg"), list = document.getElementById("tlist"), draft;
+  function allNames(p) {
+    var names = p.topics.slice();
+    D.catalog.concat(p.custom.map(function (c) { return c.name; })).forEach(function (n) {
+      if (names.indexOf(n) < 0) names.push(n);
+    });
+    return names;
   }
+  function drawList() {
+    var names = draft.order;
+    list.innerHTML = names.map(function (n, i) {
+      var on = draft.on[n], custom = !!draft.custom.filter(function (c) { return c.name === n; })[0];
+      return '<li class="' + (on ? "" : "off") + '" data-n="' + esc(n) + '">'
+        + '<label><input type="checkbox" ' + (on ? "checked" : "") + '><span>' + esc(label(n)) + "</span></label>"
+        + (custom ? '<button type="button" class="mv rm" aria-label="' + esc(T.remove) + '">✕</button>' : "")
+        + '<button type="button" class="mv up" aria-label="' + esc(T.up) + '"' + (i === 0 ? " disabled" : "") + ">↑</button>"
+        + '<button type="button" class="mv dn" aria-label="' + esc(T.down) + '"' + (i === names.length - 1 ? " disabled" : "") + ">↓</button>"
+        + "</li>";
+    }).join("");
+  }
+  function openSettings() {
+    var on = {};
+    prefs.topics.forEach(function (n) { on[n] = true; });
+    draft = { order: allNames(prefs), on: on, custom: prefs.custom.map(function (c) { return { name: c.name, keywords: c.keywords.slice() }; }) };
+    document.getElementById("showlocal").checked = !!prefs.local;
+    drawList();
+    dlg.showModal();
+  }
+  document.getElementById("gear").addEventListener("click", openSettings);
+  list.addEventListener("click", function (ev) {
+    var li = ev.target.closest("li");
+    if (!li) return;
+    var n = li.dataset.n, i = draft.order.indexOf(n);
+    if (ev.target.closest(".up") && i > 0) { draft.order.splice(i, 1); draft.order.splice(i - 1, 0, n); drawList(); }
+    else if (ev.target.closest(".dn") && i < draft.order.length - 1) { draft.order.splice(i, 1); draft.order.splice(i + 1, 0, n); drawList(); }
+    else if (ev.target.closest(".rm")) {
+      draft.order.splice(i, 1); delete draft.on[n];
+      draft.custom = draft.custom.filter(function (c) { return c.name !== n; }); drawList();
+    }
+  });
+  list.addEventListener("change", function (ev) {
+    var li = ev.target.closest("li");
+    if (li) { draft.on[li.dataset.n] = ev.target.checked; li.classList.toggle("off", !ev.target.checked); }
+  });
+  document.getElementById("addtopic").addEventListener("click", function () {
+    var name = document.getElementById("newname").value.trim();
+    var kws = document.getElementById("newkw").value.split(",").map(function (k) { return k.trim(); }).filter(Boolean);
+    if (!name) { document.getElementById("newname").focus(); return; }
+    if (!kws.length) kws = [name];
+    var existing = draft.custom.filter(function (c) { return c.name === name; })[0];
+    if (existing) existing.keywords = kws;
+    else if (draft.order.indexOf(name) < 0) { draft.custom.push({ name: name, keywords: kws }); draft.order.push(name); }
+    draft.on[name] = true;
+    document.getElementById("newname").value = ""; document.getElementById("newkw").value = "";
+    drawList();
+  });
+  document.getElementById("setsave").addEventListener("click", function () {
+    prefs = {
+      v: 1, custom: draft.custom, local: document.getElementById("showlocal").checked,
+      topics: draft.order.filter(function (n) { return draft.on[n]; })
+    };
+    kwCache = {};
+    save(prefs); dlg.close(); current = 0; render(); go(0, false);
+  });
+  document.getElementById("setcancel").addEventListener("click", function () { dlg.close(); });
+  document.getElementById("setreset").addEventListener("click", function () {
+    var d = defaults(), on = {};
+    d.topics.forEach(function (n) { on[n] = true; });
+    draft = { order: allNames(d), on: on, custom: [] };
+    document.getElementById("showlocal").checked = true;
+    drawList();
+  });
+
+  render();
 })();
 </script>
+{% include "_push.html" %}
 </body>
 </html>
