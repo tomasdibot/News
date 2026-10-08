@@ -102,3 +102,15 @@ def test_different_events_with_shared_names_stay_apart():
         art("bbc", "Israel and Hamas agree to ceasefire in Gaza", "Egypt and Qatar mediated.", 15),
     ])
     assert len(stories) == 4
+
+
+def test_installable_on_phone(articles, cfg, tmp_path):
+    site = tmp_path / "site"
+    render(build_edition(cfg, articles=articles, now=NOW), cfg, out_dir=site, data_path=tmp_path / "e.json")
+    manifest = json.loads((site / "manifest.webmanifest").read_text())
+    assert manifest["display"] == "standalone" and manifest["start_url"] == "./"
+    for icon in manifest["icons"]:
+        assert (site / icon["src"]).exists()
+    assert "newsdesk-" in (site / "sw.js").read_text()
+    html = (site / "index.html").read_text()
+    assert 'rel="manifest"' in html and "apple-touch-icon" in html and "viewport-fit=cover" in html

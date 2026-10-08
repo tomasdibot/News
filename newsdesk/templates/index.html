@@ -2,7 +2,7 @@
 <html lang="{{ lang }}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+{% include "_app_head.html" %}
 <meta name="referrer" content="no-referrer">
 <title>{{ cfg.site.title }}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,14 +17,23 @@
           --accent: #e07a6e; --chip: #2a2a2a; --local: #7db7e0; }
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif;
+       -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent;
+       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+html { scroll-padding-top: 64px; }
 a { color: inherit; }
-header { max-width: 1180px; margin: 0 auto; padding: 28px 16px 12px; border-bottom: 3px double var(--line); }
+header { max-width: 1180px; margin: 0 auto; padding: 28px 16px 4px; }
+.masthead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.refresh { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 20px; cursor: pointer; }
+.refresh.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 header h1 { font: 700 clamp(30px, 6vw, 48px)/1.05 "Source Serif 4", Georgia, serif; margin: 0; letter-spacing: -.5px; }
 .meta { color: var(--muted); font-size: 13px; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
 main { max-width: 1180px; margin: 0 auto; padding: 8px 16px 48px; }
-nav { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0; scrollbar-width: none; }
-nav a { text-decoration: none; background: var(--chip); padding: 5px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+nav { display: flex; gap: 8px; overflow-x: auto; max-width: 1180px; margin: 0 auto; padding: 12px 16px; border-bottom: 3px double var(--line); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+nav::-webkit-scrollbar { display: none; }
+nav a { text-decoration: none; background: var(--chip); padding: 8px 14px; border-radius: 999px; font-size: 14px; white-space: nowrap; }
+nav a.on { background: var(--ink); color: var(--bg); }
 section { margin-top: 28px; }
 section > h2 { font: 700 22px "Source Serif 4", Georgia, serif; margin: 0 0 14px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 .grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
@@ -52,24 +61,53 @@ h3 a:hover { text-decoration: underline; }
 .srcs a:hover { text-decoration: underline; }
 .about { color: var(--muted); font-size: 13px; max-width: 760px; margin-top: 40px; }
 .empty { color: var(--muted); padding: 40px 0; }
+
+/* ---- Phones ------------------------------------------------------------ */
+@media (max-width: 640px) {
+  header { padding: 14px 16px 0; }
+  header h1 { font-size: 30px; }
+  nav { position: sticky; top: 0; z-index: 5; margin: 8px 0 0; padding: 10px 16px;
+        background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  main { padding: 0 12px 40px; }
+  section { margin-top: 22px; }
+  section > h2 { font-size: 21px; margin-bottom: 10px; }
+  .grid { grid-template-columns: 1fr; gap: 10px; }
+  .grid.top > .story:first-child h3 { font-size: 24px; }
+  /* Compact rows: headline left, thumbnail right */
+  .story:not(.lead) { display: grid; grid-template-columns: minmax(0, 1fr) 96px; grid-template-areas: "body img"; border-radius: 12px; }
+  .story:not(.lead) .img { grid-area: img; aspect-ratio: 1; margin: 12px 12px 0 0; border-radius: 8px; overflow: hidden; align-self: start; }
+  .story:not(.lead) .img .ph { font-size: 9px; letter-spacing: .5px; text-align: center; padding: 4px; }
+  .story:not(.lead) .body { grid-area: body; padding: 12px 12px 12px 14px; gap: 6px; }
+  .story:not(.lead) h3 { font-size: 17px; }
+  .story:not(.lead) .summary { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 14px; }
+  .kicker { font-size: 11px; }
+  .srcs { gap: 6px; }
+  .srcs a { padding: 6px 10px; font-size: 13px; border-radius: 8px; }
+  .about { margin: 32px 4px 0; }
+}
+@media (display-mode: standalone) { header { padding-top: 6px; } }
 </style>
 </head>
 <body>
 <header>
-  <h1>{{ cfg.site.title }}</h1>
+  <div class="masthead">
+    <h1>{{ cfg.site.title }}</h1>
+    <button class="refresh" id="refresh" type="button" aria-label="{{ ui.refresh }}" title="{{ ui.refresh }}">↻</button>
+  </div>
   <div class="meta">
     <span>{{ ui.updated }}: <time class="rel" datetime="{{ e.generated_at }}">{{ e.generated_local }}</time></span>
     <span>{{ ui.articles.format(n=e.article_count) }} · {{ ui.sources_many.format(n=e.outlet_count) }}</span>
   </div>
-  <nav>
+</header>
+<nav>
     <a href="#top">{{ ui.top }}</a>
     {% if e.local %}<a href="#local">{{ ui.local }}</a>{% endif %}
     {% for t in e.topics %}<a href="#t-{{ t.name }}">{{ t.name|topic_label }}</a>{% endfor %}
-  </nav>
-</header>
+</nav>
 
-{% macro card(s) -%}
-<article class="story">
+{% macro card(s, lead=False) -%}
+<article class="story{{ ' lead' if lead }}">
   <a class="img" href="{{ s.link }}" target="_blank" rel="noopener" aria-hidden="true" tabindex="-1">
     <span class="ph">{{ s.topic|topic_label if s.topic else cfg.site.title }}</span>
     {% if s.image %}<img src="{{ s.image }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
@@ -99,7 +137,7 @@ h3 a:hover { text-decoration: underline; }
   <section id="top">
     <h2>{{ ui.top }}</h2>
     {% if e.top %}
-    <div class="grid top">{% for s in e.top %}{{ card(s) }}{% endfor %}</div>
+    <div class="grid top">{% for s in e.top %}{{ card(s, lead=loop.first) }}{% endfor %}</div>
     {% else %}<p class="empty">{{ ui.empty }}</p>{% endif %}
   </section>
 
@@ -134,8 +172,32 @@ h3 a:hover { text-decoration: underline; }
     document.querySelectorAll("time.rel").forEach(function (t) { t.textContent = rel(t.getAttribute("datetime")); });
   }
   tick(); setInterval(tick, 60000);
-  // The edition is rebuilt on a schedule: reload when a tab has been open for a while.
-  setTimeout(function () { location.reload(); }, 30 * 60000);
+
+  // The edition is rebuilt every hour. Phones keep pages around for days, so
+  // when you come back to it after a while, fetch the latest edition.
+  var loaded = Date.now();
+  function reload() {
+    document.getElementById("refresh").classList.add("spin");
+    location.reload();
+  }
+  document.getElementById("refresh").addEventListener("click", reload);
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && Date.now() - loaded > 15 * 60000) reload();
+  });
+
+  // Highlight the section you are reading in the tab bar.
+  var links = {};
+  document.querySelectorAll("nav a").forEach(function (a) { links[a.getAttribute("href").slice(1)] = a; });
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (!en.isIntersecting || !links[en.target.id]) return;
+        Object.keys(links).forEach(function (k) { links[k].classList.toggle("on", k === en.target.id); });
+        links[en.target.id].scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+      });
+    }, { rootMargin: "-70px 0px -70% 0px" });
+    document.querySelectorAll("main section[id]").forEach(function (sec) { io.observe(sec); });
+  }
 })();
 </script>
 </body>

@@ -46,6 +46,28 @@ The rules are kept in plain lists in `newsdesk/lexicon.py` and `sources.yaml`, s
 > ```
 > Your phone number and API keys are only ever read from secrets or environment variables.
 
+## On your phone
+
+The site works like an app: add it to your home screen and it opens full screen with
+its own icon.
+
+- **iPhone (Safari):** open the site → Share button → **Add to Home Screen**.
+- **Android (Chrome):** open the site → ⋮ menu → **Add to Home screen** / **Install app**.
+
+On a phone, stories after the lead show as compact rows with a thumbnail, the topic tabs
+stay pinned at the top, and every link and button is big enough to tap. Other features:
+
+- **Fresh news:** coming back to the app after 15 minutes or more reloads it with the
+  latest edition. The ↻ button refreshes on demand.
+- **Offline:** the last edition you opened still loads without signal (photos need a
+  connection).
+- **Password:** an installed app on iPhone has its own storage, so enter the password
+  once inside the app with *Remember me* ticked. Your phone's password manager can save
+  it too.
+- **Opening from WhatsApp:** links open in WhatsApp's browser. On Android, if the app is
+  installed, Chrome may offer to open it there. Otherwise open the app from your home
+  screen.
+
 ## Password protection
 
 The published page is encrypted with a password of your choice, so only someone

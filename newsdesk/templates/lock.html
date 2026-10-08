@@ -2,7 +2,7 @@
 <html lang="{{ lang }}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+{% include "_app_head.html" %}
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <title>{{ title }}</title>
@@ -17,10 +17,10 @@ body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding
 form { width: 100%; max-width: 360px; background: var(--card); border: 1px solid var(--line);
        border-radius: 12px; padding: 28px 24px; display: flex; flex-direction: column; gap: 14px; }
 h1 { font: 700 28px Georgia, serif; margin: 0; }
-input[type=password] { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+input[type=password] { font: inherit; font-size: 16px; min-height: 48px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
        background: var(--bg); color: var(--ink); width: 100%; }
-label.rem { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; }
-button { font: 600 15px system-ui, sans-serif; padding: 10px; border: 0; border-radius: 8px;
+label.rem { min-height: 44px; display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; }
+button { font: 600 16px system-ui, sans-serif; padding: 12px; min-height: 48px; border: 0; border-radius: 8px;
          background: var(--ink); color: var(--bg); cursor: pointer; }
 button:disabled { opacity: .6; cursor: wait; }
 .err { color: var(--accent); font-size: 14px; min-height: 1.2em; margin: 0; }
@@ -29,7 +29,8 @@ button:disabled { opacity: .6; cursor: wait; }
 <body>
 <form id="f" hidden>
   <h1>{{ title }}</h1>
-  <input id="pw" type="password" autocomplete="current-password" placeholder="{{ t.placeholder }}" required autofocus>
+  <input type="text" name="username" autocomplete="username" value="{{ title }}" hidden>
+  <input id="pw" name="password" type="password" autocomplete="current-password" placeholder="{{ t.placeholder }}" required>
   <label class="rem"><input id="rem" type="checkbox" checked> {{ t.remember }}</label>
   <button id="go" type="submit">{{ t.unlock }}</button>
   <p class="err" id="err" role="alert"></p>

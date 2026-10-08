@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import concurrent.futures as cf
 import json
+import shutil
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +22,7 @@ from .text import truncate
 
 log = logging.getLogger(__name__)
 SITE_DIR = ROOT / "site"            # published
+STATIC_DIR = Path(__file__).parent / "static"
 DATA_PATH = ROOT / "build" / "edition.json"  # never published: used by `notify`
 
 
@@ -105,15 +107,43 @@ def render(edition: dict, cfg: dict, out_dir: Path = SITE_DIR, data_path: Path =
     if password:
         html = env.get_template("lock.html").render(
             title=cfg["site"]["title"],
+            cfg=cfg,
             lang=lang,
             t=LOCK_UI.get(lang, LOCK_UI["en"]),
             payload=encrypt(html, password, site_salt(cfg)),
         )
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    write_app_files(env, cfg, out_dir)
     (out_dir / "edition.json").unlink(missing_ok=True)  # left over from older versions: would leak the news
     (out_dir / "index.html").write_text(html, encoding="utf-8")
     (out_dir / ".nojekyll").write_text("")
     data_path.parent.mkdir(parents=True, exist_ok=True)
     data_path.write_text(json.dumps(edition, ensure_ascii=False, indent=1), encoding="utf-8")
     return out_dir / "index.html"
+
+
+def write_app_files(env: Environment, cfg: dict, out_dir: Path) -> None:
+    """Files that let the site be installed on a phone's home screen and open offline."""
+    for icon in STATIC_DIR.glob("*.png"):
+        shutil.copyfile(icon, out_dir / icon.name)
+    title = cfg["site"]["title"]
+    manifest = {
+        "name": title,
+        "short_name": title[:12],
+        "start_url": "./",
+        "scope": "./",
+        "display": "standalone",
+        "background_color": "#f7f5f0",
+        "theme_color": "#9b2c2c",
+        "lang": cfg["site"]["ui_language"],
+        "icons": [
+            {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+            {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+            {"src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+        ],
+    }
+    (out_dir / "manifest.webmanifest").write_text(json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")
+    # A new cache name per build makes phones drop the previous edition's shell.
+    version = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    (out_dir / "sw.js").write_text(env.get_template("sw.js").render(version=version), encoding="utf-8")
