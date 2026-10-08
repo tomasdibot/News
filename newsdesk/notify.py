@@ -1,4 +1,7 @@
-"""Daily WhatsApp reminder.
+"""Daily reminder.
+
+Default: a notification from the installed app itself (see push.py).
+Optional WhatsApp providers:
 
 Providers (pick with notification.provider):
   callmebot - free, for sending WhatsApp messages to YOUR OWN number.
@@ -138,11 +141,27 @@ PROVIDERS = {"callmebot": send_callmebot, "greenapi": send_greenapi, "twilio": s
 
 
 def notify(edition: dict, cfg: dict, provider: str | None = None) -> str:
-    provider = provider or os.environ.get("NEWSDESK_NOTIFY_PROVIDER") or cfg["notification"]["provider"]
-    if provider not in PROVIDERS:
-        raise NotifyError(f"unknown provider {provider!r}; choose one of {sorted(PROVIDERS)}")
+    """Send the daily reminder. `provider` may list several, e.g. "push,callmebot"."""
+    from .push import PushError, send_push
+
+    chosen = provider or os.environ.get("NEWSDESK_NOTIFY_PROVIDER") or cfg["notification"]["provider"]
+    names = [p.strip() for p in chosen.split(",") if p.strip()]
+    for name in names:
+        if name != "push" and name not in PROVIDERS:
+            raise NotifyError(f"unknown provider {name!r}; choose from push, {', '.join(sorted(PROVIDERS))}")
+
     text = compose_message(edition, cfg)
     image = next((s["image"] for s in edition["top"] if s.get("image")), None)
-    PROVIDERS[provider](text, image)
-    log.info("notification sent via %s", provider)
+    errors = []
+    for name in names:
+        try:
+            if name == "push":
+                send_push(edition, cfg)
+            else:
+                PROVIDERS[name](text, image)
+            log.info("notification sent via %s", name)
+        except (NotifyError, PushError) as exc:
+            errors.append(f"{name}: {exc}")
+    if errors:
+        raise NotifyError("; ".join(errors))
     return text

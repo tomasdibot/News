@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import concurrent.futures as cf
 import json
-import shutil
 import logging
+import os
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -17,6 +18,7 @@ from .config import ROOT, load_sources
 from .fetch import fetch_all, fetch_og_image
 from .lexicon import COUNTRY_NAMES, LOCK_UI, UI
 from .lock import encrypt, password_from_env, site_salt
+from .push import public_key_b64
 from .rank import score_stories, select_sections
 from .text import truncate
 
@@ -102,6 +104,8 @@ def render(edition: dict, cfg: dict, out_dir: Path = SITE_DIR, data_path: Path =
         ui=ui,
         lang=lang,
         cfg=cfg,
+        push_key=public_key_b64(cfg),
+        repo=os.environ.get("GITHUB_REPOSITORY", ""),
         country_name=COUNTRY_NAMES.get(lang, {}).get(cfg["profile"]["country"], cfg["profile"]["country"]),
     )
     if password:

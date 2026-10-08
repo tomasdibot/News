@@ -25,6 +25,22 @@ a { color: inherit; }
 header { max-width: 1180px; margin: 0 auto; padding: 28px 16px 4px; }
 .masthead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .refresh { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 20px; cursor: pointer; }
+.actions { display: flex; gap: 8px; flex: none; }
+.refresh { display: grid; place-items: center; }
+.refresh[hidden] { display: none; }
+.bell.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.bell.on path { fill: currentColor; }
+dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink);
+         width: min(440px, calc(100vw - 32px)); padding: 20px; }
+dialog::backdrop { background: rgba(0,0,0,.45); }
+dialog p { margin: 0 0 12px; }
+dialog textarea { width: 100%; height: 96px; font: 12px/1.4 ui-monospace, monospace; padding: 8px; border-radius: 8px;
+                  border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: none; }
+dialog .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+dialog .row > * { flex: 1 1 auto; min-height: 44px; border-radius: 8px; font: 600 15px Inter, system-ui, sans-serif;
+                  display: grid; place-items: center; text-decoration: none; border: 1px solid var(--line);
+                  background: var(--chip); color: var(--ink); cursor: pointer; padding: 0 12px; }
+dialog .row > .primary { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .refresh.spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 header h1 { font: 700 clamp(30px, 6vw, 48px)/1.05 "Source Serif 4", Georgia, serif; margin: 0; letter-spacing: -.5px; }
@@ -93,7 +109,12 @@ h3 a:hover { text-decoration: underline; }
 <header>
   <div class="masthead">
     <h1>{{ cfg.site.title }}</h1>
-    <button class="refresh" id="refresh" type="button" aria-label="{{ ui.refresh }}" title="{{ ui.refresh }}">↻</button>
+    <div class="actions">
+      {% if push_key %}<button class="refresh bell" id="bell" type="button" aria-label="{{ ui.bell_off }}" title="{{ ui.bell_off }}" hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>{% endif %}
+      <button class="refresh" id="refresh" type="button" aria-label="{{ ui.refresh }}" title="{{ ui.refresh }}">↻</button>
+    </div>
   </div>
   <div class="meta">
     <span>{{ ui.updated }}: <time class="rel" datetime="{{ e.generated_at }}">{{ e.generated_local }}</time></span>
@@ -158,6 +179,99 @@ h3 a:hover { text-decoration: underline; }
   <p class="about">{{ ui.about }}</p>
 </main>
 
+{% if push_key %}
+<dialog id="pushdlg">
+  <p id="pushmsg"></p>
+  <div id="pushcode" hidden>
+    <textarea id="pushtext" readonly></textarea>
+    <div class="row">
+      <button type="button" class="primary" id="pushcopy">{{ ui.push_copy }}</button>
+      {% if repo %}<a href="https://github.com/{{ repo }}/settings/secrets/actions" target="_blank" rel="noopener">{{ ui.push_open_github }}</a>{% endif %}
+    </div>
+  </div>
+  <div class="row"><button type="button" id="pushclose">{{ ui.push_done }}</button></div>
+</dialog>
+<script>
+(function () {
+  var KEY = {{ push_key|tojson }}, T = {{ ui|tojson }};
+  var bell = document.getElementById("bell"), dlg = document.getElementById("pushdlg");
+  var msg = document.getElementById("pushmsg"), codeBox = document.getElementById("pushcode");
+  var text = document.getElementById("pushtext"), copyBtn = document.getElementById("pushcopy");
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var standalone = window.navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+  var supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+
+  function b64url(buf) {
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function keyBytes(s) {
+    s = s.replace(/-/g, "+").replace(/_/g, "/"); while (s.length % 4) s += "=";
+    return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); });
+  }
+  function show(message, code) {
+    msg.textContent = message;
+    codeBox.hidden = !code;
+    if (code) { text.value = code; copyBtn.textContent = T.push_copy; }
+    if (dlg.showModal) dlg.showModal(); else alert(message);
+  }
+  function setOn(on) {
+    bell.classList.toggle("on", on);
+    bell.title = on ? T.bell_on : T.bell_off;
+    bell.setAttribute("aria-label", bell.title);
+  }
+  function codeFor(sub) {
+    var j = sub.toJSON();
+    return b64url(new TextEncoder().encode(JSON.stringify({ endpoint: j.endpoint, keys: j.keys })));
+  }
+  function ready() {
+    // If the app's background worker failed to install, .ready never settles: don't hang silently.
+    return Promise.race([navigator.serviceWorker.ready, new Promise(function (_, reject) {
+      setTimeout(function () { reject(new Error("service worker not available, reload the app and try again")); }, 10000);
+    })]);
+  }
+  function current() {
+    return ready().then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (sub) {
+        // A new password means a new sender key: the old subscription can't be used.
+        if (sub && sub.options && sub.options.applicationServerKey &&
+            b64url(sub.options.applicationServerKey) !== KEY) {
+          return sub.unsubscribe().then(function () { return null; });
+        }
+        return sub;
+      });
+    });
+  }
+
+  if (supported || isIOS) bell.hidden = false;
+  if (supported && Notification.permission === "granted") {
+    current().then(function (sub) { setOn(!!sub); }).catch(function () {});
+  }
+
+  bell.addEventListener("click", function () {
+    if (!supported) { show(isIOS && !standalone ? T.push_ios : T.push_unsupported); return; }
+    Notification.requestPermission().then(function (perm) {
+      if (perm !== "granted") { show(T.push_denied); return; }
+      return current().then(function (sub) {
+        return sub || ready().then(function (reg) {
+          return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(KEY) });
+        });
+      }).then(function (sub) {
+        setOn(true);
+        show(T.push_off_hint + " " + T.push_step1, codeFor(sub));
+      });
+    }).catch(function (e) { show(T.push_failed.replace("{err}", (e && e.message) || e)); });
+  });
+
+  copyBtn.addEventListener("click", function () {
+    var done = function () { copyBtn.textContent = T.push_copied; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text.value).then(done, function () { text.select(); document.execCommand("copy"); done(); });
+    } else { text.select(); document.execCommand("copy"); done(); }
+  });
+  document.getElementById("pushclose").addEventListener("click", function () { dlg.close(); });
+})();
+</script>
+{% endif %}
 <script>
 (function () {
   var rtf = new Intl.RelativeTimeFormat({{ lang|tojson }}, { numeric: "auto" });

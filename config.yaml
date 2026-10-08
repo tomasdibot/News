@@ -47,9 +47,9 @@ site:
   stories_per_topic: 6
 
 notification:
-  time: "08:00"           # daily WhatsApp reminder, local time
+  time: "08:00"           # daily reminder, local time
   timezone: America/Argentina/Buenos_Aires
-  provider: greenapi      # greenapi | callmebot | twilio | console
-  headlines: 5            # how many headlines go in the message
+  provider: push          # push (notification from the app) | callmebot | twilio | greenapi | console
+  headlines: 3            # how many headlines go in the notification
 
 refresh_minutes: 60       # how often the site is rebuilt in `serve` mode

@@ -4,14 +4,14 @@ on:
   schedule:
     # Hourly rebuild so the site stays fresh.
     - cron: "7 * * * *"
-    # Daily WhatsApp reminder. Cron is in UTC: 10:45 UTC = 07:45 in Buenos Aires.
+    # Daily reminder (phone notification). Cron is in UTC: 10:45 UTC = 07:45 in Buenos Aires.
     # GitHub often starts scheduled runs 5-15 min late, so aim a bit early.
     # If you change this line, change NOTIFY_CRON below to the same value.
     - cron: "45 10 * * *"
   workflow_dispatch:
     inputs:
       notify:
-        description: "Also send the WhatsApp message"
+        description: "Also send the daily reminder now"
         type: boolean
         default: false
 
@@ -63,7 +63,7 @@ jobs:
       - id: deploy
         uses: actions/deploy-pages@v4
 
-      - name: Send WhatsApp reminder
+      - name: Send daily reminder
         if: github.event.schedule == env.NOTIFY_CRON || inputs.notify
         run: python -m newsdesk notify
         env:
@@ -71,12 +71,15 @@ jobs:
           NEWSDESK_PASSWORD: ${{ secrets.NEWSDESK_PASSWORD }}
           NEWSDESK_REQUIRE_PASSWORD: "1"
           NEWSDESK_SITE_URL: ${{ steps.pages.outputs.base_url }}/
+          NEWSDESK_NOTIFY_PROVIDER: ${{ vars.NEWSDESK_NOTIFY_PROVIDER }}
+          PUSH_SUBSCRIPTIONS: ${{ secrets.PUSH_SUBSCRIPTIONS }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          # Only needed for the optional WhatsApp providers:
           WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
           CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
           GREENAPI_ID_INSTANCE: ${{ secrets.GREENAPI_ID_INSTANCE }}
           GREENAPI_API_TOKEN: ${{ secrets.GREENAPI_API_TOKEN }}
           GREENAPI_API_URL: ${{ secrets.GREENAPI_API_URL }}
-          NEWSDESK_NOTIFY_PROVIDER: ${{ vars.NEWSDESK_NOTIFY_PROVIDER }}
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
           TWILIO_WHATSAPP_FROM: ${{ secrets.TWILIO_WHATSAPP_FROM }}

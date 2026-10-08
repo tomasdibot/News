@@ -3,13 +3,14 @@
 A small news site that collects stories from wire services, public broadcasters and
 general outlets (in Spanish and English). It ranks them by **how many independent
 newsrooms report them** and how well they match **your profile** (topics, country,
-age). It rebuilds every hour and sends you a **daily WhatsApp** with the top headlines
+age). It rebuilds every hour and sends a **daily notification** to your phone, from the
+site itself once it's on your home screen, with the top headlines
 and a link.
 
 ```
 RSS feeds (sources.yaml) ─► group the same event across outlets & languages
                          ─► score: coverage × relevance × freshness × sobriety
-                         ─► static site (site/index.html) + WhatsApp summary
+                         ─► static site (site/index.html) + daily phone notification
 ```
 
 ## How it tries to stay unbiased
@@ -34,7 +35,7 @@ The rules are kept in plain lists in `newsdesk/lexicon.py` and `sources.yaml`, s
   lists exist for AR, ES, MX and US; local keywords also exist for CL, UY, CO, PE and GB.
 - `age`: gives a small boost to topics that usually matter at your life stage
   (rent/jobs, mortgages/salaries, pensions/health). Turn it off with `use_age_hints: false`.
-- `ui_language`: `en` or `es` for the site and the WhatsApp message.
+- `ui_language`: `en` or `es` for the site and the daily reminder.
 
 > **Privacy:** if this repo is public, don't put personal details in `config.yaml`. Put
 > them in a GitHub secret called `NEWSDESK_PROFILE` instead. It takes the same YAML and
@@ -44,7 +45,8 @@ The rules are kept in plain lists in `newsdesk/lexicon.py` and `sources.yaml`, s
 >   age: 34
 >   city: Rosario
 > ```
-> Your phone number and API keys are only ever read from secrets or environment variables.
+> Secrets (password, notification codes, optional API keys) are only ever read from GitHub
+> secrets or environment variables.
 
 ## On your phone
 
@@ -64,9 +66,8 @@ stay pinned at the top, and every link and button is big enough to tap. Other fe
 - **Password:** an installed app on iPhone has its own storage, so enter the password
   once inside the app with *Remember me* ticked. Your phone's password manager can save
   it too.
-- **Opening from WhatsApp:** links open in WhatsApp's browser. On Android, if the app is
-  installed, Chrome may offer to open it there. Otherwise open the app from your home
-  screen.
+- **Daily reminder:** tap the bell to get a notification every morning. Tapping the
+  notification opens the app (see *Daily reminder* below).
 
 ## Password protection
 
@@ -90,11 +91,41 @@ never published.
 - Locally, `export NEWSDESK_PASSWORD=...` before `build` or `serve` to get the same
   locked page. Without it the local page is unlocked.
 
-## WhatsApp setup
+## Daily reminder (notification from the app)
 
-Pick one provider and set `notification.provider` in `config.yaml` (default: `greenapi`).
+Every morning the app shows a notification on your phone: *"Your daily news is ready"*
+with the top 3 headlines, and on Android the lead photo. Tapping it opens the app. No
+extra service or account is involved. The message is encrypted on GitHub for your device
+only (the Web Push standard) and delivered by the push service your phone already uses
+(Apple's or Google's), which can't read it.
 
-**Green API (free; recommended).** Links your own WhatsApp, like WhatsApp Web, and sends
+Set it up once per device:
+
+1. Make sure `NEWSDESK_PASSWORD` is set and the workflow has run at least once.
+2. **iPhone:** add the site to your Home Screen first (needs iOS 16.4 or later) and open it
+   from there. Safari tabs can't receive notifications. **Android:** Chrome works directly,
+   but installing the app is nicer.
+3. Tap the **bell** at the top of the app and allow notifications.
+4. The app shows a code. Tap **Copy code**, then **Open GitHub secrets**, and save it as a
+   new secret named `PUSH_SUBSCRIPTIONS`. For several devices, put one code per line in that
+   same secret.
+5. Test it: **Actions → Newsdesk → Run workflow**, tick *Also send the daily reminder now*.
+
+Notes:
+- The bell turns solid when notifications are on for that device.
+- If you change `NEWSDESK_PASSWORD`, the sender key changes too. Tap the bell again on each
+  device and replace the codes in `PUSH_SUBSCRIPTIONS`.
+- If you remove the app or block its notifications, the workflow log says that device is no
+  longer subscribed. Repeat steps 3–4.
+- Advanced: set `VAPID_PRIVATE_KEY`, a raw P-256 private key in base64url, to keep the
+  sender key separate from the password.
+
+### Optional: WhatsApp instead (or as well)
+
+Set `notification.provider` in `config.yaml` to one of the providers below, or list
+several, e.g. `push,callmebot`.
+
+**Green API (`greenapi`).** Links your own WhatsApp, like WhatsApp Web, and sends
 the news, with the top story's photo, to your *Message yourself* chat.
 1. Sign up at <https://green-api.com> and create an instance on the free **Developer** plan.
 2. In the instance, scan the QR code from your phone: WhatsApp → Settings → Linked devices →
@@ -109,14 +140,14 @@ the messages stop until you scan the QR code again. On the free plan the instanc
 pause if you don't log into the Green API console for a while. If messages stop, check
 the console.
 
-**CallMeBot (free; sends only to your own number).**
+**CallMeBot (`callmebot`; free, sends only to your own number).**
 1. Follow the WhatsApp steps on <https://www.callmebot.com/blog/free-api-whatsapp-messages/>:
    add their number to your contacts and send them the activation message.
 2. They reply with an API key. Save it as the secret `CALLMEBOT_APIKEY`.
 3. Save your number as `WHATSAPP_PHONE` in international format, e.g. `+5491122334455`.
 
-**Twilio (more reliable; also sends the photo of the top story).**
-Set `provider: twilio` and add the secrets `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
+**Twilio (`twilio`; official partner of WhatsApp, paid).**
+Add the secrets `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`,
 `TWILIO_WHATSAPP_FROM` and `WHATSAPP_PHONE`. With the free *sandbox*, WhatsApp asks you
 to message the sandbox again every 72 hours. A registered WhatsApp sender avoids that,
 but messages that start a conversation then need an approved template.
@@ -125,13 +156,14 @@ but messages that start a conversation then need an approved template.
 
 1. Push this repo to GitHub.
 2. **Settings → Pages → Source: GitHub Actions.**
-3. **Settings → Secrets and variables → Actions**: add `NEWSDESK_PASSWORD`,
-   `WHATSAPP_PHONE`, your provider's secrets and, optionally, `NEWSDESK_PROFILE`.
-4. **Actions → Newsdesk → Run workflow** (tick *Also send the WhatsApp message* to test).
+3. **Settings → Secrets and variables → Actions**: add `NEWSDESK_PASSWORD` and,
+   optionally, `NEWSDESK_PROFILE`.
+4. **Actions → Newsdesk → Run workflow**.
+5. Open the site on your phone and set up the daily reminder (see above).
    The site will be at `https://<user>.github.io/<repo>/`.
 
 The workflow (`.github/workflows/newsdesk.yml`) rebuilds the site every hour and sends
-the WhatsApp once a day. **The send time is set by the cron line in that workflow, in
+the daily reminder. **The send time is set by the cron line in that workflow, in
 UTC.** It is currently `45 10 * * *`, i.e. 07:45 in Argentina. Change both that line and
 `NOTIFY_CRON` to pick your time. Notes:
 - GitHub can start scheduled runs 5–15 minutes late, so the time is approximate.
@@ -148,13 +180,14 @@ python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 python -m newsdesk check-feeds        # which sources respond right now
 python -m newsdesk build              # writes site/index.html
-python -m newsdesk notify --provider console   # preview the WhatsApp text
-python -m newsdesk serve --port 8000  # refresh every hour, WhatsApp at notification.time, serve the site
+python -m newsdesk notify --provider console   # preview the reminder text
+python -m newsdesk serve --port 8000  # refresh every hour, remind at notification.time, serve the site
 ```
 
 In `serve` mode the send time comes from `notification.time` and
 `notification.timezone`, and it is exact. Put your secrets in the environment
-(`export WHATSAPP_PHONE=...`).
+(`export NEWSDESK_PASSWORD=... PUSH_SUBSCRIPTIONS=...`). Notifications need the site
+served over HTTPS (or `localhost`).
 
 ## Development
 
