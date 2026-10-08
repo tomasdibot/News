@@ -14,6 +14,7 @@ import feedparser
 import requests
 
 from .config import Source
+from .filters import exclusion_reason
 from .lexicon import OPINION_TITLE_PREFIXES, OPINION_URL_PARTS
 from .text import clean_html, normalize
 
@@ -98,14 +99,19 @@ def _published(entry) -> datetime | None:
     return None
 
 
-def parse_feed(source: Source, content: bytes, now: datetime | None = None) -> list[Article]:
+def parse_feed(source: Source, content: bytes, now: datetime | None = None, country: str = "") -> list[Article]:
     now = now or datetime.now(timezone.utc)
     parsed = feedparser.parse(content)
     articles = []
     for entry in parsed.entries:
         title = clean_html(entry.get("title", ""))
         link = entry.get("link", "")
+        tags = [t.get("term", "") for t in entry.get("tags", []) or [] if t.get("term")]
         if not title or not link or is_opinion(title, link):
+            continue
+        reason = exclusion_reason(title, link, tags, source.region, country)
+        if reason:
+            log.debug("skipped (%s): %s", reason, title)
             continue
         published = _published(entry) or now
         if published > now:  # some feeds publish future timestamps / wrong timezones
@@ -117,22 +123,22 @@ def parse_feed(source: Source, content: bytes, now: datetime | None = None) -> l
             summary=clean_html(entry.get("summary", "")),
             published=published,
             image=extract_image(entry),
-            tags=[t.get("term", "") for t in entry.get("tags", []) or [] if t.get("term")],
+            tags=tags,
         ))
     return articles
 
 
-def fetch_source(source: Source) -> list[Article]:
+def fetch_source(source: Source, country: str = "") -> list[Article]:
     try:
-        return parse_feed(source, _get(source.url).content)
+        return parse_feed(source, _get(source.url).content, country=country)
     except Exception as exc:  # one broken feed must never break the edition
         log.warning("feed %s failed: %s", source.id, exc)
         return []
 
 
-def fetch_all(sources: list[Source], workers: int = 12) -> list[Article]:
+def fetch_all(sources: list[Source], workers: int = 12, country: str = "") -> list[Article]:
     with cf.ThreadPoolExecutor(workers) as pool:
-        results = pool.map(fetch_source, sources)
+        results = pool.map(lambda s: fetch_source(s, country), sources)
     articles = [a for batch in results for a in batch]
     log.info("fetched %d articles from %d sources", len(articles), len(sources))
     return articles

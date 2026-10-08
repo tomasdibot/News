@@ -93,7 +93,7 @@ dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--c
          width: min(460px, calc(100vw - 24px)); padding: 18px; max-height: calc(100dvh - 32px); }
 dialog::backdrop { background: rgba(0,0,0,.45); }
 dialog p { margin: 0 0 12px; }
-dialog h2 { font: 700 20px var(--serif); margin: 0 0 6px; }
+dialog h2 { font: 700 20px var(--serif); margin: 0 0 6px; outline: none; }
 dialog h3 { font: 600 15px var(--sans); margin: 18px 0 8px; }
 dialog .hint { color: var(--muted); font-size: 13px; }
 dialog textarea { width: 100%; height: 96px; font: 12px/1.4 ui-monospace, monospace; padding: 8px; border-radius: 8px;
@@ -121,6 +121,19 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
 .tlist .mv:disabled { opacity: .25; }
 .switch { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .about { color: var(--muted); font-size: 12.5px; margin-top: 16px; }
+.addrow { display: flex; gap: 8px; }
+.addrow input[type=text] { flex: 1; margin: 0; }
+.addrow button { flex: none; min-height: 44px; border-radius: 8px; border: 0; padding: 0 16px; font: 600 15px var(--sans);
+                 background: var(--ink); color: var(--bg); cursor: pointer; }
+.tlist { margin-top: 12px; }
+.tl { flex: 1; display: flex; flex-direction: column; min-height: 44px; justify-content: center; }
+.tl small { color: var(--muted); font-size: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: var(--chip); border-radius: 999px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
+.chip:disabled { opacity: .4; cursor: default; }
+.pick { background: var(--card); border: 1px dashed var(--accent); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+.pick p { margin: 0 0 10px; }
+.pickbtn { width: 100%; border: 0; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -145,88 +158,140 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
 </div>
 
 <dialog id="setdlg">
-  <h2>{{ ui.topics_title }}</h2>
-  <p class="hint">{{ ui.topics_hint }}</p>
+  <h2 tabindex="-1" autofocus>{{ ui.themes_title }}</h2>
+  <p class="hint">{{ ui.themes_hint }}</p>
+  <form class="addrow" id="addform">
+    <input type="text" id="newtheme" placeholder="{{ ui.theme_placeholder }}" autocomplete="off" enterkeyhint="done">
+    <button type="submit" class="primary">{{ ui.add }}</button>
+  </form>
   <ul class="tlist" id="tlist"></ul>
+  <p class="hint" id="nothemes">{{ ui.no_themes }}</p>
+  <h3>{{ ui.suggestions }}</h3>
+  <div class="chips" id="chips"></div>
   <label class="switch"><input type="checkbox" id="showlocal"> <span>{{ ui.show_local }}</span></label>
-  <h3>{{ ui.add_topic_title }}</h3>
-  <input type="text" id="newname" placeholder="{{ ui.topic_name }}" autocomplete="off">
-  <input type="text" id="newkw" placeholder="{{ ui.topic_keywords }}" autocomplete="off">
-  <div class="row2"><button type="button" id="addtopic">{{ ui.add }}</button></div>
   <div class="row2">
     <button type="button" id="setcancel">{{ ui.cancel }}</button>
     <button type="button" class="primary" id="setsave">{{ ui.save }}</button>
   </div>
-  <div class="row2"><button type="button" id="setreset">{{ ui.reset }}</button></div>
   <p class="about">{{ ui.settings_note }} {{ ui.about }}</p>
 </dialog>
 
 <script type="application/json" id="nd-data">{{ {
-  "stories": e.stories, "catalog": e.catalog, "defaults": e.defaults,
-  "labels": ui.topics, "country": country_name, "lang": lang,
-  "t": {"top": ui.top, "local": ui.local, "empty": ui.empty_tab, "read": ui.read_full, "covered": ui.covered_by,
-        "one": ui.sources_one, "many": ui.sources_many, "single": ui.single_source,
-        "remove": ui.remove, "up": ui.move_up, "down": ui.move_down}
+  "stories": e.stories, "themes": e.themes, "labels": ui.topics, "country": country_name, "lang": lang,
+  "t": {"top": ui.top, "local": ui.local, "empty": ui.empty_theme, "read": ui.read_full, "covered": ui.covered_by,
+        "one": ui.sources_one, "many": ui.sources_many, "single": ui.single_source, "count": ui.theme_count, "count1": ui.theme_count_one,
+        "remove": ui.remove, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn}
 }|tojson }}</script>
 
 <script>
 (function () {
-  var D = JSON.parse(document.getElementById("nd-data").textContent), T = D.t;
-  var PREF_KEY = "newsdesk-prefs-v1";
+  var D = JSON.parse(document.getElementById("nd-data").textContent), T = D.t, TH = D.themes;
+  var PREF_KEY = "newsdesk-prefs-v2";
   var tabsEl = document.getElementById("tabs"), pager = document.getElementById("pager");
   var current = 0, tabs = [];
 
   // ---------- preferences (saved on this device) ----------
-  function defaults() { return { v: 1, topics: D.defaults.topics.slice(), custom: [], local: true }; }
   function load() {
     try {
       var p = JSON.parse(localStorage.getItem(PREF_KEY));
-      if (p && p.v === 1 && Array.isArray(p.topics)) return p;
+      if (p && p.v === 2 && Array.isArray(p.themes)) return p;
     } catch (e) {}
-    return defaults();
+    return null;
   }
   function save(p) { try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (e) {} }
-  var prefs = load();
+  var firstRun = !load();
+  var prefs = load() || { v: 2, themes: [], local: true };
 
-  // ---------- helpers ----------
+  // ---------- text helpers ----------
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
   function norm(s) { return String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
-  function customOf(name) { return prefs.custom.filter(function (c) { return c.name === name; })[0]; }
-  function label(name) { return D.labels[name] || name; }
+  var STOP = {};
+  ("de del la el los las lo y e o en a al con para por un una unos unas sobre que se su sus mas " +
+   "the of and or in on at to for with a an about from news noticias tema temas todo").split(" ").forEach(function (w) { STOP[w] = 1; });
+  function words(text) { return norm(text).split(/[^a-z0-9]+/).filter(function (w) { return w.length > 1 && !STOP[w]; }); }
+  function stem(w) { return w.slice(0, 5); }
+  var rxCache = {};
+  function rx(k) {
+    return rxCache[k] || (rxCache[k] = new RegExp("(^|[^a-z0-9])" + k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "($|[^a-z0-9])"));
+  }
   function weight(i) { return Math.max(0.4, 1 - 0.1 * i); }
+  function isSoft(s) { return TH.soft_topics.indexOf(s.topic) >= 0; }
 
   D.stories.forEach(function (s, i) {
+    var titles = s.title + " " + s.sources.map(function (x) { return x.title; }).join(" ");
     s.id = i;
-    s.text = norm(s.title + " " + s.summary + " " + s.sources.map(function (x) { return x.title; }).join(" "));
-    s.titleN = norm(s.sources.map(function (x) { return x.title; }).join(" ") + " " + s.title);
+    s.titleN = norm(titles);
+    s.text = norm(titles + " " + s.summary);
+    s.titleStems = {}; words(titles).forEach(function (w) { s.titleStems[stem(w)] = 1; });
+    s.textStems = {}; words(s.text).forEach(function (w) { s.textStems[stem(w)] = 1; });
   });
 
-  var kwCache = {};
-  function topicScore(s, name) {
-    var c = customOf(name);
-    if (!c) return (s.topics && s.topics[name]) || 0;
-    var key = name + "|" + s.id;
-    if (key in kwCache) return kwCache[key];
-    var inTitle = 0, inBody = 0;
-    c.keywords.forEach(function (k) {
-      var re = new RegExp("(^|[^a-z0-9])" + norm(k).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "($|[^a-z0-9])");
-      if (re.test(s.titleN)) inTitle++; else if (re.test(s.text)) inBody++;
+  // ---------- turning a typed theme into a matcher ----------
+  var aliases = [];  // [normalized alias, part]
+  TH.concepts.forEach(function (c) {
+    c.names.concat([c.label]).forEach(function (n) { aliases.push([words(n).join(" "), { type: "concept", c: c }]); });
+  });
+  TH.country_names.forEach(function (n) { aliases.push([words(n).join(" "), { type: "country" }]); });
+  aliases = aliases.filter(function (a) { return a[0]; });
+  aliases.sort(function (a, b) { return b[0].length - a[0].length; });
+
+  function compile(label) {
+    var t = " " + words(label).join(" ") + " ", parts = [];
+    aliases.forEach(function (a) {
+      if (t.indexOf(" " + a[0] + " ") >= 0) { parts.push(a[1]); t = t.replace(" " + a[0] + " ", " "); }
     });
-    return (kwCache[key] = Math.min(1, 0.45 * inTitle + 0.2 * inBody));
+    t.trim().split(" ").filter(Boolean).forEach(function (w) { parts.push({ type: "word", stem: stem(w) }); });
+    if (!parts.length) parts.push({ type: "phrase", p: norm(label).trim() });
+    return parts;
   }
-  function score(s) {
-    var best = 0;
-    prefs.topics.forEach(function (n, i) { best = Math.max(best, weight(i) * topicScore(s, n)); });
-    return s.base * (0.4 + s.fixed + best);
+  function kwScore(s, kws) {
+    var inT = 0, inB = 0;
+    kws.forEach(function (k) { if (rx(k).test(s.titleN)) inT++; else if (rx(k).test(s.text)) inB++; });
+    return Math.min(1, 0.5 * inT + 0.15 * Math.min(2, inB));
+  }
+  function partScore(s, p) {
+    if (p.type === "concept") {
+      var c = p.c, topic = (s.topics && c.topic && s.topics[c.topic]) || 0;
+      if (c.id === c.topic) return Math.max(topic, c.keywords.length ? kwScore(s, c.keywords) : 0);
+      var kw = kwScore(s, c.keywords);
+      return kw ? Math.min(1, kw + 0.2 * topic) : 0;   // e.g. AI: an AI word is needed, being tech helps
+    }
+    if (p.type === "country") return s.local ? 1 : (TH.country_names.some(function (n) { return rx(n).test(s.text); }) ? 0.6 : 0);
+    if (p.type === "word") return s.titleStems[p.stem] ? 1 : (s.textStems[p.stem] ? 0.6 : 0);
+    return rx(p.p).test(s.titleN) ? 1 : (rx(p.p).test(s.text) ? 0.5 : 0);
+  }
+  var scoreCache = {};
+  function themeScore(s, label) {
+    var key = label + "\u0000" + s.id;
+    if (key in scoreCache) return scoreCache[key];
+    var parts = compileCache[label] || (compileCache[label] = compile(label));
+    var sc = 1;
+    parts.forEach(function (p) { sc = Math.min(sc, partScore(s, p)); });   // every part must match
+    return (scoreCache[key] = sc);
+  }
+  var compileCache = {};
+  function matches(label) {
+    return D.stories.filter(function (s) { return themeScore(s, label) >= 0.45; })
+      .sort(function (a, b) { return b.base * (0.5 + themeScore(b, label)) - a.base * (0.5 + themeScore(a, label)); });
   }
 
   // ---------- which stories go in each tab ----------
   function buildTabs() {
-    var ranked = D.stories.slice().sort(function (a, b) { return score(b) - score(a); });
+    var best = {};
+    D.stories.forEach(function (s) {
+      var b = 0;
+      prefs.themes.forEach(function (th, i) { var sc = themeScore(s, th); if (sc >= 0.45) b = Math.max(b, weight(i) * sc); });
+      best[s.id] = b;
+    });
+    var pool = D.stories.filter(function (s) {
+      return prefs.themes.length ? best[s.id] > 0 || (s.outlets.length >= 3 && !isSoft(s)) : !isSoft(s);
+    });
+    var score = function (s) { return s.base * (0.4 + s.fixed + best[s.id]); };
+    var ranked = pool.slice().sort(function (a, b) { return score(b) - score(a); });
     var top = [], perTopic = {};
     ranked.forEach(function (s) {
       if (top.length >= 10 || s.outlets.length < 2) return;
@@ -234,24 +299,20 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       if ((perTopic[k] || 0) >= 3) return;
       perTopic[k] = (perTopic[k] || 0) + 1; top.push(s);
     });
-    ranked.forEach(function (s) {
-      if (top.length < 10 && top.indexOf(s) < 0 && !s.hype) top.push(s);
-    });
-    var out = [{ id: "top", label: T.top, items: top }];
+    ranked.forEach(function (s) { if (top.length < 10 && top.indexOf(s) < 0 && !s.hype) top.push(s); });
+
+    var out = [{ id: "top", label: T.top, items: top, prompt: !prefs.themes.length }];
     if (prefs.local) {
-      var loc = ranked.filter(function (s) { return s.local; }).slice(0, 12);
+      var loc = D.stories.filter(function (s) { return s.local && !isSoft(s); })
+        .sort(function (a, b) { return score(b) - score(a); }).slice(0, 12);
       if (loc.length) out.push({ id: "local", label: T.local, items: loc });
     }
-    prefs.topics.forEach(function (n) {
-      var items = D.stories.filter(function (s) { return topicScore(s, n) >= 0.45; })
-        .sort(function (a, b) { return b.base * (0.5 + topicScore(b, n)) - a.base * (0.5 + topicScore(a, n)); })
-        .slice(0, 15);
-      out.push({ id: "t-" + n, label: label(n), items: items, topic: n });
-    });
+    prefs.themes.forEach(function (th) { out.push({ id: "th", label: th, items: matches(th).slice(0, 15) }); });
     return out;
   }
 
   // ---------- rendering ----------
+  function label(name) { return D.labels[name] || name; }
   function img(src) {
     return src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : "";
   }
@@ -278,6 +339,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       + "</article>";
   }
   function render() {
+    scoreCache = {}; compileCache = {};
     tabs = buildTabs();
     tabsEl.innerHTML = tabs.map(function (t, i) {
       return '<button class="tab" role="tab" type="button" id="tab-' + i + '" aria-controls="panel-' + i
@@ -285,6 +347,8 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     }).join("");
     pager.innerHTML = tabs.map(function (t, i) {
       return '<section class="panel" role="tabpanel" id="panel-' + i + '" aria-labelledby="tab-' + i + '">'
+        + (t.prompt ? '<div class="pick"><p>' + esc(T.pick) + '</p><button type="button" class="read pickbtn">'
+                      + esc(T.pickbtn) + "</button></div>" : "")
         + (t.items.length ? t.items.map(function (s, j) { return card(s, j === 0); }).join("")
                           : '<p class="empty">' + esc(T.empty) + "</p>")
         + "</section>";
@@ -328,6 +392,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
 
   // Tap a story to open its summary and sources (tap again to close).
   pager.addEventListener("click", function (ev) {
+    if (ev.target.closest(".pickbtn")) { openSettings(); return; }
     var row = ev.target.closest(".row");
     if (!row) return;
     var c = row.parentNode, open = !c.classList.contains("open");
@@ -357,81 +422,65 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     if (document.visibilityState === "visible" && Date.now() - loaded > 15 * 60000) reload();
   });
 
-  // ---------- settings ----------
+  // ---------- choosing themes ----------
   var dlg = document.getElementById("setdlg"), list = document.getElementById("tlist"), draft;
-  function allNames(p) {
-    var names = p.topics.slice();
-    D.catalog.concat(p.custom.map(function (c) { return c.name; })).forEach(function (n) {
-      if (names.indexOf(n) < 0) names.push(n);
-    });
-    return names;
-  }
-  function drawList() {
-    var names = draft.order;
-    list.innerHTML = names.map(function (n, i) {
-      var on = draft.on[n], custom = !!draft.custom.filter(function (c) { return c.name === n; })[0];
-      return '<li class="' + (on ? "" : "off") + '" data-n="' + esc(n) + '">'
-        + '<label><input type="checkbox" ' + (on ? "checked" : "") + '><span>' + esc(label(n)) + "</span></label>"
-        + (custom ? '<button type="button" class="mv rm" aria-label="' + esc(T.remove) + '">✕</button>' : "")
+  var input = document.getElementById("newtheme");
+  function has(th) { return draft.themes.some(function (x) { return norm(x) === norm(th); }); }
+  function drawSettings() {
+    list.innerHTML = draft.themes.map(function (th, i) {
+      var n = matches(th).length;
+      return '<li data-i="' + i + '"><span class="tl"><span>' + esc(th) + '</span><small>'
+        + esc(n === 1 ? T.count1 : T.count.replace("{n}", n)) + "</small></span>"
         + '<button type="button" class="mv up" aria-label="' + esc(T.up) + '"' + (i === 0 ? " disabled" : "") + ">↑</button>"
-        + '<button type="button" class="mv dn" aria-label="' + esc(T.down) + '"' + (i === names.length - 1 ? " disabled" : "") + ">↓</button>"
-        + "</li>";
+        + '<button type="button" class="mv dn" aria-label="' + esc(T.down) + '"' + (i === draft.themes.length - 1 ? " disabled" : "") + ">↓</button>"
+        + '<button type="button" class="mv rm" aria-label="' + esc(T.remove) + '">✕</button></li>';
+    }).join("");
+    list.hidden = !draft.themes.length;
+    document.getElementById("nothemes").hidden = !!draft.themes.length;
+    document.getElementById("chips").innerHTML = TH.suggested.map(function (l) {
+      return '<button type="button" class="chip"' + (has(l) ? " disabled" : "") + ">" + esc(l) + "</button>";
     }).join("");
   }
+  function addTheme(th) {
+    th = th.trim().replace(/\s+/g, " ");
+    if (!th || has(th)) return;
+    draft.themes.push(th.charAt(0).toUpperCase() + th.slice(1));
+    drawSettings();
+  }
   function openSettings() {
-    var on = {};
-    prefs.topics.forEach(function (n) { on[n] = true; });
-    draft = { order: allNames(prefs), on: on, custom: prefs.custom.map(function (c) { return { name: c.name, keywords: c.keywords.slice() }; }) };
+    draft = { themes: prefs.themes.slice() };
     document.getElementById("showlocal").checked = !!prefs.local;
-    drawList();
+    input.value = "";
+    drawSettings();
     dlg.showModal();
   }
   document.getElementById("gear").addEventListener("click", openSettings);
+  document.getElementById("addform").addEventListener("submit", function (ev) {
+    ev.preventDefault(); addTheme(input.value); input.value = "";
+  });
+  document.getElementById("chips").addEventListener("click", function (ev) {
+    var b = ev.target.closest(".chip");
+    if (b && !b.disabled) addTheme(b.textContent);
+  });
   list.addEventListener("click", function (ev) {
     var li = ev.target.closest("li");
     if (!li) return;
-    var n = li.dataset.n, i = draft.order.indexOf(n);
-    if (ev.target.closest(".up") && i > 0) { draft.order.splice(i, 1); draft.order.splice(i - 1, 0, n); drawList(); }
-    else if (ev.target.closest(".dn") && i < draft.order.length - 1) { draft.order.splice(i, 1); draft.order.splice(i + 1, 0, n); drawList(); }
-    else if (ev.target.closest(".rm")) {
-      draft.order.splice(i, 1); delete draft.on[n];
-      draft.custom = draft.custom.filter(function (c) { return c.name !== n; }); drawList();
-    }
-  });
-  list.addEventListener("change", function (ev) {
-    var li = ev.target.closest("li");
-    if (li) { draft.on[li.dataset.n] = ev.target.checked; li.classList.toggle("off", !ev.target.checked); }
-  });
-  document.getElementById("addtopic").addEventListener("click", function () {
-    var name = document.getElementById("newname").value.trim();
-    var kws = document.getElementById("newkw").value.split(",").map(function (k) { return k.trim(); }).filter(Boolean);
-    if (!name) { document.getElementById("newname").focus(); return; }
-    if (!kws.length) kws = [name];
-    var existing = draft.custom.filter(function (c) { return c.name === name; })[0];
-    if (existing) existing.keywords = kws;
-    else if (draft.order.indexOf(name) < 0) { draft.custom.push({ name: name, keywords: kws }); draft.order.push(name); }
-    draft.on[name] = true;
-    document.getElementById("newname").value = ""; document.getElementById("newkw").value = "";
-    drawList();
+    var i = +li.dataset.i, th = draft.themes;
+    if (ev.target.closest(".up") && i > 0) th.splice(i - 1, 0, th.splice(i, 1)[0]);
+    else if (ev.target.closest(".dn") && i < th.length - 1) th.splice(i + 1, 0, th.splice(i, 1)[0]);
+    else if (ev.target.closest(".rm")) th.splice(i, 1);
+    else return;
+    drawSettings();
   });
   document.getElementById("setsave").addEventListener("click", function () {
-    prefs = {
-      v: 1, custom: draft.custom, local: document.getElementById("showlocal").checked,
-      topics: draft.order.filter(function (n) { return draft.on[n]; })
-    };
-    kwCache = {};
+    if (input.value.trim()) addTheme(input.value);   // typed but didn't press "Add"
+    prefs = { v: 2, themes: draft.themes, local: document.getElementById("showlocal").checked };
     save(prefs); dlg.close(); current = 0; render(); go(0, false);
   });
   document.getElementById("setcancel").addEventListener("click", function () { dlg.close(); });
-  document.getElementById("setreset").addEventListener("click", function () {
-    var d = defaults(), on = {};
-    d.topics.forEach(function (n) { on[n] = true; });
-    draft = { order: allNames(d), on: on, custom: [] };
-    document.getElementById("showlocal").checked = true;
-    drawList();
-  });
 
   render();
+  if (firstRun) openSettings();
 })();
 </script>
 {% include "_push.html" %}

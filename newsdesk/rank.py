@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 from .cluster import Story
 from .fetch import Article
+from .filters import section_topics
 from .lexicon import AGE_HINTS, COUNTRY_KEYWORDS, SENSATIONAL, TOPIC_KEYWORDS
 from .text import contains_any, normalize
 
@@ -82,12 +83,23 @@ def score_stories(stories: list[Story], cfg: dict, now: datetime) -> list[Story]
         tags = normalize(" ".join(t for a in s.articles for t in a.tags))
 
         # --- What is it about? ------------------------------------------------
+        # The section in the article's address (economia/, deportes/...) is the
+        # strongest signal; headline words come next; words in the summary only add a little.
+        section_votes: dict[str, int] = {}
+        with_section = 0
+        for a in s.articles:
+            secs = section_topics(a.link)
+            with_section += bool(secs)
+            for t in secs:
+                section_votes[t] = section_votes.get(t, 0) + 1
         for name, words in kws.items():
             in_title = set(contains_any(titles, words))
             in_body = set(contains_any(bodies, words)) - in_title
-            sc = 0.45 * len(in_title) + 0.2 * len(in_body)
+            sc = 0.5 * len(in_title) + 0.15 * min(2, len(in_body))
+            if name in section_votes:
+                sc += 0.9 * section_votes[name] / with_section
             if name in feed_hints:
-                sc += 0.5
+                sc += 0.4
             if normalize(name) in tags:
                 sc += 0.3
             if sc:
@@ -134,7 +146,7 @@ def score_stories(stories: list[Story], cfg: dict, now: datetime) -> list[Story]
     return kept
 
 
-def select_pool(stories: list[Story], cfg: dict, per_topic: int = 15, overall: int = 100) -> list[Story]:
+def select_pool(stories: list[Story], cfg: dict, per_topic: int = 15, overall: int = 160) -> list[Story]:
     """Stories shipped to the app: the best overall plus the best of every topic,
     so any topic chosen in the app has something to show."""
     picked: dict[int, Story] = {}
@@ -146,7 +158,7 @@ def select_pool(stories: list[Story], cfg: dict, per_topic: int = 15, overall: i
         pool.sort(key=lambda s: s.base * (0.5 + s.topic_scores[name]), reverse=True)
         for s in pool[:per_topic]:
             picked[id(s)] = s
-    for s in [s for s in stories if s.local][:per_topic]:
+    for s in [s for s in stories if s.local][:25]:
         picked[id(s)] = s
     return sorted(picked.values(), key=lambda s: s.score, reverse=True)
 

@@ -18,7 +18,9 @@ profile:
   languages: [es, en]     # languages of the sources you want to read
   use_age_hints: true     # set false to ignore age entirely
 
-  # Topics you care about. `weight` 0..1 (1 = most important to you).
+  # Sections in the app come from the themes you type in the app itself (⚙ button).
+  # These topics only steer the ranking on the server and the morning notification.
+  # `weight` 0..1 (1 = most important to you).
   # Built-in topics: world, politics, economy, business, science, technology,
   # health, environment, education, culture, sports, security, latam.
   # You can add custom ones with your own `keywords` (Spanish + English).

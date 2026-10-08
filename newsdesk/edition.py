@@ -19,7 +19,8 @@ from .fetch import fetch_all, fetch_og_image
 from .lexicon import COUNTRY_NAMES, LOCK_UI, UI
 from .lock import encrypt, password_from_env, site_salt
 from .push import public_key_b64
-from .lexicon import TOPIC_KEYWORDS
+from .lexicon import CONCEPTS, COUNTRY_KEYWORDS, SUGGESTED_THEMES, TOPIC_ALIASES, TOPIC_KEYWORDS
+from .text import normalize
 from .rank import score_stories, select_pool, select_sections
 from .text import truncate
 
@@ -49,7 +50,7 @@ def story_dict(s: Story, ui_lang: str) -> dict:
     summary = h.summary or next((a.summary for a in s.articles if a.summary and a.source.lang == h.source.lang), "")
     return {
         "title": h.title,
-        "summary": truncate(summary, 320),
+        "summary": truncate(summary, 280),
         "link": h.link,
         "image": s.image,
         "topic": s.topic,
@@ -62,7 +63,7 @@ def story_dict(s: Story, ui_lang: str) -> dict:
         "hype": bool(s.hype),
         "score": round(s.score, 3),
         "sources": [
-            {"outlet": a.outlet, "title": a.title, "link": a.link, "lang": a.source.lang}
+            {"outlet": a.outlet, "title": truncate(a.title, 160), "link": a.link, "lang": a.source.lang}
             for a in s.sources_for_display()
         ],
     }
@@ -72,7 +73,7 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     now = now or datetime.now(timezone.utc)
     ui_lang = cfg["site"]["ui_language"]
     if articles is None:
-        articles = fetch_all(load_sources(cfg))
+        articles = fetch_all(load_sources(cfg), country=cfg["profile"]["country"])
     stories = score_stories(cluster(articles), cfg, now)
     sections = select_sections(stories, cfg)  # what the morning notification uses
     pool = select_pool(stories, cfg)            # what the app shows and re-ranks
@@ -88,19 +89,39 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
         "top": [story_dict(s, ui_lang) for s in sections["top"]],
         "local": [story_dict(s, ui_lang) for s in sections["local"]],
         "stories": [story_dict(s, ui_lang) for s in pool],
-        "catalog": topic_catalog(cfg),
-        "defaults": {
-            "topics": [t["name"] for t in sorted(cfg["profile"]["topics"], key=lambda t: -float(t.get("weight", 1)))
-                       if t["name"] not in set(cfg["profile"].get("muted_topics") or [])],
-        },
+        "themes": theme_dictionary(cfg),
     }
 
 
-def topic_catalog(cfg: dict) -> list[str]:
-    """Every topic the app can offer: the built-in ones plus custom ones from config.yaml."""
-    names = list(TOPIC_KEYWORDS)
-    names += [t["name"] for t in cfg["profile"]["topics"] if t["name"] not in names]
-    return names
+def theme_dictionary(cfg: dict) -> dict:
+    """What the app needs to turn themes typed by the user into sections."""
+    lang = cfg["site"]["ui_language"]
+    labels = UI.get(lang, UI["en"])["topics"]
+    concepts = [
+        {"id": t, "label": labels.get(t, t), "topic": t,
+         "names": [a.replace("-", " ") for a in TOPIC_ALIASES.get(t, "").split()] + [normalize(labels.get(t, t))],
+         "keywords": []}
+        for t in TOPIC_KEYWORDS
+    ]
+    # Custom topics from config.yaml are themes too.
+    for t in cfg["profile"]["topics"]:
+        if t.get("keywords") and t["name"] not in TOPIC_KEYWORDS:
+            concepts.append({"id": t["name"], "label": t["name"], "topic": t["name"],
+                             "names": [normalize(t["name"])], "keywords": [normalize(k) for k in t["keywords"]]})
+    for c in CONCEPTS:
+        concepts.append({"id": c["id"], "label": c["label"].get(lang, c["label"]["en"]), "topic": c["topic"],
+                         "names": c["names"], "keywords": c["keywords"]})
+    by_id = {c["id"]: c["label"] for c in concepts}
+    country = cfg["profile"]["country"]
+    return {
+        "concepts": concepts,
+        "suggested": [by_id[i] for i in SUGGESTED_THEMES if i in by_id],
+        # Typing your country as (part of) a theme means "news about it".
+        "country_names": sorted({normalize(n) for names in COUNTRY_NAMES.values() for code, n in names.items()
+                                 if code == country} | set(COUNTRY_KEYWORDS.get(country, [])[:4])),
+        # Not news people usually want unless they ask for it.
+        "soft_topics": ["entertainment", "lifestyle"],
+    }
 
 
 def render(edition: dict, cfg: dict, out_dir: Path = SITE_DIR, data_path: Path = DATA_PATH,

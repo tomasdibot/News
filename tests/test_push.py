@@ -119,6 +119,7 @@ def test_bell_gives_a_code_the_server_accepts(articles, cfg, tmp_path, monkeypat
     exe = "/opt/pw-browsers/chromium" if os.path.exists("/opt/pw-browsers/chromium") else None
     # The real push service isn't reachable from tests: fake the browser's subscription.
     fake = """
+      localStorage.setItem("newsdesk-prefs-v2", JSON.stringify({v: 2, themes: ["Economía"], local: true}));
       Notification.requestPermission = () => Promise.resolve("granted");
       PushManager.prototype.getSubscription = () => Promise.resolve(null);
       PushManager.prototype.subscribe = function (opts) {

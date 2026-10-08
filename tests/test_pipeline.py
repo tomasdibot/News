@@ -69,8 +69,9 @@ def test_build_render_and_message(articles, cfg, tmp_path):
     html = page.read_text()
     data = json.loads(re.search(r'<script type="application/json" id="nd-data">(.*?)</script>', html, re.S).group(1))
     assert data["t"]["top"] == "Lo más importante" and data["t"]["many"] == "{n} medios"
-    assert {"economy", "world", "sports"} <= set(data["catalog"])
-    assert data["defaults"]["topics"][:2] == ["world", "economy"]
+    concepts = {c["id"] for c in data["themes"]["concepts"]}
+    assert {"economy", "world", "sports", "ai", "f1"} <= concepts
+    assert "Economía" in data["themes"]["suggested"] and "argentina" in data["themes"]["country_names"]
     first = data["stories"][0]
     assert first["base"] > 0 and "topics" in first and len(first["outlets"]) == 3
     assert json.loads((tmp_path / "edition.json").read_text())["top"]
@@ -140,3 +141,31 @@ def test_greenapi_sends_photo_to_own_chat(monkeypatch):
     url, body = calls[0]
     assert url == "https://7103.api.greenapi.com/waInstance1101/sendFileByUrl/tok"
     assert body["chatId"] == "5491122334455@c.us" and body["caption"] == "hola"
+
+
+def test_ads_filler_and_foreign_editions_are_dropped(articles):
+    titles = " | ".join(a.title for a in articles)
+    assert "ofertas" not in titles and "Horóscopo" not in titles and "Sheinbaum" not in titles
+
+
+def test_url_section_decides_the_topic(articles, cfg):
+    cfg["profile"]["muted_topics"] = []
+    ranked = score_stories(cluster(articles), cfg, NOW)
+    club = by_title(ranked, "renovación del plantel")
+    assert club.topic == "sports"  # despite "presidente" and "gobierno" in the text
+
+
+def test_exclusion_rules():
+    from newsdesk.filters import exclusion_reason, section_topics
+
+    assert exclusion_reason("Así es el nuevo hotel", "https://www.clarin.com/brandstudio/hotel_0_a.html", [], "AR", "AR")
+    assert exclusion_reason("Ofertas imperdibles en el Hot Sale", "https://www.clarin.com/sociedad/x.html", [], "AR", "AR")
+    assert exclusion_reason("Dólar blue hoy: a cuánto cotiza", "https://www.infobae.com/economia/2026/10/08/x/", [], "AR", "AR")
+    assert exclusion_reason("Nota", "https://www.lanacion.com.ar/sociedad/x-nid08102026/", ["Contenido patrocinado"], "AR", "AR")
+    # real news that merely contains tricky words stays
+    assert not exclusion_reason("El Gobierno lanzó una oferta de canje de deuda", "https://www.infobae.com/economia/2026/10/08/x/", [], "AR", "AR")
+    assert not exclusion_reason("Así quedó el sorteo del Mundial 2026", "https://www.clarin.com/deportes/x.html", [], "AR", "AR")
+    # other countries' local editions only matter to readers there
+    assert exclusion_reason("Plan de seguridad", "https://www.infobae.com/mexico/2026/10/08/x/", [], "AR", "AR")
+    assert not exclusion_reason("Plan de seguridad", "https://www.infobae.com/mexico/2026/10/08/x/", [], "MX", "MX")
+    assert section_topics("https://www.france24.com/es/econom%C3%ADa/20261008-x") == {"economy"}
