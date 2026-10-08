@@ -36,6 +36,7 @@ DEFAULTS: dict = {
         "provider": "console",
         "headlines": 5,
     },
+    "neutral_titles": {"enabled": True, "model": "claude-opus-5-5", "max_stories": 120, "max_new_per_run": 40},
     "refresh_minutes": 60,
 }
 

@@ -21,6 +21,7 @@ RSS feeds (sources.yaml) ─► group the same event across outlets & languages
 | Opinion presented as news | Opinion, editorial and column pieces are dropped (by URL and headline). |
 | Hype and trends | Loaded words ("IMPACTANTE", "slams", "viral", "!"…) lower a story's score, and a hyped story from a single outlet never fills the top section. Of all the headlines for a story, the most neutral one is shown. |
 | Not seeing other framings | Every card links to **each** outlet that covered the story, so you can compare. Stories from one outlet only are labelled *single source*. |
+| Trendy, loaded headlines | Optional: Claude reads every outlet's headline and summary plus part of the article, then writes one plain, factual title and summary. Claims are attributed and nothing outside the material is added. Marked in the app as written by AI. See *Neutral titles* below. |
 | Ads and filler | Paid content (*Brand Studio*, *Inhouse*, *contenido patrocinado*), shopping deals, horoscopes, lottery, weather and daily dollar-price pieces are dropped, mostly by the section in the article's web address. So is other countries' local news from regional outlets (e.g. *infobae.com/mexico/...*). The rules are in `newsdesk/filters.py`. |
 | Stories in the wrong topic | The section in the article's address (*/economia/*, */deportes/*...) decides the topic first. Headline words come second, and words in the summary only add a little. |
 | One topic taking over | No more than 3 stories from the same topic in "Most important now". |
@@ -89,6 +90,15 @@ How the app works:
   it too.
 - **Daily reminder:** tap the bell to get a notification every morning. Tapping the
   notification opens the app (see *Daily reminder* below).
+
+## Neutral titles (optional, paid)
+
+1. Create an API key at <https://console.anthropic.com> (separate from a Claude subscription; you add a payment method there).
+2. Save it as the GitHub secret `ANTHROPIC_API_KEY`.
+
+Each story is rewritten once and remembered between hourly runs. Settings are under
+`neutral_titles` in `config.yaml`: the model, how many stories, and a per-run cap. Without the
+key, the most sober of the original headlines is shown, as before.
 
 ## Password protection
 

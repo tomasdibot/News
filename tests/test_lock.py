@@ -22,7 +22,7 @@ def payload_of(html: str) -> dict:
 def test_locked_page_reveals_no_news(articles, cfg, tmp_path):
     html = locked_page(articles, cfg, tmp_path).read_text()
     assert "INDEC" not in html and "Gaza" not in html and "noindex" in html
-    assert "Lo más importante" in decrypt(payload_of(html), PASSWORD)
+    assert "INDEC" in decrypt(payload_of(html), PASSWORD)
 
 
 def test_same_key_across_rebuilds(articles, cfg, tmp_path):

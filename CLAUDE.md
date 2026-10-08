@@ -8,12 +8,11 @@ daily phone notification (Web Push) from the installed app. See README.md for de
 
 - The owner sets things up from their phone and is not a developer. Use plain language
   and step-by-step instructions with the exact names of buttons, settings and secrets.
-- **Every time a step or feature is added or changed, end the reply with the full,
-  updated workflow**, not just the new part:
-  1. How it works: what happens every hour, every morning, and when they open the app.
-  2. The complete setup checklist from scratch, in order, marking what is new or changed.
-  3. Daily use, and what to do if something stops working.
-  Keep README.md in sync with the same steps.
+- **Keep replies short.** The owner wants less text. No long explanations or tables unless asked.
+- After adding or changing a feature, end with a **short** workflow update (a few lines):
+  what changed, and only the steps the owner must do now. The full setup checklist lives
+  in README.md — keep it in sync there instead of repeating it in chat.
+- Keep text inside the app short too.
 
 ## Project facts
 
@@ -23,7 +22,8 @@ daily phone notification (Web Push) from the installed app. See README.md for de
 - Automation: `.github/workflows/newsdesk.yml` runs hourly (build + deploy to Pages) and at
   the `NOTIFY_CRON` time (also sends the reminder). Times in that file are UTC.
 - Secrets: `NEWSDESK_PASSWORD` (required), `PUSH_SUBSCRIPTIONS` (codes from the app's bell),
-  optional `NEWSDESK_PROFILE`, `VAPID_PRIVATE_KEY`, and WhatsApp provider secrets.
+  optional `ANTHROPIC_API_KEY` (neutral titles, `neutral.py`, cached in build/neutral-cache.json),
+  `NEWSDESK_PROFILE`, `VAPID_PRIVATE_KEY`, and WhatsApp provider secrets.
 - UI preference: suggestions/choices are always shown as a dropdown list (native `<select>`,
   plus `<datalist>` autocomplete on text boxes), never as chips/buttons.
 - The owner does not trust Green API; don't suggest it again. WhatsApp providers are

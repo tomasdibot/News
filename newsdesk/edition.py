@@ -18,6 +18,7 @@ from .config import ROOT, load_sources
 from .fetch import fetch_all, fetch_og_image
 from .lexicon import COUNTRY_NAMES, LOCK_UI, UI
 from .lock import encrypt, password_from_env, site_salt
+from .neutral import neutralize
 from .push import public_key_b64
 from .lexicon import CONCEPTS, COUNTRY_KEYWORDS, SUGGESTED_THEMES, TOPIC_ALIASES, TOPIC_KEYWORDS
 from .text import normalize
@@ -48,9 +49,12 @@ def fill_missing_images(stories: list[Story], limit: int = 40) -> None:
 def story_dict(s: Story, ui_lang: str) -> dict:
     h = s.headline
     summary = h.summary or next((a.summary for a in s.articles if a.summary and a.source.lang == h.source.lang), "")
+    if s.neutral:
+        summary = s.neutral["summary"]
     return {
-        "title": h.title,
+        "title": s.neutral["title"] if s.neutral else h.title,
         "summary": truncate(summary, 280),
+        "ai": bool(s.neutral),
         "link": h.link,
         "image": s.image,
         "topic": s.topic,
@@ -77,6 +81,8 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     stories = score_stories(cluster(articles), cfg, now)
     sections = select_sections(stories, cfg)  # what the morning notification uses
     pool = select_pool(stories, cfg)            # what the app shows and re-ranks
+    if articles and (cfg.get("neutral_titles") or {}).get("enabled", True):
+        neutralize(pool, cfg)
     if articles and cfg.get("_fetch_images", True):
         fill_missing_images(pool, limit=90)
 

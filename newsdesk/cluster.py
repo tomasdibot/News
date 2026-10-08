@@ -70,6 +70,7 @@ class Story:
     reasons: list[str] = field(default_factory=list)
     headline: Article | None = None
     image: str | None = None
+    neutral: dict | None = None  # {title, summary} written by Claude (neutral.py)
 
     @property
     def outlets(self) -> list[str]:

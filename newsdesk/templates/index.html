@@ -72,6 +72,7 @@ header h1 { font: 700 26px/1.1 var(--serif); margin: 0; letter-spacing: -.3px; w
 .more { display: none; padding: 0 12px 12px; }
 .card.open .more { display: block; }
 .more p { margin: 0 0 10px; opacity: .88; }
+.ai { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 .cov { font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
 .srcs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .srcs a { background: var(--chip); padding: 6px 10px; border-radius: 8px; text-decoration: none; font-size: 13px; }
@@ -184,7 +185,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   "stories": e.stories, "themes": e.themes, "labels": ui.topics, "country": country_name, "lang": lang,
   "t": {"top": ui.top, "local": ui.local, "empty": ui.empty_theme, "read": ui.read_full, "covered": ui.covered_by,
         "one": ui.sources_one, "many": ui.sources_many, "single": ui.single_source, "count": ui.theme_count, "count1": ui.theme_count_one,
-        "remove": ui.remove, "pickone": ui.pick_one, "popular": ui.popular, "alltopics": ui.all_topics, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn}
+        "remove": ui.remove, "ai": ui.ai_note, "pickone": ui.pick_one, "popular": ui.popular, "alltopics": ui.all_topics, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn}
 }|tojson }}</script>
 
 <script>
@@ -337,6 +338,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       + (lead && s.summary ? '<p class="lede">' + esc(s.summary) + "</p>" : "")
       + "</div>" + (lead ? "" : '<div class="thumb">' + img(s.image) + "</div>") + "</button>"
       + '<div class="more">' + (s.summary ? "<p>" + esc(s.summary) + "</p>" : "")
+      + (s.ai ? '<div class="ai">✎ ' + esc(T.ai) + "</div>" : "")
       + '<div class="cov">' + esc(T.covered) + ":</div>"
       + '<div class="srcs">' + srcs + "</div>"
       + '<a class="read" href="' + esc(s.link) + '" target="_blank" rel="noopener">' + esc(T.read) + " →</a></div>"
