@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>{{ cfg.site.title }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f7f5f0; --card: #ffffff; --ink: #1a1a1a; --muted: #6b6b6b; --line: #e3dfd6;
+  --accent: #9b2c2c; --chip: #efece5; --local: #1f5f8b;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #141414; --card: #1d1d1d; --ink: #ececec; --muted: #9a9a9a; --line: #2e2e2e;
+          --accent: #e07a6e; --chip: #2a2a2a; --local: #7db7e0; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 Inter, system-ui, sans-serif; }
+a { color: inherit; }
+header { max-width: 1180px; margin: 0 auto; padding: 28px 16px 12px; border-bottom: 3px double var(--line); }
+header h1 { font: 700 clamp(30px, 6vw, 48px)/1.05 "Source Serif 4", Georgia, serif; margin: 0; letter-spacing: -.5px; }
+.meta { color: var(--muted); font-size: 13px; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+main { max-width: 1180px; margin: 0 auto; padding: 8px 16px 48px; }
+nav { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0; scrollbar-width: none; }
+nav a { text-decoration: none; background: var(--chip); padding: 5px 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+section { margin-top: 28px; }
+section > h2 { font: 700 22px "Source Serif 4", Georgia, serif; margin: 0 0 14px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.grid { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
+.grid.top > .story:first-child { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 0; }
+.grid.top > .story:first-child .img { aspect-ratio: auto; min-height: 320px; }
+.grid.top > .story:first-child h3 { font-size: 28px; }
+@media (max-width: 720px) { .grid.top > .story:first-child { display: flex; } .grid.top > .story:first-child .img { min-height: 0; aspect-ratio: 16/9; } }
+.story { background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+.img { display: block; aspect-ratio: 16/9; background: var(--chip) center/cover no-repeat; position: relative; }
+.img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.img .ph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted);
+           font: 600 13px Inter, sans-serif; letter-spacing: 1.5px; text-transform: uppercase; }
+.body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.kicker { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); font-weight: 600; display: flex; gap: 8px; flex-wrap: wrap; }
+.kicker .loc { color: var(--local); }
+h3 { font: 700 19px/1.25 "Source Serif 4", Georgia, serif; margin: 0; }
+h3 a { text-decoration: none; }
+h3 a:hover { text-decoration: underline; }
+.summary { margin: 0; color: var(--ink); opacity: .85; }
+.foot { margin-top: auto; font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+.cov { font-weight: 600; }
+.cov.single { color: var(--accent); }
+.srcs { display: flex; flex-wrap: wrap; gap: 6px; }
+.srcs a { background: var(--chip); padding: 2px 8px; border-radius: 6px; text-decoration: none; font-size: 12px; }
+.srcs a:hover { text-decoration: underline; }
+.about { color: var(--muted); font-size: 13px; max-width: 760px; margin-top: 40px; }
+.empty { color: var(--muted); padding: 40px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>{{ cfg.site.title }}</h1>
+  <div class="meta">
+    <span>{{ ui.updated }}: <time class="rel" datetime="{{ e.generated_at }}">{{ e.generated_local }}</time></span>
+    <span>{{ ui.articles.format(n=e.article_count) }} · {{ ui.sources_many.format(n=e.outlet_count) }}</span>
+  </div>
+  <nav>
+    <a href="#top">{{ ui.top }}</a>
+    {% if e.local %}<a href="#local">{{ ui.local }}</a>{% endif %}
+    {% for t in e.topics %}<a href="#t-{{ t.name }}">{{ t.name|topic_label }}</a>{% endfor %}
+  </nav>
+</header>
+
+{% macro card(s) -%}
+<article class="story">
+  <a class="img" href="{{ s.link }}" target="_blank" rel="noopener" aria-hidden="true" tabindex="-1">
+    <span class="ph">{{ s.topic|topic_label if s.topic else cfg.site.title }}</span>
+    {% if s.image %}<img src="{{ s.image }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+  </a>
+  <div class="body">
+    <div class="kicker">
+      {% if s.topic %}<span>{{ s.topic|topic_label }}</span>{% endif %}
+      {% if s.local %}<span class="loc">{{ country_name }}</span>{% endif %}
+      <time class="rel" datetime="{{ s.published }}"></time>
+    </div>
+    <h3><a href="{{ s.link }}" target="_blank" rel="noopener">{{ s.title }}</a></h3>
+    {% if s.summary %}<p class="summary">{{ s.summary }}</p>{% endif %}
+    <div class="foot">
+      {% set n = s.outlets|length %}
+      <span class="cov {{ 'single' if n == 1 }}" title="{{ ui.why }}: {{ ui.covered.format(n=n) }}{% if s.reasons %}; {{ ui.matches }} {% for r in s.reasons %}{{ r|topic_label }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}{% if s.local %}; {{ ui.local_match.format(country=country_name) }}{% endif %}">
+        {{ ui.sources_one if n == 1 else ui.sources_many.format(n=n) }}{% if n == 1 %} · {{ ui.single_source }}{% endif %}
+      </span>
+      <div class="srcs">
+        {% for src in s.sources %}<a href="{{ src.link }}" target="_blank" rel="noopener" title="{{ src.title }}">{{ src.outlet }}{% if src.lang != lang %} ({{ src.lang }}){% endif %}</a>{% endfor %}
+      </div>
+    </div>
+  </div>
+</article>
+{%- endmacro %}
+
+<main>
+  <section id="top">
+    <h2>{{ ui.top }}</h2>
+    {% if e.top %}
+    <div class="grid top">{% for s in e.top %}{{ card(s) }}{% endfor %}</div>
+    {% else %}<p class="empty">{{ ui.empty }}</p>{% endif %}
+  </section>
+
+  {% if e.local %}
+  <section id="local">
+    <h2>{{ ui.local }} · {{ country_name }}</h2>
+    <div class="grid">{% for s in e.local %}{{ card(s) }}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% for t in e.topics %}
+  <section id="t-{{ t.name }}">
+    <h2>{{ t.name|topic_label }}</h2>
+    <div class="grid">{% for s in t.stories %}{{ card(s) }}{% endfor %}</div>
+  </section>
+  {% endfor %}
+
+  <p class="about">{{ ui.about }}</p>
+</main>
+
+<script>
+(function () {
+  var rtf = new Intl.RelativeTimeFormat({{ lang|tojson }}, { numeric: "auto" });
+  function rel(iso) {
+    var mins = Math.round((new Date(iso) - Date.now()) / 60000);
+    if (Math.abs(mins) < 60) return rtf.format(mins, "minute");
+    var hrs = Math.round(mins / 60);
+    if (Math.abs(hrs) < 48) return rtf.format(hrs, "hour");
+    return rtf.format(Math.round(hrs / 24), "day");
+  }
+  function tick() {
+    document.querySelectorAll("time.rel").forEach(function (t) { t.textContent = rel(t.getAttribute("datetime")); });
+  }
+  tick(); setInterval(tick, 60000);
+  // The edition is rebuilt on a schedule: reload when a tab has been open for a while.
+  setTimeout(function () { location.reload(); }, 30 * 60000);
+})();
+</script>
+</body>
+</html>

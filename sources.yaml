@@ -1,0 +1,60 @@
+# ---------------------------------------------------------------------------
+# News sources.
+#
+# Selection criteria: wire services, public broadcasters and large general
+# outlets with a straight-news (not opinion) focus. For a country we
+# deliberately include outlets from DIFFERENT editorial lines: a story only
+# ranks high when several of them independently cover it, so the slant of
+# any one outlet carries little weight.
+#
+#   outlet  - outlets with the same name count as ONE voice (BBC World + BBC
+#             Mundo is still just "BBC" when counting coverage).
+#   region  - "global" feeds are always used; country feeds (AR, ES, MX, US...)
+#             are used only when they match profile.country.
+#   tier    - wire | public | commercial | institutional (sets trust weight)
+#   topics  - optional hint for section feeds (business, science, ...)
+#
+# Run `python -m newsdesk check-feeds` to see which feeds respond.
+# ---------------------------------------------------------------------------
+
+# --- Global, English -------------------------------------------------------
+- { id: bbc-world,     outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/world/rss.xml", topics: [world] }
+- { id: bbc-business,  outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/business/rss.xml", topics: [economy, business] }
+- { id: bbc-tech,      outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/technology/rss.xml", topics: [technology] }
+- { id: bbc-science,   outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml", topics: [science, environment] }
+- { id: bbc-health,    outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/health/rss.xml", topics: [health] }
+- { id: dw-en,         outlet: DW,         lang: en, region: global, tier: public, url: "https://rss.dw.com/rdf/rss-en-all" }
+- { id: france24-en,   outlet: France 24,  lang: en, region: global, tier: public, url: "https://www.france24.com/en/rss" }
+- { id: npr-world,     outlet: NPR,        lang: en, region: global, tier: public, url: "https://feeds.npr.org/1004/rss.xml", topics: [world] }
+- { id: cbc-world,     outlet: CBC,        lang: en, region: global, tier: public, url: "https://www.cbc.ca/webfeed/rss/rss-world", topics: [world] }
+- { id: abc-au-world,  outlet: ABC Australia, lang: en, region: global, tier: public, url: "https://www.abc.net.au/news/feed/51120/rss.xml" }
+- { id: un-news-en,    outlet: UN News,    lang: en, region: global, tier: institutional, url: "https://news.un.org/feed/subscribe/en/news/all/rss.xml", topics: [world] }
+- { id: sciencedaily,  outlet: ScienceDaily, lang: en, region: global, tier: commercial, url: "https://www.sciencedaily.com/rss/top/science.xml", topics: [science] }
+
+# --- Global, Spanish -------------------------------------------------------
+- { id: bbc-mundo,     outlet: BBC,        lang: es, region: global, tier: public, url: "https://feeds.bbci.co.uk/mundo/rss.xml" }
+- { id: dw-es,         outlet: DW,         lang: es, region: global, tier: public, url: "https://rss.dw.com/rdf/rss-sp-all" }
+- { id: france24-es,   outlet: France 24,  lang: es, region: global, tier: public, url: "https://www.france24.com/es/rss" }
+- { id: un-news-es,    outlet: UN News,    lang: es, region: global, tier: institutional, url: "https://news.un.org/feed/subscribe/es/news/all/rss.xml", topics: [world] }
+
+# --- Argentina (spread across editorial lines) -----------------------------
+- { id: infobae,       outlet: Infobae,    lang: es, region: AR, tier: commercial, url: "https://www.infobae.com/arc/outboundfeeds/rss/" }
+- { id: lanacion,      outlet: La Nación,  lang: es, region: AR, tier: commercial, url: "https://www.lanacion.com.ar/arc/outboundfeeds/rss/?outputType=xml" }
+- { id: clarin,        outlet: Clarín,     lang: es, region: AR, tier: commercial, url: "https://www.clarin.com/rss/lo-ultimo/" }
+- { id: pagina12,      outlet: Página/12,  lang: es, region: AR, tier: commercial, url: "https://www.pagina12.com.ar/rss/portada" }
+- { id: perfil,        outlet: Perfil,     lang: es, region: AR, tier: commercial, url: "https://www.perfil.com/feed" }
+- { id: ambito,        outlet: Ámbito,     lang: es, region: AR, tier: commercial, url: "https://www.ambito.com/rss/pages/home.xml", topics: [economy] }
+
+# --- Spain -----------------------------------------------------------------
+- { id: rtve,          outlet: RTVE,       lang: es, region: ES, tier: public, url: "https://api2.rtve.es/rss/temas_noticias.xml" }
+- { id: europapress,   outlet: Europa Press, lang: es, region: ES, tier: wire, url: "https://www.europapress.es/rss/rss.aspx" }
+- { id: elpais,        outlet: El País,    lang: es, region: ES, tier: commercial, url: "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada" }
+- { id: elmundo,       outlet: El Mundo,   lang: es, region: ES, tier: commercial, url: "https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml" }
+
+# --- Mexico ----------------------------------------------------------------
+- { id: eluniversal,   outlet: El Universal, lang: es, region: MX, tier: commercial, url: "https://www.eluniversal.com.mx/rss.xml" }
+- { id: animalpolitico, outlet: Animal Político, lang: es, region: MX, tier: commercial, url: "https://www.animalpolitico.com/feed/" }
+
+# --- United States ---------------------------------------------------------
+- { id: npr-news,      outlet: NPR,        lang: en, region: US, tier: public, url: "https://feeds.npr.org/1001/rss.xml" }
+- { id: pbs,           outlet: PBS NewsHour, lang: en, region: US, tier: public, url: "https://www.pbs.org/newshour/feeds/rss/headlines" }

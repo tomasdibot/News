@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+<channel><title>BBC</title>
+<item><title>Israel and Hamas agree to ceasefire in Gaza</title><link>https://www.bbc.com/news/a1</link>
+<description>The deal, brokered by Egypt and Qatar, begins on Friday.</description>
+<pubDate>Thu, 08 Oct 2026 09:00:00 GMT</pubDate>
+<media:thumbnail width="240" height="135" url="https://ichef.bbci.co.uk/ace/standard/240/cpsprodpb/abc.jpg"/></item>
+<item><title>Argentina inflation slows to lowest level in five years</title><link>https://www.bbc.com/news/a2</link>
+<description>Official INDEC figures show monthly prices rose 1.1% in September.</description>
+<pubDate>Thu, 08 Oct 2026 08:00:00 GMT</pubDate></item>
+<item><title>Opinion: Why the summit failed</title><link>https://www.bbc.com/news/opinion/a3</link>
+<description>A columnist's take.</description><pubDate>Thu, 08 Oct 2026 07:00:00 GMT</pubDate></item>
+</channel></rss>

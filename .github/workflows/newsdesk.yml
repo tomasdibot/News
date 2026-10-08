@@ -1,0 +1,72 @@
+name: Newsdesk
+
+on:
+  schedule:
+    # Hourly rebuild so the site stays fresh.
+    - cron: "7 * * * *"
+    # Daily WhatsApp reminder. Cron is in UTC: 10:45 UTC = 07:45 in Buenos Aires.
+    # GitHub often starts scheduled runs 5-15 min late, so aim a bit early.
+    # If you change this line, change NOTIFY_CRON below to the same value.
+    - cron: "45 10 * * *"
+  workflow_dispatch:
+    inputs:
+      notify:
+        description: "Also send the WhatsApp message"
+        type: boolean
+        default: false
+
+env:
+  NOTIFY_CRON: "45 10 * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: newsdesk
+  cancel-in-progress: false
+
+jobs:
+  edition:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build edition
+        run: python -m newsdesk build
+        env:
+          NEWSDESK_PROFILE: ${{ secrets.NEWSDESK_PROFILE }}
+          NEWSDESK_SITE_URL: ${{ steps.pages.outputs.base_url }}/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Send WhatsApp reminder
+        if: github.event.schedule == env.NOTIFY_CRON || inputs.notify
+        run: python -m newsdesk notify
+        env:
+          NEWSDESK_PROFILE: ${{ secrets.NEWSDESK_PROFILE }}
+          NEWSDESK_SITE_URL: ${{ steps.pages.outputs.base_url }}/
+          WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
+          CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_WHATSAPP_FROM: ${{ secrets.TWILIO_WHATSAPP_FROM }}

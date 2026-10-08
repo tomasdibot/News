@@ -1,0 +1,55 @@
+# ---------------------------------------------------------------------------
+# Newsdesk configuration
+#
+# Anything here can be overridden without committing it, by putting a YAML
+# snippet in the NEWSDESK_PROFILE environment variable / GitHub secret, e.g.
+#
+#   profile:
+#     age: 34
+#     city: Rosario
+#
+# Phone numbers and API keys are NEVER read from this file - see README.md.
+# ---------------------------------------------------------------------------
+
+profile:
+  age: 30                 # used for gentle "life stage" hints (see use_age_hints)
+  country: AR             # ISO code; enables local outlets + local-relevance boost
+  city: Buenos Aires
+  languages: [es, en]     # languages of the sources you want to read
+  use_age_hints: true     # set false to ignore age entirely
+
+  # Topics you care about. `weight` 0..1 (1 = most important to you).
+  # Built-in topics: world, politics, economy, business, science, technology,
+  # health, environment, education, culture, sports, security, latam.
+  # You can add custom ones with your own `keywords` (Spanish + English).
+  topics:
+    - { name: world,       weight: 1.0 }
+    - { name: economy,     weight: 0.9 }
+    - { name: politics,    weight: 0.8 }
+    - { name: science,     weight: 0.7 }
+    - { name: technology,  weight: 0.7 }
+    - { name: health,      weight: 0.5 }
+    # - name: energy
+    #   weight: 0.6
+    #   keywords: [energy, oil, gas, vaca muerta, petróleo, energía, litio, lithium]
+
+  # Topics you never want to see (even if they are big that day).
+  muted_topics: []        # e.g. [sports]
+
+site:
+  title: Mi Diario
+  ui_language: en         # en | es  (language of the site & WhatsApp text)
+  url: ""                 # public URL of the site, used in the WhatsApp link.
+                          # Filled automatically when deployed with GitHub Pages.
+  max_age_hours: 36       # ignore anything older than this
+  top_stories: 8
+  local_stories: 6
+  stories_per_topic: 6
+
+notification:
+  time: "08:00"           # daily WhatsApp reminder, local time
+  timezone: America/Argentina/Buenos_Aires
+  provider: callmebot     # callmebot | twilio | console
+  headlines: 5            # how many headlines go in the message
+
+refresh_minutes: 60       # how often the site is rebuilt in `serve` mode

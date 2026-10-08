@@ -1,0 +1,189 @@
+"""Keyword lists: topics, local relevance, life-stage hints and sensationalism markers.
+
+Everything is written in lowercase without accents (matching text.normalize).
+"""
+
+TOPIC_KEYWORDS: dict[str, list[str]] = {
+    "world": [
+        "war", "guerra", "ceasefire", "alto el fuego", "summit", "cumbre", "onu", "united nations", "naciones unidas", "nato", "otan",
+        "diplomat", "diplomacia", "sanctions", "sanciones", "invasion", "refugees", "refugiados",
+        "foreign minister", "canciller", "ukraine", "ucrania", "russia", "rusia", "china", "gaza",
+        "israel", "iran", "europe", "europa", "treaty", "tratado", "border", "frontera", "embassy", "embajada",
+    ],
+    "politics": [
+        "election", "elections", "elecciones", "eleccion", "president", "presidente", "presidenta",
+        "congress", "congreso", "senate", "senado", "parliament", "parlamento", "minister", "ministro",
+        "ministra", "government", "gobierno", "opposition", "oposicion", "vote", "votacion", "law", "ley",
+        "court", "corte", "supreme court", "tribunal", "legislators", "diputados", "senadores", "campaign",
+        "campana", "decree", "decreto", "prime minister", "primer ministro", "cabinet", "gabinete",
+    ],
+    "economy": [
+        "inflation", "inflacion", "gdp", "pbi", "pib", "recession", "recesion", "interest rate", "tasa",
+        "tasas", "central bank", "banco central", "imf", "fmi", "dollar", "dolar", "peso", "exports",
+        "exportaciones", "imports", "importaciones", "tariff", "tariffs", "aranceles", "arancel", "debt",
+        "deuda", "unemployment", "desempleo", "desocupacion", "salaries", "salarios", "wages", "budget",
+        "presupuesto", "taxes", "impuestos", "economy", "economia", "markets", "mercados", "reserves",
+        "reservas", "jobs", "empleo", "pensions", "jubilaciones", "prices", "precios", "bonds", "bonos",
+    ],
+    "business": [
+        "company", "empresa", "empresas", "merger", "fusion", "acquisition", "adquisicion", "shares",
+        "acciones", "stock", "bolsa", "earnings", "ganancias", "ceo", "startup", "investment", "inversion",
+        "bank", "banco", "oil", "petroleo", "industry", "industria", "retail",
+    ],
+    "science": [
+        "scientists", "cientificos", "study", "estudio", "research", "investigacion", "nasa", "space",
+        "espacio", "telescope", "telescopio", "species", "especie", "fossil", "fosil", "physics", "fisica",
+        "biology", "biologia", "astronomers", "astronomos", "discovery", "descubrimiento", "mars", "marte",
+        "moon", "luna", "genome", "genoma", "nobel",
+    ],
+    "technology": [
+        "artificial intelligence", "inteligencia artificial", "ai", "ia", "chip", "chips", "semiconductor",
+        "semiconductores", "software", "app", "apple", "google", "microsoft", "openai", "anthropic",
+        "nvidia", "cyberattack", "ciberataque", "hackers", "smartphone", "internet",
+        "robot", "robots", "tesla", "satellite", "satelite", "technology", "tecnologia", "quantum", "cuantica",
+    ],
+    "health": [
+        "health", "salud", "hospital", "hospitales", "vaccine", "vacuna", "vacunas", "virus", "outbreak",
+        "brote", "disease", "enfermedad", "cancer", "world health organization", "oms", "patients", "pacientes", "doctors",
+        "medicos", "epidemic", "epidemia", "pandemic", "pandemia", "dengue", "drug", "medicamento",
+        "medicamentos", "mental health", "salud mental", "obesity", "obesidad",
+    ],
+    "environment": [
+        "climate", "clima", "climate change", "cambio climatico", "emissions", "emisiones", "wildfire",
+        "incendio", "incendios", "drought", "sequia", "flood", "floods", "inundacion", "inundaciones",
+        "hurricane", "huracan", "earthquake", "terremoto", "sismo", "deforestation", "deforestacion",
+        "renewable", "renovables", "pollution", "contaminacion", "heatwave", "ola de calor",
+    ],
+    "education": [
+        "school", "schools", "escuela", "escuelas", "university", "universidad", "universidades",
+        "students", "estudiantes", "teachers", "docentes", "education", "educacion", "exam", "examen",
+    ],
+    "culture": [
+        "film", "pelicula", "cine", "music", "musica", "museum", "museo", "book", "libro", "literature",
+        "literatura", "festival", "art", "arte", "exhibition", "exposicion", "oscar", "grammy",
+    ],
+    "sports": [
+        "football", "futbol", "soccer", "world cup", "mundial", "copa", "tennis", "tenis", "olympics",
+        "olimpicos", "nba", "f1", "formula 1", "match", "goal", "gol", "messi", "seleccion",
+        "champions", "libertadores", "rugby", "torneo", "tournament",
+    ],
+    "security": [
+        "police", "policia", "crime", "crimen", "delito", "robbery", "robo", "murder", "asesinato",
+        "homicidio", "drug trafficking", "narcotrafico", "arrested", "detenido", "detenidos", "attack",
+        "ataque", "shooting", "tiroteo", "terrorism", "terrorismo",
+    ],
+    "latam": [
+        "latin america", "america latina", "latinoamerica", "argentina", "brazil", "brasil", "chile",
+        "uruguay", "paraguay", "bolivia", "peru", "colombia", "venezuela", "ecuador", "mexico", "mercosur",
+        "cuba", "lula", "milei",
+    ],
+}
+
+# Words that suggest a local story for each country (normalized).
+COUNTRY_KEYWORDS: dict[str, list[str]] = {
+    "AR": ["argentina", "argentino", "argentinos", "argentinas", "buenos aires", "caba", "conurbano",
+           "casa rosada", "milei", "bcra", "indec", "anses", "afip", "arca", "cordoba", "rosario",
+           "mendoza", "santa fe", "tucuman", "patagonia", "malvinas", "falklands"],
+    "ES": ["espana", "spain", "spanish", "espanol", "espanoles", "madrid", "barcelona", "cataluna",
+           "moncloa", "congreso de los diputados", "andalucia", "valencia", "pais vasco"],
+    "MX": ["mexico", "mexican", "mexicano", "mexicanos", "cdmx", "sheinbaum", "morena", "jalisco",
+           "monterrey", "guadalajara", "banxico"],
+    "US": ["united states", "american", "americans", "estados unidos", "eeuu", "washington",
+           "white house", "casa blanca", "congress", "federal reserve", "fed"],
+    "CL": ["chile", "chileno", "chilenos", "santiago de chile", "la moneda", "valparaiso"],
+    "UY": ["uruguay", "uruguayo", "uruguayos", "montevideo"],
+    "CO": ["colombia", "colombiano", "colombianos", "bogota", "medellin", "cali"],
+    "PE": ["peru", "peruano", "peruanos", "lima"],
+    "GB": ["uk", "britain", "british", "england", "scotland", "wales", "london", "downing street",
+           "reino unido", "londres"],
+}
+
+# Gentle hints about what tends to matter at each life stage. They only add a
+# small boost and can be switched off with profile.use_age_hints: false.
+AGE_HINTS: list[tuple[int, int, list[str]]] = [
+    (0, 25, ["university", "universidad", "students", "estudiantes", "scholarship", "beca",
+             "first job", "primer empleo", "rent", "alquiler", "alquileres"]),
+    (25, 45, ["mortgage", "hipoteca", "credito hipotecario", "rent", "alquiler", "alquileres",
+              "salaries", "salarios", "wages", "jobs", "empleo", "childcare", "schools", "escuelas"]),
+    (45, 65, ["pensions", "jubilaciones", "retirement", "jubilacion", "salaries", "salarios",
+              "taxes", "impuestos", "health", "salud", "savings", "ahorro"]),
+    (65, 200, ["pensions", "jubilaciones", "jubilados", "retirement", "pami", "health", "salud",
+               "medicamentos", "medicines", "hospital"]),
+]
+
+# Opinion / commentary is excluded: we want reporting, not takes.
+OPINION_URL_PARTS = ["/opinion", "/opinión", "/editorial", "/columnistas", "/columnas/", "/blogs/",
+                     "/tribuna/", "/cartas-", "/analisis-opinion", "/comment/", "/commentisfree/"]
+OPINION_TITLE_PREFIXES = ["opinion", "opinion:", "editorial", "column", "columna", "tribuna",
+                          "carta de lectores", "commentary", "op-ed"]
+
+# Markers of hype / loaded language. Each hit lowers a story's score and makes
+# that outlet's headline less likely to be the one shown.
+SENSATIONAL = [
+    "shocking", "shock", "slams", "blasts", "destroys", "obliterates", "rips", "outrage", "furious",
+    "you won't believe", "jaw-dropping", "bombshell", "viral", "goes viral", "meltdown", "epic",
+    "insane", "chaos", "explosive", "brutal", "humiliates", "fury", "stunning", "must see",
+    "impactante", "escandalo", "escandaloso", "polemica", "polemico", "furor", "explota", "estalla",
+    "insolito", "increible", "tremendo", "tremenda", "fuerte cruce", "durisimo", "durisima",
+    "lapidario", "lapidaria", "humillo", "humillante", "liquido", "destrozo", "fulmino", "arraso",
+    "se viralizo", "viralizo", "mira", "video:", "el video", "la foto", "las fotos", "atencion",
+    "ultimo momento", "urgente", "bomba", "picante", "escandalosa",
+]
+
+UI = {
+    "en": {
+        "top": "Most important now",
+        "local": "Your country",
+        "updated": "Updated",
+        "articles": "{n} articles read",
+        "sources_one": "1 outlet",
+        "sources_many": "{n} outlets",
+        "single_source": "single source",
+        "why": "Why you see this",
+        "covered": "covered by {n} independent outlets",
+        "matches": "matches",
+        "local_match": "relevant to {country}",
+        "read_at": "Read at",
+        "empty": "No stories right now. Check back after the next update.",
+        "greeting": "Good morning! Your news for {date}",
+        "more": "More on the site",
+        "about": "Stories are ranked by how many independent outlets report them, how recent they are and how well they match your profile. Opinion pieces are excluded and hyped headlines are down-ranked.",
+        "topics": {
+            "world": "World", "politics": "Politics", "economy": "Economy", "business": "Business",
+            "science": "Science", "technology": "Technology", "health": "Health",
+            "environment": "Environment", "education": "Education", "culture": "Culture",
+            "sports": "Sports", "security": "Security", "latam": "Latin America",
+        },
+    },
+    "es": {
+        "top": "Lo más importante",
+        "local": "Tu país",
+        "updated": "Actualizado",
+        "articles": "{n} artículos leídos",
+        "sources_one": "1 medio",
+        "sources_many": "{n} medios",
+        "single_source": "fuente única",
+        "why": "Por qué lo ves",
+        "covered": "cubierto por {n} medios independientes",
+        "matches": "coincide con",
+        "local_match": "relevante para {country}",
+        "read_at": "Leer en",
+        "empty": "No hay noticias por ahora. Volvé a mirar después de la próxima actualización.",
+        "greeting": "¡Buen día! Tus noticias del {date}",
+        "more": "Más en el sitio",
+        "about": "Las noticias se ordenan según cuántos medios independientes las cubren, qué tan recientes son y cuánto coinciden con tu perfil. Se excluyen columnas de opinión y se penalizan los titulares sensacionalistas.",
+        "topics": {
+            "world": "Mundo", "politics": "Política", "economy": "Economía", "business": "Negocios",
+            "science": "Ciencia", "technology": "Tecnología", "health": "Salud",
+            "environment": "Ambiente", "education": "Educación", "culture": "Cultura",
+            "sports": "Deportes", "security": "Seguridad", "latam": "América Latina",
+        },
+    },
+}
+
+COUNTRY_NAMES = {
+    "en": {"AR": "Argentina", "ES": "Spain", "MX": "Mexico", "US": "the US", "CL": "Chile",
+           "UY": "Uruguay", "CO": "Colombia", "PE": "Peru", "GB": "the UK"},
+    "es": {"AR": "Argentina", "ES": "España", "MX": "México", "US": "EE.UU.", "CL": "Chile",
+           "UY": "Uruguay", "CO": "Colombia", "PE": "Perú", "GB": "Reino Unido"},
+}
