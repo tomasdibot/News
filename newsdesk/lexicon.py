@@ -181,6 +181,13 @@ UI = {
     },
 }
 
+LOCK_UI = {
+    "en": {"placeholder": "Password", "remember": "Remember me on this device", "unlock": "Open",
+           "opening": "Opening…", "wrong": "Wrong password.", "noscript": "Enable JavaScript to open this page."},
+    "es": {"placeholder": "Contraseña", "remember": "Recordarme en este dispositivo", "unlock": "Abrir",
+           "opening": "Abriendo…", "wrong": "Contraseña incorrecta.", "noscript": "Activá JavaScript para abrir esta página."},
+}
+
 COUNTRY_NAMES = {
     "en": {"AR": "Argentina", "ES": "Spain", "MX": "Mexico", "US": "the US", "CL": "Chile",
            "UY": "Uruguay", "CO": "Colombia", "PE": "Peru", "GB": "the UK"},

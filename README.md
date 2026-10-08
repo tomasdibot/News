@@ -46,6 +46,28 @@ The rules are kept in plain lists in `newsdesk/lexicon.py` and `sources.yaml`, s
 > ```
 > Your phone number and API keys are only ever read from secrets or environment variables.
 
+## Password protection
+
+The published page is encrypted with a password of your choice, so only someone
+who has the password can read it. The first time you open the link you type the
+password. With *Remember me on this device* ticked (the default), later visits open
+straight away, including after each hourly update.
+
+How it works: the page is encrypted with AES-256-GCM using a key derived from your
+password (PBKDF2-SHA256, 600,000 rounds), and your browser decrypts it. The published
+page holds only the encrypted data and the unlock form. The raw `edition.json` is
+never published.
+
+- Set the password as the GitHub secret `NEWSDESK_PASSWORD` (at least 10 characters).
+  If it is missing, the workflow stops instead of publishing an open page.
+- Pick a long password: anyone can download the encrypted page and try passwords
+  offline. Four or five random words is a good choice.
+- To change the password, update the secret and run the workflow. Devices that
+  remembered the old one will ask again.
+- To forget a device, clear the site's data in the browser.
+- Locally, `export NEWSDESK_PASSWORD=...` before `build` or `serve` to get the same
+  locked page. Without it the local page is unlocked.
+
 ## WhatsApp setup
 
 Pick one provider and set `notification.provider` in `config.yaml`.
@@ -66,8 +88,8 @@ but messages that start a conversation then need an approved template.
 
 1. Push this repo to GitHub.
 2. **Settings → Pages → Source: GitHub Actions.**
-3. **Settings → Secrets and variables → Actions**: add `WHATSAPP_PHONE`, your provider's
-   secrets and, optionally, `NEWSDESK_PROFILE`.
+3. **Settings → Secrets and variables → Actions**: add `NEWSDESK_PASSWORD`,
+   `WHATSAPP_PHONE`, your provider's secrets and, optionally, `NEWSDESK_PROFILE`.
 4. **Actions → Newsdesk → Run workflow** (tick *Also send the WhatsApp message* to test).
    The site will be at `https://<user>.github.io/<repo>/`.
 
@@ -78,7 +100,9 @@ UTC.** It is currently `45 10 * * *`, i.e. 07:45 in Argentina. Change both that 
 - GitHub can start scheduled runs 5–15 minutes late, so the time is approximate.
 - GitHub pauses scheduled workflows after 60 days with no commits. Push any small change
   every so often, or re-enable the workflow from the Actions tab.
-- The Pages site is public.
+- Anyone can reach the Pages URL, but without the password they only see the unlock
+  form. On a free GitHub account the repo must be public to use Pages, so keep
+  personal details in the `NEWSDESK_PROFILE` secret, not in `config.yaml`.
 
 ## Or run it on your own machine / server
 

@@ -64,10 +64,11 @@ def test_sensational_detection():
 def test_build_render_and_message(articles, cfg, tmp_path):
     edition = build_edition(cfg, articles=articles, now=NOW)
     assert edition["top"][0]["image"]
-    page = render(edition, cfg, out_dir=tmp_path)
+    page = render(edition, cfg, out_dir=tmp_path / "site", data_path=tmp_path / "edition.json")
     html = page.read_text()
     assert "Lo más importante" in html and "3 medios" in html
     assert json.loads((tmp_path / "edition.json").read_text())["top"]
+    assert not (tmp_path / "site" / "edition.json").exists()
     msg = compose_message(edition, cfg, now=NOW)
     assert msg.startswith("*¡Buen día! Tus noticias del jueves 8 de octubre*")
     assert "https://example.github.io/News/" in msg

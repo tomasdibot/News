@@ -10,7 +10,8 @@ import logging
 import sys
 
 from .config import load_config, load_sources
-from .edition import SITE_DIR, build_edition, render
+from .edition import DATA_PATH, SITE_DIR, build_edition, render
+from .lock import LockError
 from .notify import NotifyError, notify
 
 log = logging.getLogger("newsdesk")
@@ -24,7 +25,7 @@ def cmd_build(cfg, args) -> int:
 
 
 def cmd_notify(cfg, args) -> int:
-    path = SITE_DIR / "edition.json"
+    path = DATA_PATH
     if args.fresh or not path.exists():
         edition = build_edition(cfg)
         render(edition, cfg)
@@ -114,7 +115,11 @@ def main(argv=None) -> int:
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     cfg = load_config(args.config)
-    return {"build": cmd_build, "notify": cmd_notify, "serve": cmd_serve, "check-feeds": cmd_check_feeds}[args.cmd](cfg, args)
+    try:
+        return {"build": cmd_build, "notify": cmd_notify, "serve": cmd_serve, "check-feeds": cmd_check_feeds}[args.cmd](cfg, args)
+    except LockError as exc:
+        log.error("%s", exc)
+        return 1
 
 
 if __name__ == "__main__":

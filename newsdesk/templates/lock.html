@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>{{ title }}</title>
+<style>
+:root { --bg: #f7f5f0; --card: #fff; --ink: #1a1a1a; --muted: #6b6b6b; --line: #e3dfd6; --accent: #9b2c2c; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #141414; --card: #1d1d1d; --ink: #ececec; --muted: #9a9a9a; --line: #2e2e2e; --accent: #e07a6e; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px;
+       background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; }
+form { width: 100%; max-width: 360px; background: var(--card); border: 1px solid var(--line);
+       border-radius: 12px; padding: 28px 24px; display: flex; flex-direction: column; gap: 14px; }
+h1 { font: 700 28px Georgia, serif; margin: 0; }
+input[type=password] { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+       background: var(--bg); color: var(--ink); width: 100%; }
+label.rem { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 14px; }
+button { font: 600 15px system-ui, sans-serif; padding: 10px; border: 0; border-radius: 8px;
+         background: var(--ink); color: var(--bg); cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+.err { color: var(--accent); font-size: 14px; min-height: 1.2em; margin: 0; }
+</style>
+</head>
+<body>
+<form id="f" hidden>
+  <h1>{{ title }}</h1>
+  <input id="pw" type="password" autocomplete="current-password" placeholder="{{ t.placeholder }}" required autofocus>
+  <label class="rem"><input id="rem" type="checkbox" checked> {{ t.remember }}</label>
+  <button id="go" type="submit">{{ t.unlock }}</button>
+  <p class="err" id="err" role="alert"></p>
+</form>
+<noscript>{{ t.noscript }}</noscript>
+<script>
+(function () {
+  var P = {{ payload|tojson }};
+  var KEY = "newsdesk-key:" + P.salt;
+  var T = {{ t|tojson }};
+  var dec = function (s) { return Uint8Array.from(atob(s), function (c) { return c.charCodeAt(0); }); };
+  var enc = function (b) { return btoa(String.fromCharCode.apply(null, new Uint8Array(b))); };
+  function store(op, v) { try { return op === "get" ? localStorage.getItem(KEY) : op === "set" ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) { return null; } }
+
+  function open(rawKey) {
+    return crypto.subtle.importKey("raw", rawKey, "AES-GCM", false, ["decrypt"])
+      .then(function (k) { return crypto.subtle.decrypt({ name: "AES-GCM", iv: dec(P.iv) }, k, dec(P.data)); })
+      .then(function (buf) {
+        var html = new TextDecoder().decode(buf);
+        document.open(); document.write(html); document.close();
+      });
+  }
+  function derive(pw) {
+    return crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveBits"])
+      .then(function (base) {
+        return crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: dec(P.salt), iterations: P.iterations }, base, 256);
+      });
+  }
+
+  var form = document.getElementById("f"), err = document.getElementById("err"), go = document.getElementById("go");
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    err.textContent = ""; go.disabled = true; go.textContent = T.opening;
+    var remember = document.getElementById("rem").checked;  // read now: open() replaces the page
+    derive(document.getElementById("pw").value).then(function (raw) {
+      return open(raw).then(function () {
+        if (remember) store("set", enc(raw));
+      });
+    }).catch(function () {
+      err.textContent = T.wrong; go.disabled = false; go.textContent = T.unlock;
+    });
+  });
+
+  var saved = store("get");
+  if (saved) {
+    open(dec(saved)).catch(function () { store("del"); form.hidden = false; });
+  } else {
+    form.hidden = false;
+  }
+})();
+</script>
+</body>
+</html>

@@ -4,3 +4,4 @@ __pycache__/
 site/
 .env
 .pytest_cache/
+build/

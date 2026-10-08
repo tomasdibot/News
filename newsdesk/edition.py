@@ -14,12 +14,14 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 from .cluster import Story, cluster
 from .config import ROOT, load_sources
 from .fetch import fetch_all, fetch_og_image
-from .lexicon import COUNTRY_NAMES, UI
+from .lexicon import COUNTRY_NAMES, LOCK_UI, UI
+from .lock import encrypt, password_from_env, site_salt
 from .rank import score_stories, select_sections
 from .text import truncate
 
 log = logging.getLogger(__name__)
-SITE_DIR = ROOT / "site"
+SITE_DIR = ROOT / "site"            # published
+DATA_PATH = ROOT / "build" / "edition.json"  # never published: used by `notify`
 
 
 def fill_missing_images(stories: list[Story], limit: int = 40) -> None:
@@ -85,7 +87,10 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     }
 
 
-def render(edition: dict, cfg: dict, out_dir: Path = SITE_DIR) -> Path:
+def render(edition: dict, cfg: dict, out_dir: Path = SITE_DIR, data_path: Path = DATA_PATH,
+           password: str | None = None) -> Path:
+    """Write the site. With a password (argument or NEWSDESK_PASSWORD) the page is encrypted."""
+    password = password or password_from_env()
     lang = cfg["site"]["ui_language"]
     ui = UI.get(lang, UI["en"])
     env = Environment(loader=PackageLoader("newsdesk", "templates"), autoescape=select_autoescape())
@@ -97,8 +102,18 @@ def render(edition: dict, cfg: dict, out_dir: Path = SITE_DIR) -> Path:
         cfg=cfg,
         country_name=COUNTRY_NAMES.get(lang, {}).get(cfg["profile"]["country"], cfg["profile"]["country"]),
     )
+    if password:
+        html = env.get_template("lock.html").render(
+            title=cfg["site"]["title"],
+            lang=lang,
+            t=LOCK_UI.get(lang, LOCK_UI["en"]),
+            payload=encrypt(html, password, site_salt(cfg)),
+        )
+
     out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "edition.json").unlink(missing_ok=True)  # left over from older versions: would leak the news
     (out_dir / "index.html").write_text(html, encoding="utf-8")
-    (out_dir / "edition.json").write_text(json.dumps(edition, ensure_ascii=False, indent=1), encoding="utf-8")
     (out_dir / ".nojekyll").write_text("")
+    data_path.parent.mkdir(parents=True, exist_ok=True)
+    data_path.write_text(json.dumps(edition, ensure_ascii=False, indent=1), encoding="utf-8")
     return out_dir / "index.html"
