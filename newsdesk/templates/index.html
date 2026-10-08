@@ -128,9 +128,12 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
 .tlist { margin-top: 12px; }
 .tl { flex: 1; display: flex; flex-direction: column; min-height: 44px; justify-content: center; }
 .tl small { color: var(--muted); font-size: 12px; }
-.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.chip { border: 1px solid var(--line); background: var(--chip); border-radius: 999px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
-.chip:disabled { opacity: .4; cursor: default; }
+.picklabel { display: block; font: 600 15px var(--sans); margin: 18px 0 8px; }
+#pick { width: 100%; min-height: 48px; font: inherit; font-size: 16px; padding: 8px 36px 8px 12px; border-radius: 8px;
+        border: 1px solid var(--line); background: var(--bg); color: var(--ink); -webkit-appearance: none; appearance: none;
+        background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+        background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%; background-size: 6px 6px; background-repeat: no-repeat;
+        margin-bottom: 8px; }
 .pick { background: var(--card); border: 1px dashed var(--accent); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
 .pick p { margin: 0 0 10px; }
 .pickbtn { width: 100%; border: 0; cursor: pointer; }
@@ -161,13 +164,14 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   <h2 tabindex="-1" autofocus>{{ ui.themes_title }}</h2>
   <p class="hint">{{ ui.themes_hint }}</p>
   <form class="addrow" id="addform">
-    <input type="text" id="newtheme" placeholder="{{ ui.theme_placeholder }}" autocomplete="off" enterkeyhint="done">
+    <input type="text" id="newtheme" placeholder="{{ ui.theme_placeholder }}" autocomplete="off" enterkeyhint="done" list="themelist">
+    <datalist id="themelist"></datalist>
     <button type="submit" class="primary">{{ ui.add }}</button>
   </form>
   <ul class="tlist" id="tlist"></ul>
   <p class="hint" id="nothemes">{{ ui.no_themes }}</p>
-  <h3>{{ ui.suggestions }}</h3>
-  <div class="chips" id="chips"></div>
+  <label class="picklabel" for="pick">{{ ui.suggestions }}</label>
+  <select id="pick"></select>
   <label class="switch"><input type="checkbox" id="showlocal"> <span>{{ ui.show_local }}</span></label>
   <div class="row2">
     <button type="button" id="setcancel">{{ ui.cancel }}</button>
@@ -180,7 +184,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   "stories": e.stories, "themes": e.themes, "labels": ui.topics, "country": country_name, "lang": lang,
   "t": {"top": ui.top, "local": ui.local, "empty": ui.empty_theme, "read": ui.read_full, "covered": ui.covered_by,
         "one": ui.sources_one, "many": ui.sources_many, "single": ui.single_source, "count": ui.theme_count, "count1": ui.theme_count_one,
-        "remove": ui.remove, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn}
+        "remove": ui.remove, "pickone": ui.pick_one, "popular": ui.popular, "alltopics": ui.all_topics, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn}
 }|tojson }}</script>
 
 <script>
@@ -437,9 +441,13 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     }).join("");
     list.hidden = !draft.themes.length;
     document.getElementById("nothemes").hidden = !!draft.themes.length;
-    document.getElementById("chips").innerHTML = TH.suggested.map(function (l) {
-      return '<button type="button" class="chip"' + (has(l) ? " disabled" : "") + ">" + esc(l) + "</button>";
-    }).join("");
+    var opt = function (l) { return '<option value="' + esc(l) + '"' + (has(l) ? " disabled" : "") + ">" + esc(l) + "</option>"; };
+    var rest = TH.all.filter(function (l) { return TH.suggested.indexOf(l) < 0; });
+    pick.innerHTML = '<option value="">' + esc(T.pickone) + "</option>"
+      + '<optgroup label="' + esc(T.popular) + '">' + TH.suggested.map(opt).join("") + "</optgroup>"
+      + '<optgroup label="' + esc(T.alltopics) + '">' + rest.map(opt).join("") + "</optgroup>";
+    document.getElementById("themelist").innerHTML = TH.all.filter(function (l) { return !has(l); })
+      .map(function (l) { return '<option value="' + esc(l) + '"></option>'; }).join("");
   }
   function addTheme(th) {
     th = th.trim().replace(/\s+/g, " ");
@@ -458,9 +466,10 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   document.getElementById("addform").addEventListener("submit", function (ev) {
     ev.preventDefault(); addTheme(input.value); input.value = "";
   });
-  document.getElementById("chips").addEventListener("click", function (ev) {
-    var b = ev.target.closest(".chip");
-    if (b && !b.disabled) addTheme(b.textContent);
+  var pick = document.getElementById("pick");
+  pick.addEventListener("change", function () {
+    if (pick.value) addTheme(pick.value);
+    pick.value = "";
   });
   list.addEventListener("click", function (ev) {
     var li = ev.target.closest("li");

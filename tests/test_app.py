@@ -72,7 +72,10 @@ def test_first_run_asks_for_themes_and_builds_tabs(site, browser):
     assert tab_names(page) == ["Lo más importante", "Tu país"]
     page.fill("#newtheme", "economía argentina")
     page.press("#newtheme", "Enter")
-    page.click("#chips >> text=Ciencia")
+    assert page.locator("#pick option").count() > 40      # every known theme is in the list
+    page.select_option("#pick", "Ciencia")
+    assert page.locator('#pick option[value="Ciencia"]').is_disabled()   # can't add it twice
+    assert page.input_value("#pick") == ""
     page.fill("#newtheme", "octopus")
     page.click("#addform button")
     assert "1 noticia ahora" in page.text_content("#tlist")

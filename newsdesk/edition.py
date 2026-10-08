@@ -116,6 +116,7 @@ def theme_dictionary(cfg: dict) -> dict:
     return {
         "concepts": concepts,
         "suggested": [by_id[i] for i in SUGGESTED_THEMES if i in by_id],
+        "all": sorted(set(by_id.values()), key=lambda l: normalize(l)),
         # Typing your country as (part of) a theme means "news about it".
         "country_names": sorted({normalize(n) for names in COUNTRY_NAMES.values() for code, n in names.items()
                                  if code == country} | set(COUNTRY_KEYWORDS.get(country, [])[:4])),

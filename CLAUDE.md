@@ -24,5 +24,7 @@ daily phone notification (Web Push) from the installed app. See README.md for de
   the `NOTIFY_CRON` time (also sends the reminder). Times in that file are UTC.
 - Secrets: `NEWSDESK_PASSWORD` (required), `PUSH_SUBSCRIPTIONS` (codes from the app's bell),
   optional `NEWSDESK_PROFILE`, `VAPID_PRIVATE_KEY`, and WhatsApp provider secrets.
+- UI preference: suggestions/choices are always shown as a dropdown list (native `<select>`,
+  plus `<datalist>` autocomplete on text boxes), never as chips/buttons.
 - The owner does not trust Green API; don't suggest it again. WhatsApp providers are
   optional; the default reminder is `push`.
