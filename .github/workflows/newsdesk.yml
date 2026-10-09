@@ -75,6 +75,13 @@ jobs:
           key: neutral-${{ github.run_id }}
           restore-keys: neutral-
 
+      # AI theme filter verdicts from earlier runs (each story is read once per theme).
+      - uses: actions/cache@v4
+        with:
+          path: build/theme-cache.json
+          key: themes-${{ github.run_id }}
+          restore-keys: themes-
+
       - name: Build edition
         run: python -m newsdesk build
         env:
@@ -88,6 +95,9 @@ jobs:
           # built-in token, or Claude if the optional ANTHROPIC_API_KEY secret exists.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Your themes, one per line (⚙ in the app → "Copy themes"): the AI keeps only
+          # the stories that fit each one exactly.
+          NEWSDESK_THEMES: ${{ secrets.NEWSDESK_THEMES }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

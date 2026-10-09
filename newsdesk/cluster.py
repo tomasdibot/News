@@ -71,6 +71,7 @@ class Story:
     headline: Article | None = None
     image: str | None = None
     neutral: dict | None = None  # {title, summary} written by Claude (neutral.py)
+    fits: dict[str, bool] = field(default_factory=dict)  # theme key -> fits exactly (judge.py)
 
     @property
     def outlets(self) -> list[str]:

@@ -18,6 +18,7 @@ from .config import ROOT, load_sources
 from .fetch import fetch_all, fetch_og_image
 from .lexicon import COUNTRY_NAMES, LOCK_UI, UI
 from .lock import encrypt, password_from_env, site_salt
+from .judge import judge_themes
 from .neutral import neutralize
 from .push import public_key_b64
 from .lexicon import CONCEPTS, COUNTRY_KEYWORDS, SUGGESTED_THEMES, TOPIC_ALIASES, TOPIC_KEYWORDS
@@ -65,6 +66,7 @@ def story_dict(s: Story, ui_lang: str) -> dict:
         "base": round(s.base, 4),
         "fixed": round(s.fixed, 3),
         "hype": bool(s.hype),
+        "fits": {k: 2 if v is None else int(v) for k, v in s.fits.items()},   # 2 = not read yet
         "score": round(s.score, 3),
         "sources": [
             {"outlet": a.outlet, "title": truncate(a.title, 160), "link": a.link, "lang": a.source.lang}
@@ -83,6 +85,7 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     pool = select_pool(stories, cfg)            # what the app shows and re-ranks
     if articles and (cfg.get("neutral_titles") or {}).get("enabled", True):
         neutralize(pool, cfg)
+    judged = judge_themes(pool, cfg) if articles else []
     if articles and cfg.get("_fetch_images", True):
         fill_missing_images(pool, limit=90)
 
@@ -96,6 +99,7 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
         "local": [story_dict(s, ui_lang) for s in sections["local"]],
         "stories": [story_dict(s, ui_lang) for s in pool],
         "themes": theme_dictionary(cfg),
+        "judged": judged,   # themes the AI filter knows (NEWSDESK_THEMES)
     }
 
 

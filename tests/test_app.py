@@ -213,3 +213,46 @@ def test_each_tab_shows_four_stories_until_asked_for_more(big_site, browser):
     page.click("#panel-0 .moreall")
     assert page.eval_on_selector_all("#panel-0 .card", visible) == 4
     assert not page.errors, page.errors
+
+
+@pytest.fixture
+def judged_site(articles, cfg, tmp_path, monkeypatch):
+    from datetime import timedelta
+
+    from conftest import SOURCES
+    from newsdesk import judge
+    from newsdesk.fetch import Article
+
+    extra = [
+        Article(SOURCES["bbc"], "OpenAI releases GPT-6 language model", "https://x/j1", "The company announced it.", NOW - timedelta(hours=1)),
+        Article(SOURCES["dw"], "Startup builds AI agent that helps people cut calories", "https://x/j2", "A diet app.", NOW - timedelta(hours=1)),
+    ]
+    monkeypatch.setenv("NEWSDESK_THEMES", "Avances de la IA de fuentes oficiales")
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    monkeypatch.setattr(judge, "CACHE_PATH", tmp_path / "tc.json")
+    monkeypatch.setattr(judge, "_ask", lambda p, c, m, t, batch: {k: "GPT-6" in x["headlines"][0] for k, x in batch})
+    monkeypatch.setattr("newsdesk.edition.neutralize", lambda *a, **k: 0)
+    monkeypatch.delenv("NEWSDESK_PASSWORD", raising=False)
+    cfg = dict(cfg, _fetch_images=False)
+    render(build_edition(cfg, articles=articles + extra, now=NOW), cfg, out_dir=tmp_path / "s4", data_path=tmp_path / "e4.json")
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path / "s4"))
+    handler.log_message = lambda *a: None
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield f"http://localhost:{server.server_address[1]}/"
+    server.shutdown()
+
+
+def test_ai_filter_keeps_only_exact_matches(judged_site, browser):
+    page = open_app(browser, judged_site, {"v": 2, "themes": ["Avances de la IA de fuentes oficiales"], "local": False})
+    text = panel_text(page, "Avances de la IA de fuentes oficiales")
+    assert "GPT-6" in text and "calories" not in text
+    page.click("#gear")
+    assert "Filtro IA activo" in page.text_content("#aistate")
+    page.click("#setcancel")
+    # A theme the filter doesn't know yet: keyword matching, plus the hint to copy the themes.
+    page = open_app(browser, judged_site, {"v": 2, "themes": ["Inteligencia artificial"], "local": False})
+    page.click("#gear")
+    assert "NEWSDESK_THEMES" in page.text_content("#aistate")
+    assert page.input_value("#aicode") == "Inteligencia artificial"
+    assert not page.errors, page.errors
