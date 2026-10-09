@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from .cluster import cluster
 from .config import load_sources
 from .fetch import fetch_all
-from .judge import BATCH, PER_THEME, _ask, _material, candidates, configured_themes, theme_key
+from .judge import PER_THEME, _material, ask_many, candidates, configured_themes, theme_key
 from .neutral import _provider
 from .rank import score_stories
 
@@ -96,56 +96,48 @@ def run(cfg, out=print) -> int:
         import anthropic
 
         client = anthropic.Anthropic()
-    model = os.environ.get("NEWSDESK_LOCAL_MODEL", "") if provider == "local" else cfg["neutral_titles"]["model"]
+    # Setups to compare, e.g. AUDIT_SETUPS="batch@qwen2.5:3b,single@qwen2.5:3b,single@qwen2.5:7b".
+    default = os.environ.get("NEWSDESK_THEME_MODEL") or os.environ.get("NEWSDESK_LOCAL_MODEL", "") \
+        if provider == "local" else cfg["neutral_titles"]["model"]
+    setups = [tuple(x.split("@", 1)) for x in os.environ.get("AUDIT_SETUPS", f"single@{default}").split(",") if "@" in x]
     now = datetime.now(timezone.utc)
-    lines: list[str] = [f"# AI theme filter check ({provider}: {model})", ""]
+    lines: list[str] = [f"# AI theme filter check ({provider})", ""]
 
-    def ask(theme, items):
-        got, t0 = {}, time.time()
-        for i in range(0, len(items), BATCH):
-            part = items[i:i + BATCH]
-            try:
-                got.update(_ask(provider, client, model, theme, part))
-            except Exception as exc:
-                lines.append(f"- (error: {type(exc).__name__}: {exc})")
-        return got, time.time() - t0
-
-    # 1. Test with known answers.
+    # 1. Test with known answers, for each setup.
     lines += ["## 1. Test with known answers", ""]
-    total = right = 0
-    for theme in themes:
-        name, cases = _case_set(theme)
-        if not cases:
-            lines += [f"### {theme}", "_(no example stories for this subject)_", ""]
-            continue
-        items = [(f"c{i}", {"headlines": [h], "excerpt": e}) for i, (h, e, _) in enumerate(cases)]
-        got, secs = ask(theme, items)
-        ok = [got.get(f"c{i}") == want for i, (_, _, want) in enumerate(cases)]
-        total += len(cases)
-        right += sum(ok)
-        lines += [f"### {theme}", f"**{sum(ok)}/{len(cases)} right** ({secs:.0f}s)", ""]
-        for (h, _, want), good, i in zip(cases, ok, range(len(cases))):
-            if not good:
-                said = got.get(f"c{i}")
-                lines.append(f"- ✗ {h} — should be {'IN' if want else 'OUT'}, model said "
-                             f"{'IN' if said else 'OUT' if said is False else 'nothing'}")
-        lines.append("")
-    if total:
-        lines += [f"**Overall: {right}/{total} right ({100 * right // total}%)**", ""]
+    for mode, model in setups:
+        total = right = 0
+        t0 = time.time()
+        lines += [f"### {mode} · {model}", ""]
+        for theme in themes:
+            name, cases = _case_set(theme)
+            if not cases:
+                lines.append(f"- {theme}: _(no example stories for this subject)_")
+                continue
+            items = [(f"c{i}", {"headlines": [h], "excerpt": e}) for i, (h, e, _) in enumerate(cases)]
+            got = ask_many(provider, client, model, theme, items, mode)
+            ok = [got.get(f"c{i}") == want for i, (_, _, want) in enumerate(cases)]
+            total += len(cases)
+            right += sum(ok)
+            wrong = [f"{h} (should be {'IN' if want else 'OUT'})" for (h, _, want), good in zip(cases, ok) if not good]
+            lines.append(f"- {theme}: **{sum(ok)}/{len(cases)} right**" + (" — wrong: " + "; ".join(wrong) if wrong else ""))
+        if total:
+            lines += ["", f"**Overall: {right}/{total} right ({100 * right // total}%), {time.time() - t0:.0f}s**", ""]
 
-    # 2. Today's real news.
-    lines += ["## 2. Today's news, as the filter sees it", ""]
+    # 2. Today's real news: the same stories through every setup, side by side.
+    lines += ["## 2. Today's news, as each setup sees it", "",
+              "Columns: " + " | ".join(f"{m}·{md}" for m, md in setups), ""]
     articles = fetch_all(load_sources(cfg), country=cfg["profile"]["country"])
     stories = score_stories(cluster(articles), cfg, now)
+    sample = int(os.environ.get("AUDIT_SAMPLE", PER_THEME))
     for theme in themes:
-        cands = candidates(theme, stories)[:PER_THEME]
+        cands = candidates(theme, stories)[:sample]
         items = [(str(i), _material(s)) for i, s in enumerate(cands)]
-        got, secs = ask(theme, items)
-        ins = [s for i, s in enumerate(cands) if got.get(str(i))]
-        outs = [s for i, s in enumerate(cands) if got.get(str(i)) is False]
-        lines += [f"### {theme}", f"{len(cands)} candidates → **{len(ins)} in**, {len(outs)} out ({secs:.0f}s)", ""]
-        lines += [f"- ✔ {s.headline.title} — _{', '.join(s.outlets[:3])}_" for s in ins]
-        lines += [f"- ✘ {s.headline.title} — _{', '.join(s.outlets[:3])}_" for s in outs]
+        verdicts = [ask_many(provider, client, model, theme, items, mode) for mode, model in setups]
+        lines += [f"### {theme}", f"{len(cands)} candidates", ""]
+        for i, s in enumerate(cands):
+            marks = " ".join("✔" if v.get(str(i)) else "✘" if v.get(str(i)) is False else "·" for v in verdicts)
+            lines.append(f"- {marks} — {s.headline.title} — _{', '.join(s.outlets[:2])}_")
         lines.append("")
 
     report = "\n".join(lines)

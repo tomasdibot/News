@@ -232,7 +232,7 @@ def judged_site(articles, cfg, tmp_path, monkeypatch):
     monkeypatch.setenv("GITHUB_REF_NAME", "main")
     monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
     monkeypatch.setattr(judge, "CACHE_PATH", tmp_path / "tc.json")
-    monkeypatch.setattr(judge, "_ask", lambda p, c, m, t, batch: {k: "GPT-6" in x["headlines"][0] for k, x in batch})
+    monkeypatch.setattr(judge, "_ask_one", lambda p, c, m, t, x: "GPT-6" in x["headlines"][0])
     monkeypatch.setattr("newsdesk.edition.neutralize", lambda *a, **k: 0)
     monkeypatch.delenv("NEWSDESK_PASSWORD", raising=False)
     cfg = dict(cfg, _fetch_images=False)

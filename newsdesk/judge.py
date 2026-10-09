@@ -31,6 +31,7 @@ log = logging.getLogger(__name__)
 
 CACHE_PATH = ROOT / "build" / "theme-cache.json"
 BATCH = 10
+VERSION = 2      # bump when the way stories are judged changes: old verdicts are then ignored
 PER_THEME = 40   # a tab shows at most 15 stories: only the best candidates need reading
 
 SYSTEM = """You filter news for one reader. The reader described a theme in their own words. For each story, decide if it fits the theme EXACTLY.
@@ -42,6 +43,28 @@ Rules:
 - When in doubt, answer false.
 
 Return one entry per story id: {"id": ..., "fits": true/false}."""
+
+# One story at a time: small models mix stories up when given several at once.
+ONE_SYSTEM = """You decide whether one news story belongs in a section of a reader's personal newspaper. The reader described the section in their own words.
+
+Answer true only if the story's MAIN subject is what the section describes, respecting every qualifier:
+- "Avances / launches / models / developments" means new products, models, research results or official announcements. Lawsuits, scandals, firings, stock prices, company valuations, opinion and people merely using a tool do not fit.
+- A country in the section (e.g. "Argentina") means news about that country; the same topic in another country does not fit.
+- A broad section such as "Mundo: General" (world news) accepts any significant international story: wars, diplomacy, disasters, elections, abroad.
+- Ignore notes such as "written with AI help".
+
+Examples:
+Section "Tecnología: lanzamientos" / story "Apple presenta un nuevo iPhone" -> true
+Section "Tecnología: lanzamientos" / story "Juicio contra Apple por monopolio" -> false
+Section "Economía de Chile" / story "El Banco Central de Chile baja la tasa" -> true
+Section "Economía de Chile" / story "La inflación en México se acelera" -> false
+Section "Mundo: General" / story "Francia y Alemania firman acuerdo de defensa" -> true
+Section "Mundo: General" / story "River gana el clásico" -> false
+
+Reply only with JSON: {"fits": true} or {"fits": false}."""
+
+ONE_SCHEMA = {"type": "object", "properties": {"fits": {"type": "boolean"}}, "required": ["fits"],
+              "additionalProperties": False}
 
 SCHEMA = {
     "type": "object",
@@ -161,6 +184,49 @@ def _ask(provider: str, client, model: str, theme: str, batch: list[tuple[str, d
             if isinstance(e, dict) and str(e.get("id")) in ids and "fits" in e}
 
 
+def _ask_one(provider: str, client, model: str, theme: str, material: dict) -> bool | None:
+    story = "\n".join(material["headlines"]) + ("\n" + material["excerpt"] if material.get("excerpt") else "")
+    user = f"Section: {theme}\n\nStory:\n{story}\n\nDoes this story belong in the section?"
+    if provider == "anthropic":
+        response = client.beta.messages.create(
+            model=model, max_tokens=200, system=ONE_SYSTEM, messages=[{"role": "user", "content": user}],
+            output_config={"effort": "low", "format": {"type": "json_schema", "schema": ONE_SCHEMA}},
+            betas=["server-side-fallback-2026-07-01"], fallbacks="default",
+        )
+        text = next(b.text for b in response.content if b.type == "text")
+    else:
+        resp = requests.post(f"{OLLAMA_URL}/api/chat", timeout=60, json={
+            "model": model, "stream": False, "format": ONE_SCHEMA, "keep_alive": "30m",
+            "options": {"temperature": 0, "num_ctx": 2048, "num_predict": 12},
+            "messages": [{"role": "system", "content": ONE_SYSTEM}, {"role": "user", "content": user}],
+        })
+        resp.raise_for_status()
+        text = resp.json()["message"]["content"]
+    v = _parse_json(text).get("fits")
+    return v if isinstance(v, bool) else None
+
+
+def ask_many(provider: str, client, model: str, theme: str, items: list[tuple[str, dict]], mode: str = "single",
+             deadline: float | None = None) -> dict[str, bool]:
+    """Verdicts for (key, material) items: one story per request ("single") or several ("batch")."""
+    got: dict[str, bool] = {}
+    step = 1 if mode == "single" else BATCH
+    for i in range(0, len(items), step):
+        if deadline and time.time() > deadline:
+            break
+        part = items[i:i + step]
+        try:
+            if mode == "single":
+                v = _ask_one(provider, client, model, theme, part[0][1])
+                if v is not None:
+                    got[part[0][0]] = v
+            else:
+                got.update(_ask(provider, client, model, theme, part))
+        except Exception as exc:  # never let this break the edition
+            log.warning("themes: %s: %s", type(exc).__name__, exc)
+    return got
+
+
 def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, client=None) -> list[str]:
     """Set `s.fits[theme_key] = True/False` on judged stories. Returns the keys of the themes used."""
     themes = configured_themes(cfg)
@@ -178,12 +244,13 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
         client = client or anthropic.Anthropic()
         model = (cfg.get("neutral_titles") or {}).get("model", "claude-opus-5-5")
     else:
-        model = os.environ.get("NEWSDESK_LOCAL_MODEL", "")
+        model = os.environ.get("NEWSDESK_THEME_MODEL") or os.environ.get("NEWSDESK_LOCAL_MODEL", "")
+    mode = opts.get("mode", "single")
     deadline = time.time() + float(opts.get("time_budget_seconds", 300))
     now, judged, keys, queues = int(time.time()), 0, [], []
     for theme in themes:
         tk = theme_key(theme)
-        th = hashlib.sha1(tk.encode()).hexdigest()[:8]
+        th = hashlib.sha1(f"{VERSION}:{tk}".encode()).hexdigest()[:8]
         keys.append(tk)
         todo = []
         for s in candidates(theme, stories)[:PER_THEME]:
@@ -200,12 +267,9 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
         for theme, tk, todo in queues:
             if not todo or time.time() > deadline:
                 continue
-            part, todo[:] = todo[:BATCH], todo[BATCH:]
-            try:
-                got = _ask(provider, client, model, theme, [(ck, _material(s)) for ck, s in part])
-            except Exception as exc:  # never let this break the edition
-                log.warning("themes: %s: %s", type(exc).__name__, exc)
-                continue
+            n = 1 if mode == "single" else BATCH
+            part, todo[:] = todo[:n], todo[n:]
+            got = ask_many(provider, client, model, theme, [(ck, _material(s)) for ck, s in part], mode)
             for ck, s in part:
                 if ck in got:
                     cache[ck] = {"f": got[ck], "t": now}

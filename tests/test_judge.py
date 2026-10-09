@@ -33,11 +33,11 @@ def test_only_candidates_are_read_and_verdicts_are_cached(monkeypatch, cfg, tmp_
     monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
     asked = []
 
-    def fake_ask(provider, client, model, theme, batch):
-        asked.extend(m["headlines"][0] for _, m in batch)
-        return {k: "GPT-6" in m["headlines"][0] for k, m in batch}
+    def fake_ask(provider, client, model, theme, material):   # one story at a time
+        asked.append(material["headlines"][0])
+        return "GPT-6" in material["headlines"][0]
 
-    monkeypatch.setattr(judge, "_ask", fake_ask)
+    monkeypatch.setattr(judge, "_ask_one", fake_ask)
     ss = stories(cfg)
     keys = judge.judge_themes(ss, cfg, cache_path=tmp_path / "c.json")
     tk = judge.theme_key(THEME)
@@ -89,10 +89,26 @@ def test_audit_scores_known_examples_and_lists_todays_verdicts(monkeypatch, cfg,
     monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
     monkeypatch.setattr(audit, "fetch_all", lambda *a, **k: articles)
     # A fake model that says "in" to everything: the test must catch its mistakes.
-    monkeypatch.setattr(audit, "_ask", lambda p, c, m, t, batch: {k: True for k, _ in batch})
+    monkeypatch.setattr(audit, "ask_many", lambda p, c, m, t, items, mode="single": {k: True for k, _ in items})
     out = []
     assert audit.run(cfg, out=out.append) == 0
     report = out[0]
-    assert "5/10 right" in report and "should be OUT" in report
+    assert "5/10 right" in report and "should be OUT" in report and "Overall: 5/10" in report
     assert "no example stories" in report
     assert "## 2. Today's news" in report
+
+
+def test_one_story_per_request_with_a_tiny_answer(monkeypatch):
+    sent = []
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": '{"fits": true}'}}
+
+    monkeypatch.setattr(judge.requests, "post", lambda url, timeout, json: sent.append(json) or Resp())
+    got = judge.ask_many("local", None, "m", "Música", [("a", {"headlines": ["x"]}), ("b", {"headlines": ["y"]})])
+    assert got == {"a": True, "b": True} and len(sent) == 2
+    assert "Section: Música" in sent[0]["messages"][1]["content"] and sent[0]["options"]["num_predict"] <= 12

@@ -12,7 +12,7 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
 
@@ -29,7 +29,7 @@ jobs:
           key: ollama-qwen2.5-3b
 
       - name: Start local AI model
-        timeout-minutes: 8
+        timeout-minutes: 15
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
           sudo systemctl stop ollama 2>/dev/null || true
@@ -37,6 +37,7 @@ jobs:
           nohup ollama serve > /tmp/ollama.log 2>&1 &
           for i in $(seq 1 30); do curl -s http://127.0.0.1:11434/api/tags >/dev/null && break; sleep 1; done
           ollama pull qwen2.5:3b
+          ollama pull qwen2.5:7b
           echo "NEWSDESK_LOCAL_MODEL=qwen2.5:3b" >> "$GITHUB_ENV"
 
       - name: Check the filter
@@ -44,3 +45,6 @@ jobs:
         env:
           NEWSDESK_PROFILE: ${{ secrets.NEWSDESK_PROFILE }}
           NEWSDESK_THEMES: ${{ vars.NEWSDESK_THEMES || secrets.NEWSDESK_THEMES }}
+          # Compare: old way (10 stories per request), one story per request, and a bigger free model.
+          AUDIT_SETUPS: "batch@qwen2.5:3b,single@qwen2.5:3b,single@qwen2.5:7b"
+          AUDIT_SAMPLE: "20"
