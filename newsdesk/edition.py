@@ -151,6 +151,7 @@ def render(edition: dict, cfg: dict, out_dir: Path = SITE_DIR, data_path: Path =
         cfg=cfg,
         push_key=public_key_b64(cfg),
         repo=os.environ.get("GITHUB_REPOSITORY", ""),
+        ref=os.environ.get("GITHUB_REF_NAME", ""),
         country_name=COUNTRY_NAMES.get(lang, {}).get(cfg["profile"]["country"], cfg["profile"]["country"]),
     )
     if password:

@@ -108,17 +108,33 @@ to use Claude instead (paid, better titles). Settings: `neutral_titles` in `conf
 **AI filter (most precise, free).** Write each theme the way you'd explain it to a person,
 e.g. *Avances de la IA de fuentes oficiales, modelos y desarrollo*. The AI model in the hourly
 job reads every candidate story and keeps only the ones that really fit (a diet app with an
-AI agent does not fit that theme). To turn it on:
-1. In the app: ⚙ → **Copiar temas**.
-2. GitHub → your repo → **Settings** → **Secrets and variables** → **Actions** →
-   **New repository secret**. Name: `NEWSDESK_THEMES`. Paste. **Add secret**.
-   (Already there? Tap its ✎ and paste the new list.)
-3. Wait for the next hourly run (or **Actions** → **Newsdesk** → **Run workflow**).
-⚙ then says *✓ Filtro IA activo*. After adding or renaming a theme, repeat steps 1–2;
-until then that theme uses keyword matching. Each story is read once per theme; the
-first run after a change can take a couple of hours to read everything.
+AI agent does not fit that theme). The job runs on GitHub, so your themes must reach GitHub:
+connect the app once (see *Automatic themes* below) and they are sent every time you tap
+**Guardar**. ⚙ then says *✓ Filtro IA activo* (about 10 minutes later). Each story is read
+once per theme; right after a change, a theme uses keyword matching until its stories are read.
 
-**Keyword fine-tuning.** Tap ✎ next to a theme in ⚙ to fine-tune it:
+### Automatic themes
+
+One-time setup, from the phone:
+1. Open https://github.com/settings/personal-access-tokens/new (GitHub → your photo →
+   **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** →
+   **Generate new token**).
+2. **Token name:** `Newsdesk`. **Expiration:** the longest offered.
+3. **Repository access:** **Only select repositories** → pick this repo.
+4. **Permissions** → **Repository permissions**: **Variables** → *Read and write*, and
+   **Actions** → *Read and write*.
+5. **Generate token** → copy it.
+6. In the app: ⚙ → paste it in *Clave de GitHub* → **Conectar**. It should say
+   *Temas enviados*.
+
+The key stays only on that phone and can only change this repo's variables and start its
+workflow. It is stored in the repo variable `NEWSDESK_THEMES` (Settings → Secrets and
+variables → Actions → **Variables**). When the key expires, ⚙ shows an error: make a new one
+the same way. **Desconectar GitHub** in ⚙ forgets it.
+
+### Keyword fine-tuning
+
+Tap ✎ next to a theme in ⚙ to fine-tune it:
 - **Only if it mentions:** e.g. *OpenAI, Anthropic, lanza, anuncia*. The dropdown suggests words.
 - **Exclude if it mentions:** e.g. *estafa, famosos*.
 

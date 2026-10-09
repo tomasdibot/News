@@ -228,6 +228,8 @@ def judged_site(articles, cfg, tmp_path, monkeypatch):
         Article(SOURCES["dw"], "Startup builds AI agent that helps people cut calories", "https://x/j2", "A diet app.", NOW - timedelta(hours=1)),
     ]
     monkeypatch.setenv("NEWSDESK_THEMES", "Avances de la IA de fuentes oficiales")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "me/News")
+    monkeypatch.setenv("GITHUB_REF_NAME", "main")
     monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
     monkeypatch.setattr(judge, "CACHE_PATH", tmp_path / "tc.json")
     monkeypatch.setattr(judge, "_ask", lambda p, c, m, t, batch: {k: "GPT-6" in x["headlines"][0] for k, x in batch})
@@ -250,9 +252,29 @@ def test_ai_filter_keeps_only_exact_matches(judged_site, browser):
     page.click("#gear")
     assert "Filtro IA activo" in page.text_content("#aistate")
     page.click("#setcancel")
-    # A theme the filter doesn't know yet: keyword matching, plus the hint to copy the themes.
+    # A theme the filter doesn't know yet: connect GitHub once, then saving sends the themes.
     page = open_app(browser, judged_site, {"v": 2, "themes": ["Inteligencia artificial"], "local": False})
+    calls = []
+
+    def github(route):
+        req = route.request
+        calls.append((req.method, req.url.split("/repos/me/News")[1], req.post_data_json, req.headers.get("authorization")))
+        route.fulfill(status=404 if req.method == "PATCH" and len(calls) == 1 else 204, body="")
+
+    page.route("https://api.github.com/**", github)
     page.click("#gear")
-    assert "NEWSDESK_THEMES" in page.text_content("#aistate")
-    assert page.input_value("#aicode") == "Inteligencia artificial"
+    assert "conectá GitHub" in page.text_content("#aistate")
+    page.fill("#aikey", "github_pat_test")
+    page.click("#aiform button")
+    page.wait_for_function("document.getElementById('aistate').textContent.includes('enviados')")
+    assert calls[0][:2] == ("PATCH", "/actions/variables/NEWSDESK_THEMES")
+    assert calls[1][:3] == ("POST", "/actions/variables", {"name": "NEWSDESK_THEMES", "value": "Inteligencia artificial"})
+    assert calls[2][:3] == ("POST", "/actions/workflows/newsdesk.yml/dispatches", {"ref": "main"})
+    assert calls[1][3] == "Bearer github_pat_test"
+    assert not page.is_visible("#aikey")                       # connected: the key box is gone
+    page.fill("#newtheme", "Fútbol")
+    page.click("#addform button")
+    page.click("#setsave")
+    page.wait_for_timeout(300)
+    assert calls[3][2] == {"name": "NEWSDESK_THEMES", "value": "Inteligencia artificial\nFútbol"}
     assert not page.errors, page.errors

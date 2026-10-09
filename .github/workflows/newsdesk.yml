@@ -95,9 +95,9 @@ jobs:
           # built-in token, or Claude if the optional ANTHROPIC_API_KEY secret exists.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Your themes, one per line (⚙ in the app → "Copy themes"): the AI keeps only
+          # Your themes, one per line, sent by the app (⚙ → Connect GitHub): the AI keeps only
           # the stories that fit each one exactly.
-          NEWSDESK_THEMES: ${{ secrets.NEWSDESK_THEMES }}
+          NEWSDESK_THEMES: ${{ vars.NEWSDESK_THEMES || secrets.NEWSDESK_THEMES }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

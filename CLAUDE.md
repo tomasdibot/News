@@ -25,7 +25,8 @@ daily phone notification (Web Push) from the installed app. See README.md for de
   optional `ANTHROPIC_API_KEY`. Neutral titles (`neutral.py`) default to a free local model (Ollama +
   qwen2.5:3b started in the workflow, NEWSDESK_LOCAL_MODEL); GitHub Models answered only "OK" in
   real runs, so it is opt-in only. Cached in build/neutral-cache.json.
-  `NEWSDESK_THEMES` (themes, one per line, copied from ⚙): `judge.py` has the same model read
+  `NEWSDESK_THEMES` (repo variable written by the app via a fine-grained token kept in the phone's
+  localStorage, or a secret; one theme per line): `judge.py` has the same model read
   each candidate story and keep only exact fits (cached in build/theme-cache.json); the app
   falls back to keyword matching for themes not in the secret.
   `NEWSDESK_PROFILE`, `VAPID_PRIVATE_KEY`, and WhatsApp provider secrets.

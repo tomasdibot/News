@@ -123,7 +123,7 @@ dialog h3 { font: 600 15px var(--sans); margin: 18px 0 8px; }
 dialog .hint { color: var(--muted); font-size: 13px; }
 dialog textarea { width: 100%; height: 96px; font: 12px/1.4 ui-monospace, monospace; padding: 8px; border-radius: 8px;
                   border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: none; }
-dialog input[type=text] { width: 100%; font: inherit; font-size: 16px; min-height: 44px; padding: 8px 10px; margin-bottom: 8px;
+dialog input[type=text], dialog input[type=password] { width: 100%; font: inherit; font-size: 16px; min-height: 44px; padding: 8px 10px; margin-bottom: 8px;
                           border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
 dialog .row2 { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 dialog .row2 > * { flex: 1 1 auto; min-height: 44px; border-radius: 8px; font: 600 15px var(--sans);
@@ -145,11 +145,11 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
 .tlist .mv { width: 40px; height: 40px; border: 0; background: none; font-size: 18px; color: var(--muted); cursor: pointer; border-radius: 8px; }
 .tlist .mv:disabled { opacity: .25; }
 .aibox { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
-.aibox textarea { width: 100%; margin: 6px 0; font: 13px/1.4 var(--sans); background: var(--card); color: var(--ink);
-                  border: 1px solid var(--line); border-radius: 2px; padding: 6px; }
-.aibox button { width: 100%; min-height: 44px; border-radius: 8px; font: 600 15px var(--sans); cursor: pointer;
-                border: 1px solid var(--line); background: var(--chip); color: var(--ink); }
-.aibox.on textarea, .aibox.on button { display: none; }
+.aibox .addrow { margin-top: 6px; }
+.aibox .howto { font-size: 13px; color: var(--muted); }
+.aibox .linkish { background: none; border: 0; padding: 8px 0; font: 13px var(--sans); color: var(--muted);
+                  text-decoration: underline; cursor: pointer; }
+.aibox.linked .addrow, .aibox.linked .howto, .aibox:not(.linked) .linkish { display: none; }
 .switch { display: flex; align-items: center; gap: 10px; min-height: 44px; }
 .about { color: var(--muted); font-size: 12.5px; margin-top: 16px; }
 .addrow { display: flex; gap: 8px; }
@@ -211,9 +211,11 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   <label class="picklabel" for="pick">{{ ui.suggestions }}</label>
   <select id="pick"></select>
   <label class="switch"><input type="checkbox" id="showlocal"> <span>{{ ui.show_local }}</span></label>
-  <div class="aibox"><p class="hint" id="aistate"></p>
-    <textarea id="aicode" readonly rows="2"></textarea>
-    <button type="button" id="aicopy">{{ ui.ai_copy }}</button></div>
+  {% if repo %}<div class="aibox"><p class="hint" id="aistate"></p>
+    <form class="addrow" id="aiform"><input type="password" id="aikey" placeholder="{{ ui.ai_key_ph }}" autocomplete="off">
+      <button type="submit" class="primary">{{ ui.ai_connect }}</button></form>
+    <a class="howto" href="https://github.com/{{ repo }}/blob/{{ ref or 'main' }}/README.md#automatic-themes" target="_blank" rel="noopener">{{ ui.ai_howto }} →</a>
+    <button type="button" id="aioff" class="linkish">{{ ui.ai_disconnect }}</button></div>{% endif %}
   <div class="row2">
     <button type="button" id="setcancel">{{ ui.cancel }}</button>
     <button type="button" class="primary" id="setsave">{{ ui.save }}</button>
@@ -222,12 +224,12 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
 </dialog>
 
 <script type="application/json" id="nd-data">{{ {
-  "stories": e.stories, "themes": e.themes, "judged": e.judged or [], "labels": ui.topics, "country": country_name, "lang": lang,
+  "stories": e.stories, "themes": e.themes, "judged": e.judged or [], "repo": repo, "ref": ref, "labels": ui.topics, "country": country_name, "lang": lang,
   "t": {"top": ui.top, "local": ui.local, "empty": ui.empty_theme, "read": ui.read_full, "covered": ui.covered_by,
         "one": ui.sources_one, "many": ui.sources_many, "single": ui.single_source, "count": ui.theme_count, "count1": ui.theme_count_one,
         "remove": ui.remove, "showmore": ui.show_more, "showless": ui.show_less, "refine": ui.refine, "mustl": ui.must_label, "notl": ui.not_label,
         "mustph": ui.must_ph, "notph": ui.not_ph, "addword": ui.add_word, "ai": ui.ai_note, "pickone": ui.pick_one, "popular": ui.popular, "alltopics": ui.all_topics, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn,
-        "aion": ui.ai_on, "aioff": ui.ai_off, "aicopied": ui.ai_copied}
+        "aion": ui.ai_on, "aioff": ui.ai_off, "aisent": ui.ai_sent, "aisending": ui.ai_sending, "aifail": ui.ai_fail}
 }|tojson }}</script>
 
 <script>
@@ -539,11 +541,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
         + (draft.edit === i ? editor(th, i) : "");
     }).join("");
     list.hidden = !draft.themes.length;
-    var on = draft.themes.length && draft.themes.every(function (t) { return D.judged.indexOf(themeKey(t.label)) >= 0; });
-    document.querySelector(".aibox").classList.toggle("on", !!on);
-    document.getElementById("aistate").textContent = draft.themes.length ? (on ? T.aion : T.aioff) : "";
-    document.getElementById("aicode").value = draft.themes.map(function (t) { return t.label; }).join("\n");
-    document.querySelector(".aibox").hidden = !draft.themes.length;
+    drawAi();
     document.getElementById("nothemes").hidden = !!draft.themes.length;
     var opt = function (l) { return '<option value="' + esc(l) + '"' + (has(l) ? " disabled" : "") + ">" + esc(l) + "</option>"; };
     var rest = TH.all.filter(function (l) { return TH.suggested.indexOf(l) < 0; });
@@ -607,14 +605,57 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     }
     prefs = { v: 2, themes: draft.themes, local: document.getElementById("showlocal").checked };
     save(prefs); dlg.close(); current = 0; render(); go(0, false);
+    aiMsg = ""; sendThemes(ls(GH_KEY)).catch(function (code) { aiMsg = T.aifail.replace("{code}", code); });   // keep the AI filter's themes in sync
   });
-  var aicopy = document.getElementById("aicopy"), aicode = document.getElementById("aicode");
-  aicopy.addEventListener("click", function () {
-    var done = function () { aicopy.textContent = T.aicopied; };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(aicode.value).then(done, function () { aicode.select(); document.execCommand("copy"); done(); });
-    } else { aicode.select(); document.execCommand("copy"); done(); }
-  });
+  // ---------- AI filter: themes sent to GitHub (repo variable NEWSDESK_THEMES) ----------
+  var GH_KEY = "newsdesk-gh", GH_SENT = "newsdesk-gh-sent", aiMsg = "";
+  function ls(k, v) {
+    try { if (v === undefined) return localStorage.getItem(k) || ""; if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); }
+    catch (e) { return ""; }
+  }
+  function themesText(list) { return list.map(function (t) { return t.label; }).join("\n"); }
+  function drawAi() {
+    var box = document.querySelector(".aibox");
+    if (!box) return;
+    var on = prefs.themes.length && prefs.themes.every(function (t) { return D.judged.indexOf(themeKey(t.label)) >= 0; });
+    box.classList.toggle("linked", !!ls(GH_KEY));
+    document.getElementById("aistate").textContent = aiMsg || (on ? T.aion : ls(GH_KEY) ? T.aisent : T.aioff);
+  }
+  function gh(token, method, path, body) {
+    return fetch("https://api.github.com/repos/" + D.repo + path, {
+      method: method, body: body ? JSON.stringify(body) : undefined,
+      headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" }
+    });
+  }
+  function sendThemes(token, force) {
+    var text = themesText(prefs.themes);
+    if (!token || !text || (!force && ls(GH_SENT) === text)) return Promise.resolve(true);
+    var body = { name: "NEWSDESK_THEMES", value: text };
+    return gh(token, "PATCH", "/actions/variables/NEWSDESK_THEMES", body).then(function (r) {
+      return r.status === 404 ? gh(token, "POST", "/actions/variables", body) : r;
+    }).then(function (r) {
+      if (!r.ok) throw r.status;
+      ls(GH_SENT, text);
+      // Rebuild now instead of waiting for the hourly run (fine if this one isn't allowed).
+      return gh(token, "POST", "/actions/workflows/newsdesk.yml/dispatches", { ref: D.ref || "main" })
+        .catch(function () {}).then(function () { return true; });
+    });
+  }
+  var aiform = document.getElementById("aiform");
+  if (aiform) {
+    aiform.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var key = document.getElementById("aikey").value.trim();
+      if (!key) return;
+      aiMsg = T.aisending; drawAi();
+      sendThemes(key, true).then(function () {
+        ls(GH_KEY, key); document.getElementById("aikey").value = ""; aiMsg = T.aisent; drawAi();
+      }, function (code) { aiMsg = T.aifail.replace("{code}", code); drawAi(); });
+    });
+    document.getElementById("aioff").addEventListener("click", function () {
+      ls(GH_KEY, null); ls(GH_SENT, null); aiMsg = ""; drawAi();
+    });
+  }
   document.getElementById("setcancel").addEventListener("click", function () { dlg.close(); });
 
   render();
