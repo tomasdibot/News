@@ -69,8 +69,9 @@ def test_free_github_models_provider(articles, cfg, tmp_path, monkeypatch):
 
     class Resp:
         status_code = 200
+        ok = True
         text = ""
-        headers = {}
+        headers = {"Content-Type": "application/json"}
 
         def __init__(self, body):
             self.body = body
@@ -82,6 +83,7 @@ def test_free_github_models_provider(articles, cfg, tmp_path, monkeypatch):
             return self.body
 
     def fake_post(url, headers, json, timeout, allow_redirects=True):
+
         sent.append((url, headers, json))
         stories = __import__("json").loads(json["messages"][1]["content"])
         out = {"stories": [{"id": s["id"], "title": "Libre: " + s["outlets"][0]["headline"][:20], "summary": "R."}
@@ -105,7 +107,7 @@ def test_free_quota_used_up_keeps_original_headlines(articles, cfg, tmp_path, mo
 
     def fake_post(*a, **k):
         calls.append(1)
-        return SimpleNamespace(status_code=429, text="rate limit")
+        return SimpleNamespace(status_code=429, text="rate limit", ok=False, headers={})
 
     monkeypatch.setattr(neutral.requests, "post", fake_post)
     stories = score_stories(cluster(articles), cfg, NOW)
@@ -116,3 +118,23 @@ def test_free_quota_used_up_keeps_original_headlines(articles, cfg, tmp_path, mo
 def test_reply_wrapped_in_code_fences_is_understood():
     assert neutral._parse_json('```json\n{"stories": []}\n```') == {"stories": []}
     assert neutral._parse_json('Here you go: {"stories": [{"id": "a"}]} Done.') == {"stories": [{"id": "a"}]}
+
+
+def test_tries_other_github_endpoints_when_one_says_just_ok(monkeypatch):
+    neutral._WORKING.clear()
+    tried = []
+
+    def fake_post(url, headers, json, timeout):
+        tried.append((url, headers.get("X-GitHub-Api-Version"), json["model"]))
+        if url.startswith("https://models.inference.ai.azure.com"):
+            body = {"choices": [{"message": {"content": '{"stories": [{"id": "k", "title": "T", "summary": "S"}]}'}}]}
+            return SimpleNamespace(status_code=200, ok=True, text="", headers={"Content-Type": "application/json"},
+                                   json=lambda: body)
+        return SimpleNamespace(status_code=200, ok=True, text="OK\r\n", headers={"Content-Type": "text/plain"})
+
+    monkeypatch.setattr(neutral.requests, "post", fake_post)
+    out = neutral._ask_github("t", "openai/gpt-4.1-mini", "Spanish", [("k", {"outlets": []})])
+    assert out["k"]["title"] == "T"
+    assert tried[-1] == ("https://models.inference.ai.azure.com/chat/completions", None, "gpt-4.1-mini")
+    assert neutral._WORKING == [tried[-1]]
+    neutral._WORKING.clear()

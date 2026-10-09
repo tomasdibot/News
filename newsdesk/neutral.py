@@ -141,6 +141,20 @@ class OutOfQuota(RuntimeError):
     pass
 
 
+_WORKING: list = []
+
+
+def _github_candidates(model: str):
+    """GitHub Models has had several addresses / API versions; try them in order."""
+    if _WORKING:
+        yield _WORKING[0]
+    short = model.split("/", 1)[-1]
+    yield GITHUB_MODELS_URL, "2026-03-10", model
+    yield GITHUB_MODELS_URL, "2022-11-28", model
+    yield GITHUB_MODELS_URL, None, model
+    yield "https://models.inference.ai.azure.com/chat/completions", None, short
+
+
 def _ask_github(token: str, model: str, language: str, batch: list[tuple[str, dict]]) -> dict[str, dict]:
     payload = [dict(id=k, **m) for k, m in batch]
     body = {
@@ -153,24 +167,27 @@ def _ask_github(token: str, model: str, language: str, batch: list[tuple[str, di
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
             ],
     }
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json",
-               "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
-    url = GITHUB_MODELS_URL
-    for _ in range(3):  # follow redirects ourselves: a plain redirect would turn the POST into a GET
-        resp = requests.post(url, headers=headers, json=body, timeout=120, allow_redirects=False)
-        if resp.status_code in (301, 302, 303, 307, 308) and resp.headers.get("Location"):
-            url = requests.compat.urljoin(url, resp.headers["Location"])
-            log.info("neutral titles: GitHub Models redirected to %s", url)
-            continue
-        break
-    if resp.status_code in (403, 429):
-        raise OutOfQuota(f"GitHub Models said {resp.status_code}: {resp.text[:200]}")
-    resp.raise_for_status()
+    last = None
+    for url, version, model_id in _github_candidates(model):
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+                   "Accept": "application/vnd.github+json"}
+        if version:
+            headers["X-GitHub-Api-Version"] = version
+        resp = requests.post(url, headers=headers, json=dict(body, model=model_id), timeout=120)
+        if resp.status_code == 429:
+            raise OutOfQuota(f"GitHub Models said {resp.status_code}: {resp.text[:200]}")
+        if resp.ok and "json" in resp.headers.get("Content-Type", ""):
+            _WORKING[:] = [(url, version, model_id)]   # remember what works for the next batches
+            break
+        last = f"{resp.status_code} {resp.headers.get('Content-Type')} from {url} (api {version}): {resp.text[:120]!r}"
+        log.info("neutral titles: GitHub Models attempt failed: %s", last)
+    else:
+        raise ValueError(f"no GitHub Models endpoint answered properly; last: {last}")
     try:
         text = resp.json()["choices"][0]["message"]["content"] or ""
         data = _parse_json(text)
     except (ValueError, KeyError, IndexError, TypeError) as exc:
-        raise ValueError(f"unreadable reply ({resp.status_code} from {url}): {resp.text[:300]!r}") from exc
+        raise ValueError(f"unreadable reply ({resp.status_code}): {resp.text[:300]!r}") from exc
     wanted = {k for k, _ in batch}
     return {e["id"]: e for e in data.get("stories", [])
             if isinstance(e, dict) and e.get("id") in wanted and str(e.get("title", "")).strip()}
