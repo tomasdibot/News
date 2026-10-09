@@ -80,3 +80,19 @@ def test_local_model_gets_short_ids_and_a_capped_answer(monkeypatch):
     assert got == {"ab:111": True, "ab:222": False}
     assert '"id": "1"' in sent["messages"][1]["content"] and "ab:111" not in sent["messages"][1]["content"]
     assert sent["options"]["num_predict"] <= 60
+
+
+def test_audit_scores_known_examples_and_lists_todays_verdicts(monkeypatch, cfg, articles):
+    from newsdesk import audit
+
+    monkeypatch.setenv("NEWSDESK_THEMES", "Música: Lanzamientos, Shows\nAlgo sin ejemplos")
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    monkeypatch.setattr(audit, "fetch_all", lambda *a, **k: articles)
+    # A fake model that says "in" to everything: the test must catch its mistakes.
+    monkeypatch.setattr(audit, "_ask", lambda p, c, m, t, batch: {k: True for k, _ in batch})
+    out = []
+    assert audit.run(cfg, out=out.append) == 0
+    report = out[0]
+    assert "5/10 right" in report and "should be OUT" in report
+    assert "no example stories" in report
+    assert "## 2. Today's news" in report

@@ -296,3 +296,31 @@ def test_long_themes_get_short_tab_names_and_sections_chain(ai_site, browser):
     page.click("#setsave")
     assert page.eval_on_selector_all(".tab", "els => els.map(e => e.textContent)")[2] == "Autos UE"
     assert not page.errors, page.errors
+
+
+def test_same_event_twice_shows_once_and_light_is_default(articles, cfg, tmp_path, monkeypatch, browser):
+    import copy
+
+    monkeypatch.delenv("NEWSDESK_PASSWORD", raising=False)
+    ed = build_edition(cfg, articles=articles, now=NOW)
+    twin = copy.deepcopy(ed["stories"][0])
+    twin["link"] = "https://other.example/same-event"
+    twin["title"] = twin["title"] + " hoy"           # nearly the same headline from another cluster
+    ed["stories"].insert(1, twin)
+    render(ed, cfg, out_dir=tmp_path / "s5", data_path=tmp_path / "e5.json")
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path / "s5"))
+    handler.log_message = lambda *a: None
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        page = open_app(browser, f"http://localhost:{server.server_address[1]}/", {"v": 2, "themes": [], "local": False})
+        heads = page.eval_on_selector_all("#panel-0 .card h3", "els => els.map(e => e.textContent)")
+        assert sum(1 for h in heads if h.startswith(ed["stories"][0]["title"])) == 1
+        assert not page.evaluate("document.documentElement.classList.contains('dark')")
+        page.click("#gear")
+        page.select_option("#look", "dark")
+        page.click("#setsave")
+        assert page.evaluate("document.documentElement.classList.contains('dark')")
+        assert not page.errors, page.errors
+    finally:
+        server.shutdown()

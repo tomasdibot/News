@@ -54,6 +54,12 @@ def cmd_check_feeds(cfg, args) -> int:
     return 0
 
 
+def cmd_audit(cfg, args) -> int:
+    from .audit import run
+
+    return run(cfg)
+
+
 def cmd_serve(cfg, args) -> int:
     """Self-hosted mode: rebuild on an interval, send WhatsApp at the configured time, serve the site."""
     from zoneinfo import ZoneInfo
@@ -107,6 +113,7 @@ def main(argv=None) -> int:
     n.add_argument("--provider", help="override notification.provider (callmebot, twilio, console)")
     n.add_argument("--fresh", action="store_true", help="rebuild the edition before sending")
     sub.add_parser("check-feeds", help="test every configured feed")
+    sub.add_parser("audit", help="check how the AI theme filter decides (known examples + today's news)")
     s = sub.add_parser("serve", help="run continuously: refresh, notify daily and serve the site")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8000)
@@ -116,7 +123,7 @@ def main(argv=None) -> int:
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     cfg = load_config(args.config)
     try:
-        return {"build": cmd_build, "notify": cmd_notify, "serve": cmd_serve, "check-feeds": cmd_check_feeds}[args.cmd](cfg, args)
+        return {"build": cmd_build, "notify": cmd_notify, "serve": cmd_serve, "check-feeds": cmd_check_feeds, "audit": cmd_audit}[args.cmd](cfg, args)
     except LockError as exc:
         log.error("%s", exc)
         return 1
