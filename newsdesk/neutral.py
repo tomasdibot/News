@@ -161,10 +161,26 @@ def _ask_github(token: str, model: str, language: str, batch: list[tuple[str, di
     if resp.status_code in (403, 429):
         raise OutOfQuota(f"GitHub Models said {resp.status_code}: {resp.text[:200]}")
     resp.raise_for_status()
-    text = resp.json()["choices"][0]["message"]["content"]
+    try:
+        text = resp.json()["choices"][0]["message"]["content"] or ""
+        data = _parse_json(text)
+    except (ValueError, KeyError, IndexError, TypeError) as exc:
+        raise ValueError(f"unreadable reply ({resp.status_code}): {resp.text[:300]!r}") from exc
     wanted = {k for k, _ in batch}
-    return {e["id"]: e for e in json.loads(text).get("stories", [])
+    return {e["id"]: e for e in data.get("stories", [])
             if isinstance(e, dict) and e.get("id") in wanted and str(e.get("title", "")).strip()}
+
+
+def _parse_json(text: str) -> dict:
+    """Models sometimes wrap JSON in ```json fences or add a sentence around it."""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        text = text.rsplit("```", 1)[0]
+    start, end = text.find("{"), text.rfind("}")
+    if start < 0 or end < start:
+        raise ValueError("no JSON object in reply")
+    return json.loads(text[start:end + 1])
 
 
 def _provider(opts: dict, client) -> str | None:

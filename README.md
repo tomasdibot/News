@@ -110,7 +110,7 @@ Tap ✎ next to a theme in ⚙ to fine-tune it:
 
 The ready-made theme *IA: lanzamientos y empresas* already keeps only AI stories that name a
 main company or a launch or announcement. Official company blogs (OpenAI, Google DeepMind,
-Google, Microsoft, NVIDIA, Hugging Face) and specialist AI press are among the sources.
+Google, NVIDIA, Hugging Face) and specialist AI press are among the sources.
 Official posts are labelled "(official)".
 
 ## Password protection

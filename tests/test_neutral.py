@@ -110,3 +110,8 @@ def test_free_quota_used_up_keeps_original_headlines(articles, cfg, tmp_path, mo
     stories = score_stories(cluster(articles), cfg, NOW)
     assert neutral.neutralize(stories, cfg, cache_path=tmp_path / "c.json") == 0
     assert len(calls) == 1 and not any(s.neutral for s in stories)   # stops after the first refusal
+
+
+def test_reply_wrapped_in_code_fences_is_understood():
+    assert neutral._parse_json('```json\n{"stories": []}\n```') == {"stories": []}
+    assert neutral._parse_json('Here you go: {"stories": [{"id": "a"}]} Done.') == {"stories": [{"id": "a"}]}
