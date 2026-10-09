@@ -298,16 +298,21 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   function partScore(s, p) {
     if (p.type === "concept") {
       var c = p.c, topic = (s.topics && c.topic && s.topics[c.topic]) || 0;
-      if (c.must && c.must.length && !anyWord(s, c.must)) return 0;
+      if (c.must && c.must.length && !anyWord(s, c.must, c.strict)) return 0;
+      if (c.not && c.not.length && anyWord(s, c.not, c.strict)) return 0;
       if (c.id === c.topic) return Math.max(topic, c.keywords.length ? kwScore(s, c.keywords) : 0);
       var kw = kwScore(s, c.keywords);
+      if (c.strict && kw < 0.5) return 0;   // the AI word must be in the headline
       return kw ? Math.min(1, kw + 0.2 * topic) : 0;   // e.g. AI: an AI word is needed, being tech helps
     }
     if (p.type === "country") return s.local ? 1 : (TH.country_names.some(function (n) { return rx(n).test(s.text); }) ? 0.6 : 0);
     if (p.type === "word") return s.titleStems[p.stem] ? 1 : (s.textStems[p.stem] ? 0.6 : 0);
     return rx(p.p).test(s.titleN) ? 1 : (rx(p.p).test(s.text) ? 0.5 : 0);
   }
-  function anyWord(s, list) { return list.some(function (k) { k = norm(k).trim(); return k && rx(k).test(s.text); }); }
+  function anyWord(s, list, titleOnly) {
+    var t = titleOnly ? s.titleN : s.text;
+    return list.some(function (k) { k = norm(k).trim(); return k && rx(k).test(t); });
+  }
   var scoreCache = {};
   function themeScore(s, th) {
     var key = JSON.stringify(th) + "\u0000" + s.id;

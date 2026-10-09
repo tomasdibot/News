@@ -142,6 +142,8 @@ def ai_site(articles, cfg, tmp_path, monkeypatch):
     extra = [
         art("bbc", "OpenAI launches GPT-6 model for businesses", "The artificial intelligence company announced it.", 1),
         art("dw", "Teachers worry about AI use in school homework", "Parents debate artificial intelligence at home.", 2),
+        art("bbc", "Candidate wins 229 votes in Huanuco election", "Results announced. Written with AI help.", 1),
+        art("dw", "OpenAI fires three safety researchers after probe", "OpenAI announced the decision.", 1),
     ]
     monkeypatch.delenv("NEWSDESK_PASSWORD", raising=False)
     render(build_edition(cfg, articles=articles + extra, now=NOW), cfg, out_dir=tmp_path / "s2", data_path=tmp_path / "e2.json")
@@ -158,6 +160,7 @@ def test_precise_ai_theme_keeps_launches_not_chatter(ai_site, browser):
     broad, precise = panel_text(page, "Inteligencia artificial"), panel_text(page, "IA: lanzamientos y empresas")
     assert "OpenAI" in broad and "homework" in broad
     assert "OpenAI" in precise and "homework" not in precise
+    assert "Huanuco" not in precise and "fires" not in precise   # AI only in the text / company drama
     assert not page.errors, page.errors
 
 
