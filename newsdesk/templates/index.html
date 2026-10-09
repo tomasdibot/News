@@ -634,7 +634,12 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     return gh(token, "PATCH", "/actions/variables/NEWSDESK_THEMES", body).then(function (r) {
       return r.status === 404 ? gh(token, "POST", "/actions/variables", body) : r;
     }).then(function (r) {
-      if (!r.ok) throw r.status;
+      if (!r.ok) {   // show GitHub's own explanation, e.g. "Resource not accessible by personal access token"
+        return r.text().then(function (t) {
+          var msg = ""; try { msg = JSON.parse(t).message || ""; } catch (e) {}
+          throw r.status + (msg ? ": " + msg : "");
+        });
+      }
       ls(GH_SENT, text);
       // Rebuild now instead of waiting for the hourly run (fine if this one isn't allowed).
       return gh(token, "POST", "/actions/workflows/newsdesk.yml/dispatches", { ref: D.ref || "main" })
