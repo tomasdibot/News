@@ -133,7 +133,8 @@ OPINION_TITLE_PREFIXES = ["opinion", "opinion:", "editorial", "column", "columna
 # Markers of hype / loaded language. Each hit lowers a story's score and makes
 # that outlet's headline less likely to be the one shown.
 SENSATIONAL = [
-    "shocking", "shock", "slams", "blasts", "destroys", "obliterates", "rips", "outrage", "furious",
+    "shocking", "shock", "slams", "insanity", "mind-blowing", "game-changer", "game changer", "jaw-dropping",
+    "unhinged", "bonkers", "mind blowing", "blasts", "destroys", "obliterates", "rips", "outrage", "furious",
     "you won't believe", "jaw-dropping", "bombshell", "viral", "goes viral", "meltdown", "epic",
     "insane", "chaos", "explosive", "brutal", "humiliates", "fury", "stunning", "must see",
     "impactante", "escandalo", "escandaloso", "polemica", "polemico", "furor", "explota", "estalla",

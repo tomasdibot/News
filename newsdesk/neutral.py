@@ -257,7 +257,12 @@ def neutralize(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, c
     opts = cfg.get("neutral_titles") or {}
     cache = load_cache(cache_path)
     todo = []
-    for s in stories[: int(opts.get("max_stories", 120))]:
+    # First the stories most likely to be read: ones that fit your themes and ones with
+    # sensational headlines (they most need a plain title); then the rest by importance.
+    n = int(opts.get("max_stories", 120))
+    chosen = stories[:n] + [s for s in stories[n:] if any(v for v in s.fits.values())]
+    chosen.sort(key=lambda s: (not any(v for v in s.fits.values()), not s.hype))
+    for s in chosen:
         key, n = story_key(s), len(s.outlets)
         hit = cache.get(key)
         # Re-write when two or more new outlets joined: there is more to go on.

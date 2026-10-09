@@ -9,7 +9,7 @@ from .cluster import Story
 from .fetch import Article
 from .filters import section_topics
 from .lexicon import AGE_HINTS, COUNTRY_KEYWORDS, SENSATIONAL, TOPIC_KEYWORDS
-from .text import contains_any, normalize
+from .text import QUOTE_LEAD_RE, contains_any, normalize
 
 TIER_WEIGHT = {"wire": 1.0, "public": 1.0, "commercial": 0.85, "specialist": 0.85, "institutional": 0.7,
                "official": 0.6}
@@ -31,6 +31,8 @@ def topic_keywords(profile: dict) -> dict[str, list[str]]:
 
 def sensational_hits(title: str) -> int:
     hits = len(contains_any(normalize(title), SENSATIONAL))
+    if QUOTE_LEAD_RE.match(title):   # a quote as the hook
+        hits += 1
     if "!" in title:
         hits += 1
     shouty = [w for w in title.split() if len(w) > 3 and w.isupper() and w.isalpha()]

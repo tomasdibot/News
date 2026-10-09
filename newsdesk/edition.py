@@ -18,7 +18,7 @@ from .config import ROOT, load_sources
 from .fetch import fetch_all, fetch_og_image
 from .lexicon import COUNTRY_NAMES, LOCK_UI, UI
 from .lock import encrypt, password_from_env, site_salt
-from .judge import judge_themes
+from .judge import candidates, configured_themes, judge_themes
 from .neutral import neutralize
 from .push import public_key_b64
 from .lexicon import CONCEPTS, COUNTRY_KEYWORDS, SUGGESTED_THEMES, TOPIC_ALIASES, TOPIC_KEYWORDS
@@ -83,9 +83,18 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     stories = score_stories(cluster(articles), cfg, now)
     sections = select_sections(stories, cfg)  # what the morning notification uses
     pool = select_pool(stories, cfg)            # what the app shows and re-ranks
+    # Your own themes (NEWSDESK_THEMES) always get their best candidates in, even niche ones.
+    seen = {id(s) for s in pool}
+    for theme in configured_themes(cfg):
+        for s in candidates(theme, stories)[:25]:
+            if id(s) not in seen:
+                seen.add(id(s))
+                pool.append(s)
+    pool.sort(key=lambda s: s.score, reverse=True)
+    # Read themes first, so neutral titles go first to the stories you will actually see.
+    judged = judge_themes(pool, cfg) if articles else []
     if articles and (cfg.get("neutral_titles") or {}).get("enabled", True):
         neutralize(pool, cfg)
-    judged = judge_themes(pool, cfg) if articles else []
     if articles and cfg.get("_fetch_images", True):
         fill_missing_images(pool, limit=90)
 

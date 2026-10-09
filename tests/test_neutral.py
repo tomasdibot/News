@@ -171,3 +171,26 @@ def test_local_model_stops_at_time_budget(articles, cfg, tmp_path, monkeypatch):
     monkeypatch.setattr(neutral.requests, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("called")))
     stories = score_stories(cluster(articles), cfg, NOW)
     assert neutral.neutralize(stories, cfg, cache_path=tmp_path / "c.json") == 0
+
+
+def test_stories_you_see_and_hype_get_neutral_titles_first(cfg, tmp_path, monkeypatch):
+    from datetime import timedelta
+
+    from conftest import NOW, SOURCES
+    from newsdesk import neutral
+    from newsdesk.cluster import cluster
+    from newsdesk.fetch import Article
+    from newsdesk.rank import score_stories
+
+    arts = [Article(SOURCES["bbc"], f"Parliament debates budget item {i}", f"https://x/n{i}", "Details.",
+                    NOW - timedelta(hours=1)) for i in range(4)]
+    arts.append(Article(SOURCES["dw"], "‘Pure insanity’: chip maker unveils processor", "https://x/hype", "Wow.", NOW - timedelta(hours=2)))
+    ss = score_stories(cluster(arts), cfg, NOW)
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    monkeypatch.setattr(neutral, "article_excerpt", lambda url, limit: "")
+    asked = []
+    monkeypatch.setattr(neutral, "_ask_local", lambda m, lang, batch: asked.extend(k for k, _ in batch) or {})
+    neutral.neutralize(ss, dict(cfg, neutral_titles=dict(cfg["neutral_titles"], max_new_per_run_local=1)),
+                       cache_path=tmp_path / "c.json")
+    hyped = next(s for s in ss if s.hype)
+    assert asked == [neutral.story_key(hyped)]

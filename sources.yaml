@@ -44,6 +44,12 @@
 - { id: nvidia-blog,   outlet: NVIDIA (official),  lang: en, region: global, tier: official, url: "https://blogs.nvidia.com/feed/", topics: [technology] }
 - { id: hf-blog,       outlet: Hugging Face (official), lang: en, region: global, tier: official, url: "https://huggingface.co/blog/feed.xml", topics: [technology] }
 
+# --- Culture & music (launches, tours, festivals, awards) -------------------
+- { id: bbc-arts,      outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml", topics: [culture] }
+- { id: npr-music,     outlet: NPR,        lang: en, region: global, tier: public, url: "https://feeds.npr.org/1039/rss.xml", topics: [culture] }
+- { id: billboard,     outlet: Billboard,  lang: en, region: global, tier: specialist, url: "https://www.billboard.com/feed/", topics: [culture] }
+- { id: rollingstone-es, outlet: Rolling Stone en Español, lang: es, region: global, tier: specialist, url: "https://es.rollingstone.com/feed/", topics: [culture] }
+
 # --- Global, Spanish -------------------------------------------------------
 - { id: bbc-mundo,     outlet: BBC,        lang: es, region: global, tier: public, url: "https://feeds.bbci.co.uk/mundo/rss.xml" }
 - { id: dw-es,         outlet: DW,         lang: es, region: global, tier: public, url: "https://rss.dw.com/rdf/rss-sp-all" }

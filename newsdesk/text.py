@@ -142,6 +142,10 @@ _ACRONYM_OK = {"EEUU", "EE.UU.", "FMI", "ONU", "OTAN", "NATO", "INDEC", "BCRA", 
                "CEO", "IA", "AI", "CABA", "UBA", "BCE", "ECB", "OPEP", "OPEC", "G20", "G7", "BRICS", "AMBA"}
 
 
+# A quote used as a hook before the real headline: 'Pure insanity': … / "Es un desastre": …
+QUOTE_LEAD_RE = re.compile(r"^\s*[‘'\"“«][^’'\"”»]{1,80}[’'\"”»]\s*[:—–-]\s+(?=\S)")
+
+
 def clean_headline(title: str) -> str:
     """Strip hype that adds nothing: 'EN VIVO |', 'VIDEO:', emojis, '¡...!', shouting caps, '| Outlet'."""
     t = _EMOJI_RE.sub("", title).replace("¡", "").strip()
@@ -151,6 +155,7 @@ def clean_headline(title: str) -> str:
     if m and m.end() < len(t):
         t = t[m.end():].lstrip()
     t = re.sub(r"\s*\|\s*[^|]{2,40}$", "", t)          # trailing "| Outlet name"
+    t = QUOTE_LEAD_RE.sub("", t) or t                     # "'Pure insanity': Mathematicians…" → "Mathematicians…"
     t = t.replace("¡", "").replace("!", "").replace("¿¿", "¿").replace("??", "?")
     words = t.split()
     if words:

@@ -179,3 +179,8 @@ def test_headline_cleanup():
     assert c("El INDEC informó la inflación | Infobae") == "El INDEC informó la inflación"
     assert c("Trump DESTROYS rival in debate") == "Trump destroys rival in debate"
     assert c("¿Qué pasará con el dólar?") == "¿Qué pasará con el dólar?"
+    assert c("‘Pure insanity’: Mathematicians will need years to study OpenAI’s results") \
+        == "Mathematicians will need years to study OpenAI’s results"
+    assert c("Dólar hoy: a cuánto cotiza") == "Dólar hoy: a cuánto cotiza"   # not a quote hook
+    from newsdesk.rank import sensational_hits
+    assert sensational_hits("‘Pure insanity’: Mathematicians react") >= 1
