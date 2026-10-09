@@ -128,6 +128,11 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
                  background: var(--ink); color: var(--bg); cursor: pointer; }
 .tlist { margin-top: 12px; }
 .tl { flex: 1; display: flex; flex-direction: column; min-height: 44px; justify-content: center; }
+.tlist li.ed { display: block; padding: 8px 12px 12px; background: var(--bg); }
+.tlist li.ed label { display: block; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.tlist li.ed input[type=text] { margin: 4px 0 4px; }
+.tlist li.ed select { width: 100%; min-height: 44px; font: inherit; font-size: 16px; border-radius: 8px;
+                      border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 0 10px; }
 .tl small { color: var(--muted); font-size: 12px; }
 .picklabel { display: block; font: 600 15px var(--sans); margin: 18px 0 8px; }
 #pick { width: 100%; min-height: 48px; font: inherit; font-size: 16px; padding: 8px 36px 8px 12px; border-radius: 8px;
@@ -185,7 +190,8 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   "stories": e.stories, "themes": e.themes, "labels": ui.topics, "country": country_name, "lang": lang,
   "t": {"top": ui.top, "local": ui.local, "empty": ui.empty_theme, "read": ui.read_full, "covered": ui.covered_by,
         "one": ui.sources_one, "many": ui.sources_many, "single": ui.single_source, "count": ui.theme_count, "count1": ui.theme_count_one,
-        "remove": ui.remove, "ai": ui.ai_note, "pickone": ui.pick_one, "popular": ui.popular, "alltopics": ui.all_topics, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn}
+        "remove": ui.remove, "refine": ui.refine, "mustl": ui.must_label, "notl": ui.not_label,
+        "mustph": ui.must_ph, "notph": ui.not_ph, "addword": ui.add_word, "ai": ui.ai_note, "pickone": ui.pick_one, "popular": ui.popular, "alltopics": ui.all_topics, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn}
 }|tojson }}</script>
 
 <script>
@@ -204,8 +210,13 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     return null;
   }
   function save(p) { try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch (e) {} }
+  function asTheme(t) {
+    return typeof t === "string" ? { label: t, must: [], not: [] }
+      : { label: t.label, must: t.must || [], not: t.not || [] };
+  }
   var firstRun = !load();
   var prefs = load() || { v: 2, themes: [], local: true };
+  prefs.themes = prefs.themes.map(asTheme);
 
   // ---------- text helpers ----------
   function esc(s) {
@@ -261,6 +272,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   function partScore(s, p) {
     if (p.type === "concept") {
       var c = p.c, topic = (s.topics && c.topic && s.topics[c.topic]) || 0;
+      if (c.must && c.must.length && !anyWord(s, c.must)) return 0;
       if (c.id === c.topic) return Math.max(topic, c.keywords.length ? kwScore(s, c.keywords) : 0);
       var kw = kwScore(s, c.keywords);
       return kw ? Math.min(1, kw + 0.2 * topic) : 0;   // e.g. AI: an AI word is needed, being tech helps
@@ -269,19 +281,22 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     if (p.type === "word") return s.titleStems[p.stem] ? 1 : (s.textStems[p.stem] ? 0.6 : 0);
     return rx(p.p).test(s.titleN) ? 1 : (rx(p.p).test(s.text) ? 0.5 : 0);
   }
+  function anyWord(s, list) { return list.some(function (k) { k = norm(k).trim(); return k && rx(k).test(s.text); }); }
   var scoreCache = {};
-  function themeScore(s, label) {
-    var key = label + "\u0000" + s.id;
+  function themeScore(s, th) {
+    var key = JSON.stringify(th) + "\u0000" + s.id;
     if (key in scoreCache) return scoreCache[key];
-    var parts = compileCache[label] || (compileCache[label] = compile(label));
+    var parts = compileCache[th.label] || (compileCache[th.label] = compile(th.label));
     var sc = 1;
     parts.forEach(function (p) { sc = Math.min(sc, partScore(s, p)); });   // every part must match
+    if (th.must.length && !anyWord(s, th.must)) sc = 0;                      // "only if it mentions"
+    if (th.not.length && anyWord(s, th.not)) sc = 0;                         // "exclude"
     return (scoreCache[key] = sc);
   }
   var compileCache = {};
-  function matches(label) {
-    return D.stories.filter(function (s) { return themeScore(s, label) >= 0.45; })
-      .sort(function (a, b) { return b.base * (0.5 + themeScore(b, label)) - a.base * (0.5 + themeScore(a, label)); });
+  function matches(th) {
+    return D.stories.filter(function (s) { return themeScore(s, th) >= 0.45; })
+      .sort(function (a, b) { return b.base * (0.5 + themeScore(b, th)) - a.base * (0.5 + themeScore(a, th)); });
   }
 
   // ---------- which stories go in each tab ----------
@@ -312,7 +327,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
         .sort(function (a, b) { return score(b) - score(a); }).slice(0, 12);
       if (loc.length) out.push({ id: "local", label: T.local, items: loc });
     }
-    prefs.themes.forEach(function (th) { out.push({ id: "th", label: th, items: matches(th).slice(0, 15) }); });
+    prefs.themes.forEach(function (th) { out.push({ id: "th", label: th.label, items: matches(th).slice(0, 15) }); });
     return out;
   }
 
@@ -431,15 +446,37 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   // ---------- choosing themes ----------
   var dlg = document.getElementById("setdlg"), list = document.getElementById("tlist"), draft;
   var input = document.getElementById("newtheme");
-  function has(th) { return draft.themes.some(function (x) { return norm(x) === norm(th); }); }
+  function has(label) { return draft.themes.some(function (x) { return norm(x.label) === norm(label); }); }
+  function suggestWords(th) {
+    var out = [];
+    (compileCache[th.label] || compile(th.label)).forEach(function (p) {
+      if (p.type === "concept") out = out.concat(p.c.must || [], p.c.keywords);
+    });
+    var seen = {};
+    return out.filter(function (w) {
+      if (seen[w] || th.must.indexOf(w) >= 0) return false;
+      return (seen[w] = true);
+    }).slice(0, 60);
+  }
+  function editor(th, i) {
+    var sugg = suggestWords(th);
+    return '<li class="ed" data-i="' + i + '">'
+      + '<label>' + esc(T.mustl) + '<input type="text" class="must" value="' + esc(th.must.join(", ")) + '" placeholder="' + esc(T.mustph) + '"></label>'
+      + (sugg.length ? '<select class="addword"><option value="">' + esc(T.addword) + "</option>"
+          + sugg.map(function (w) { return '<option value="' + esc(w) + '">' + esc(w) + "</option>"; }).join("") + "</select>" : "")
+      + '<label>' + esc(T.notl) + '<input type="text" class="not" value="' + esc(th.not.join(", ")) + '" placeholder="' + esc(T.notph) + '"></label>'
+      + "</li>";
+  }
   function drawSettings() {
     list.innerHTML = draft.themes.map(function (th, i) {
-      var n = matches(th).length;
-      return '<li data-i="' + i + '"><span class="tl"><span>' + esc(th) + '</span><small>'
+      var n = matches(th).length, refined = th.must.length || th.not.length;
+      return '<li data-i="' + i + '"><span class="tl"><span>' + esc(th.label) + (refined ? " ✎" : "") + '</span><small>'
         + esc(n === 1 ? T.count1 : T.count.replace("{n}", n)) + "</small></span>"
+        + '<button type="button" class="mv ed-btn" aria-label="' + esc(T.refine) + '" aria-expanded="' + (draft.edit === i) + '">✎</button>'
         + '<button type="button" class="mv up" aria-label="' + esc(T.up) + '"' + (i === 0 ? " disabled" : "") + ">↑</button>"
         + '<button type="button" class="mv dn" aria-label="' + esc(T.down) + '"' + (i === draft.themes.length - 1 ? " disabled" : "") + ">↓</button>"
-        + '<button type="button" class="mv rm" aria-label="' + esc(T.remove) + '">✕</button></li>';
+        + '<button type="button" class="mv rm" aria-label="' + esc(T.remove) + '">✕</button></li>'
+        + (draft.edit === i ? editor(th, i) : "");
     }).join("");
     list.hidden = !draft.themes.length;
     document.getElementById("nothemes").hidden = !!draft.themes.length;
@@ -454,11 +491,11 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   function addTheme(th) {
     th = th.trim().replace(/\s+/g, " ");
     if (!th || has(th)) return;
-    draft.themes.push(th.charAt(0).toUpperCase() + th.slice(1));
+    draft.themes.push({ label: th.charAt(0).toUpperCase() + th.slice(1), must: [], not: [] });
     drawSettings();
   }
   function openSettings() {
-    draft = { themes: prefs.themes.slice() };
+    draft = { themes: prefs.themes.map(asTheme), edit: -1 };
     document.getElementById("showlocal").checked = !!prefs.local;
     input.value = "";
     drawSettings();
@@ -473,10 +510,22 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     if (pick.value) addTheme(pick.value);
     pick.value = "";
   });
+  function splitWords(v) { return v.split(",").map(function (w) { return w.trim(); }).filter(Boolean); }
+  list.addEventListener("change", function (ev) {
+    var li = ev.target.closest("li.ed");
+    if (!li) return;
+    var th = draft.themes[+li.dataset.i];
+    if (ev.target.classList.contains("addword") && ev.target.value) th.must.push(ev.target.value);
+    else if (ev.target.classList.contains("must")) th.must = splitWords(ev.target.value);
+    else if (ev.target.classList.contains("not")) th.not = splitWords(ev.target.value);
+    drawSettings();
+  });
   list.addEventListener("click", function (ev) {
     var li = ev.target.closest("li");
-    if (!li) return;
+    if (!li || li.classList.contains("ed")) return;
     var i = +li.dataset.i, th = draft.themes;
+    if (ev.target.closest(".ed-btn")) { draft.edit = draft.edit === i ? -1 : i; drawSettings(); return; }
+    if (draft.edit >= 0) draft.edit = -1;
     if (ev.target.closest(".up") && i > 0) th.splice(i - 1, 0, th.splice(i, 1)[0]);
     else if (ev.target.closest(".dn") && i < th.length - 1) th.splice(i + 1, 0, th.splice(i, 1)[0]);
     else if (ev.target.closest(".rm")) th.splice(i, 1);
@@ -485,6 +534,12 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   });
   document.getElementById("setsave").addEventListener("click", function () {
     if (input.value.trim()) addTheme(input.value);   // typed but didn't press "Add"
+    var ed = list.querySelector("li.ed");             // edits not yet confirmed with "done"
+    if (ed) {
+      var th = draft.themes[+ed.dataset.i];
+      th.must = splitWords(ed.querySelector(".must").value);
+      th.not = splitWords(ed.querySelector(".not").value);
+    }
     prefs = { v: 2, themes: draft.themes, local: document.getElementById("showlocal").checked };
     save(prefs); dlg.close(); current = 0; render(); go(0, false);
   });

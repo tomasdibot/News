@@ -1,7 +1,11 @@
-"""Neutral headlines: Claude reads what every outlet reported and writes one plain, factual title.
+"""Neutral headlines: an AI model reads what every outlet reported and writes one plain, factual title.
 
-Only runs when ANTHROPIC_API_KEY is set. Results are cached between runs
-(build/neutral-cache.json, kept by the workflow), so each story is written once.
+Providers (config: neutral_titles.provider, default "auto"):
+  github    - GitHub Models, free with the repository's built-in GITHUB_TOKEN (daily request limit).
+  anthropic - Claude, paid, needs ANTHROPIC_API_KEY.
+  auto      - anthropic if ANTHROPIC_API_KEY is set, otherwise github if GITHUB_TOKEN is set.
+Results are cached between runs (build/neutral-cache.json, kept by the workflow), so each
+story is written once. Anything that fails falls back to the cleaned-up original headline.
 """
 
 from __future__ import annotations
@@ -130,6 +134,50 @@ def _ask_claude(client, model: str, language: str, batch: list[tuple[str, dict]]
     return {e["id"]: e for e in json.loads(text)["stories"] if e["id"] in wanted and e["title"].strip()}
 
 
+GITHUB_MODELS_URL = "https://models.github.ai/inference/chat/completions"
+
+
+class OutOfQuota(RuntimeError):
+    pass
+
+
+def _ask_github(token: str, model: str, language: str, batch: list[tuple[str, dict]]) -> dict[str, dict]:
+    payload = [dict(id=k, **m) for k, m in batch]
+    resp = requests.post(
+        GITHUB_MODELS_URL,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json={
+            "model": model,
+            "temperature": 0.2,
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": SYSTEM.format(language=language)
+                 + '\n\nAnswer only with JSON: {"stories": [{"id": "...", "title": "...", "summary": "..."}]}'},
+                {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+            ],
+        },
+        timeout=120,
+    )
+    if resp.status_code in (403, 429):
+        raise OutOfQuota(f"GitHub Models said {resp.status_code}: {resp.text[:200]}")
+    resp.raise_for_status()
+    text = resp.json()["choices"][0]["message"]["content"]
+    wanted = {k for k, _ in batch}
+    return {e["id"]: e for e in json.loads(text).get("stories", [])
+            if isinstance(e, dict) and e.get("id") in wanted and str(e.get("title", "")).strip()}
+
+
+def _provider(opts: dict, client) -> str | None:
+    if client is not None:
+        return "anthropic"
+    choice = opts.get("provider", "auto")
+    if choice in ("anthropic", "auto") and os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic"
+    if choice in ("github", "auto") and os.environ.get("GITHUB_TOKEN"):
+        return "github"
+    return None
+
+
 def load_cache(path: Path = CACHE_PATH) -> dict:
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -153,29 +201,33 @@ def neutralize(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, c
             todo.append((key, s))
 
     written = 0
-    if todo and (client or os.environ.get("ANTHROPIC_API_KEY")):
+    provider = _provider(opts, client)
+    if todo and provider:
         todo = todo[: int(opts.get("max_new_per_run", 40))]
-        import anthropic
-
-        client = client or anthropic.Anthropic()
-        model = opts.get("model", "claude-opus-5-5")
         language = LANG_NAMES.get(cfg["site"]["ui_language"], "English")
         with cf.ThreadPoolExecutor(10) as pool:
             excerpts = list(pool.map(lambda ks: article_excerpt(ks[1].headline.link), todo))
         material = [(k, _material(s, ex)) for (k, s), ex in zip(todo, excerpts)]
         batches = [material[i:i + BATCH] for i in range(0, len(material), BATCH)]
 
-        def run(batch):
+        results = {}
+        if provider == "anthropic":
+            import anthropic
+
+            client = client or anthropic.Anthropic()
+            model = opts.get("model", "claude-opus-5-5")
+            ask = lambda b: _ask_claude(client, model, language, b)  # noqa: E731
+        else:
+            token, model = os.environ["GITHUB_TOKEN"], opts.get("github_model", "openai/gpt-4.1-mini")
+            ask = lambda b: _ask_github(token, model, language, b)  # noqa: E731
+        for batch in batches:  # one at a time: kind to rate limits
             try:
-                return _ask_claude(client, model, language, batch)
+                results.update(ask(batch))
+            except OutOfQuota as exc:
+                log.warning("neutral titles: free quota used up for now (%s)", exc)
+                break
             except Exception as exc:  # never let this break the edition
                 log.warning("neutral titles: %s: %s; keeping original headlines", type(exc).__name__, exc)
-                return {}
-
-        with cf.ThreadPoolExecutor(4) as pool:
-            results = {}
-            for r in pool.map(run, batches):
-                results.update(r)
         now = int(time.time())
         for key, s in todo:
             if key in results:
@@ -183,7 +235,7 @@ def neutralize(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, c
                          "n": len(s.outlets), "t": now}
                 cache[key] = s.neutral = entry
                 written += 1
-        log.info("neutral titles: %d written now", written)
+        log.info("neutral titles (%s): %d written now", provider, written)
 
     # Forget stories older than three days.
     cutoff = time.time() - 3 * 86400

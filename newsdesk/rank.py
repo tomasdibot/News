@@ -11,8 +11,9 @@ from .filters import section_topics
 from .lexicon import AGE_HINTS, COUNTRY_KEYWORDS, SENSATIONAL, TOPIC_KEYWORDS
 from .text import contains_any, normalize
 
-TIER_WEIGHT = {"wire": 1.0, "public": 1.0, "commercial": 0.85, "institutional": 0.7}
-TIER_ORDER = {"wire": 0, "public": 1, "commercial": 2, "institutional": 3}
+TIER_WEIGHT = {"wire": 1.0, "public": 1.0, "commercial": 0.85, "specialist": 0.85, "institutional": 0.7,
+               "official": 0.6}
+TIER_ORDER = {"wire": 0, "public": 1, "commercial": 2, "specialist": 2, "institutional": 3, "official": 4}
 FRESHNESS_HALF_LIFE_H = 12
 
 
@@ -157,6 +158,12 @@ def select_pool(stories: list[Story], cfg: dict, per_topic: int = 15, overall: i
         pool = [s for s in stories if s.topic_scores.get(name, 0) >= 0.45]
         pool.sort(key=lambda s: s.base * (0.5 + s.topic_scores[name]), reverse=True)
         for s in pool[:per_topic]:
+            picked[id(s)] = s
+    from .lexicon import CONCEPTS
+    for c in CONCEPTS:
+        kws = c["keywords"]
+        hits = [s for s in stories if contains_any(normalize(" ".join(a.title for a in s.articles)), kws)]
+        for s in hits[:12]:
             picked[id(s)] = s
     for s in [s for s in stories if s.local][:25]:
         picked[id(s)] = s

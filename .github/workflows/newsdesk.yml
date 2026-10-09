@@ -22,6 +22,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  models: read      # free neutral titles with GitHub Models
 
 concurrency:
   group: newsdesk
@@ -62,7 +63,9 @@ jobs:
           NEWSDESK_PASSWORD: ${{ secrets.NEWSDESK_PASSWORD }}
           NEWSDESK_REQUIRE_PASSWORD: "1"
           NEWSDESK_SITE_URL: ${{ steps.pages.outputs.base_url }}/
-          # Optional: neutral titles written by Claude (see config.yaml → neutral_titles)
+          # Neutral titles (config.yaml → neutral_titles): free via GitHub Models with the
+          # built-in token, or Claude if the optional ANTHROPIC_API_KEY secret exists.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
       - uses: actions/upload-pages-artifact@v3

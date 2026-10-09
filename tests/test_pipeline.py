@@ -169,3 +169,13 @@ def test_exclusion_rules():
     assert exclusion_reason("Plan de seguridad", "https://www.infobae.com/mexico/2026/10/08/x/", [], "AR", "AR")
     assert not exclusion_reason("Plan de seguridad", "https://www.infobae.com/mexico/2026/10/08/x/", [], "MX", "MX")
     assert section_topics("https://www.france24.com/es/econom%C3%ADa/20261008-x") == {"economy"}
+
+
+def test_headline_cleanup():
+    from newsdesk.text import clean_headline as c
+
+    assert c("EN VIVO | Milei habla en el Congreso") == "Milei habla en el Congreso"
+    assert c("¡IMPACTANTE! El video viral del cruce") == "El video viral del cruce"
+    assert c("El INDEC informó la inflación | Infobae") == "El INDEC informó la inflación"
+    assert c("Trump DESTROYS rival in debate") == "Trump destroys rival in debate"
+    assert c("¿Qué pasará con el dólar?") == "¿Qué pasará con el dólar?"

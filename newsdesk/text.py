@@ -128,3 +128,38 @@ def contains_any(text_norm: str, phrases: list[str]) -> list[str]:
         if re.search(rf"(?<![a-z0-9]){re.escape(p)}(?![a-z0-9])", text_norm):
             hits.append(p)
     return hits
+
+
+# --- Rule-based headline cleanup (free, always on) -------------------------------
+_PREFIX_RE = re.compile(
+    r"^\s*(?:(?:en vivo|en directo|ultimo momento|urgente|exclusivo|atencion|impactante|insolito|escandalo|"
+    r"polemica|video|videos|fotos|foto|mira|live|breaking|watch|exclusive|update|minuto a minuto)\s*[:|\-–—!]+\s*)+",
+    re.I,
+)
+_EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF☀-➿️]+")
+_ACRONYM_OK = {"EEUU", "EE.UU.", "FMI", "ONU", "OTAN", "NATO", "INDEC", "BCRA", "AFIP", "ARCA", "ANSES", "PAMI",
+               "YPF", "CGT", "AFA", "FIFA", "NASA", "IPC", "PBI", "PIB", "UE", "EU", "USA", "OMS", "WHO", "IMF",
+               "CEO", "IA", "AI", "CABA", "UBA", "BCE", "ECB", "OPEP", "OPEC", "G20", "G7", "BRICS", "AMBA"}
+
+
+def clean_headline(title: str) -> str:
+    """Strip hype that adds nothing: 'EN VIVO |', 'VIDEO:', emojis, '¡...!', shouting caps, '| Outlet'."""
+    t = _EMOJI_RE.sub("", title).replace("¡", "").strip()
+    # Prefixes are matched on an accent-free copy, then cut from the original.
+    norm = strip_accents(t)
+    m = _PREFIX_RE.match(norm)
+    if m and m.end() < len(t):
+        t = t[m.end():].lstrip()
+    t = re.sub(r"\s*\|\s*[^|]{2,40}$", "", t)          # trailing "| Outlet name"
+    t = t.replace("¡", "").replace("!", "").replace("¿¿", "¿").replace("??", "?")
+    words = t.split()
+    if words:
+        fixed = []
+        for w in words:
+            core = w.strip(".,:;\"'«»()")
+            if len(core) > 3 and core.isupper() and core.isalpha() and core not in _ACRONYM_OK:
+                w = w.replace(core, core.capitalize() if not fixed else core.lower())
+            fixed.append(w)
+        t = " ".join(fixed)
+    t = re.sub(r"\s{2,}", " ", t).strip(" -–—|:")
+    return t[:1].upper() + t[1:] if t else title

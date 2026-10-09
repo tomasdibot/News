@@ -23,7 +23,7 @@ from .push import public_key_b64
 from .lexicon import CONCEPTS, COUNTRY_KEYWORDS, SUGGESTED_THEMES, TOPIC_ALIASES, TOPIC_KEYWORDS
 from .text import normalize
 from .rank import score_stories, select_pool, select_sections
-from .text import truncate
+from .text import clean_headline, truncate
 
 log = logging.getLogger(__name__)
 SITE_DIR = ROOT / "site"            # published
@@ -52,7 +52,7 @@ def story_dict(s: Story, ui_lang: str) -> dict:
     if s.neutral:
         summary = s.neutral["summary"]
     return {
-        "title": s.neutral["title"] if s.neutral else h.title,
+        "title": s.neutral["title"] if s.neutral else clean_headline(h.title),
         "summary": truncate(summary, 280),
         "ai": bool(s.neutral),
         "link": h.link,
@@ -116,7 +116,7 @@ def theme_dictionary(cfg: dict) -> dict:
                              "names": [normalize(t["name"])], "keywords": [normalize(k) for k in t["keywords"]]})
     for c in CONCEPTS:
         concepts.append({"id": c["id"], "label": c["label"].get(lang, c["label"]["en"]), "topic": c["topic"],
-                         "names": c["names"], "keywords": c["keywords"]})
+                         "names": c["names"], "keywords": c["keywords"], "must": c.get("must", [])})
     by_id = {c["id"]: c["label"] for c in concepts}
     country = cfg["profile"]["country"]
     return {

@@ -31,6 +31,20 @@
 - { id: un-news-en,    outlet: UN News,    lang: en, region: global, tier: institutional, url: "https://news.un.org/feed/subscribe/en/news/all/rss.xml", topics: [world] }
 - { id: sciencedaily,  outlet: ScienceDaily, lang: en, region: global, tier: commercial, url: "https://www.sciencedaily.com/rss/top/science.xml", topics: [science] }
 
+# --- Technology & AI: specialist press -------------------------------------
+- { id: verge-ai,      outlet: The Verge,  lang: en, region: global, tier: specialist, url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml", topics: [technology] }
+- { id: ars-ai,        outlet: Ars Technica, lang: en, region: global, tier: specialist, url: "https://arstechnica.com/ai/feed/", topics: [technology] }
+- { id: techcrunch-ai, outlet: TechCrunch, lang: en, region: global, tier: specialist, url: "https://techcrunch.com/category/artificial-intelligence/feed/", topics: [technology] }
+- { id: mit-tr-ai,     outlet: MIT Technology Review, lang: en, region: global, tier: specialist, url: "https://www.technologyreview.com/topic/artificial-intelligence/feed", topics: [technology] }
+
+# --- Technology & AI: official company announcements (labelled "official") --
+- { id: openai-news,   outlet: OpenAI (official),  lang: en, region: global, tier: official, url: "https://openai.com/news/rss.xml", topics: [technology] }
+- { id: deepmind-blog, outlet: Google DeepMind (official), lang: en, region: global, tier: official, url: "https://deepmind.google/blog/rss.xml", topics: [technology] }
+- { id: google-ai,     outlet: Google (official),  lang: en, region: global, tier: official, url: "https://blog.google/technology/ai/rss/", topics: [technology] }
+- { id: microsoft-ai,  outlet: Microsoft (official), lang: en, region: global, tier: official, url: "https://blogs.microsoft.com/ai/feed/", topics: [technology] }
+- { id: nvidia-blog,   outlet: NVIDIA (official),  lang: en, region: global, tier: official, url: "https://blogs.nvidia.com/feed/", topics: [technology] }
+- { id: hf-blog,       outlet: Hugging Face (official), lang: en, region: global, tier: official, url: "https://huggingface.co/blog/feed.xml", topics: [technology] }
+
 # --- Global, Spanish -------------------------------------------------------
 - { id: bbc-mundo,     outlet: BBC,        lang: es, region: global, tier: public, url: "https://feeds.bbci.co.uk/mundo/rss.xml" }
 - { id: dw-es,         outlet: DW,         lang: es, region: global, tier: public, url: "https://rss.dw.com/rdf/rss-sp-all" }

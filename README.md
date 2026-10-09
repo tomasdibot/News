@@ -91,14 +91,27 @@ How the app works:
 - **Daily reminder:** tap the bell to get a notification every morning. Tapping the
   notification opens the app (see *Daily reminder* below).
 
-## Neutral titles (optional, paid)
+## Neutral titles (free)
 
-1. Create an API key at <https://console.anthropic.com> (separate from a Claude subscription; you add a payment method there).
-2. Save it as the GitHub secret `ANTHROPIC_API_KEY`.
+Every hour an AI model reads each new story (all outlets' headlines and summaries, plus the
+start of the article) and writes one plain, factual title and summary. These are marked
+*written by AI* in the app. By default it uses **GitHub Models**: free, with the workflow's
+built-in token, so there is nothing to set up. It has a daily limit, so up to 30 new stories
+are rewritten per hour. When the limit is reached, the cleaned-up original headline is shown
+("EN VIVO |", "VIDEO:", "¡...!", emojis and shouting removed). Optional: add an
+`ANTHROPIC_API_KEY` secret to use Claude instead (paid). Settings: `neutral_titles` in
+`config.yaml`.
 
-Each story is rewritten once and remembered between hourly runs. Settings are under
-`neutral_titles` in `config.yaml`: the model, how many stories, and a per-run cap. Without the
-key, the most sober of the original headlines is shown, as before.
+## Precise themes
+
+Tap ✎ next to a theme in ⚙ to fine-tune it:
+- **Only if it mentions:** e.g. *OpenAI, Anthropic, lanza, anuncia*. The dropdown suggests words.
+- **Exclude if it mentions:** e.g. *estafa, famosos*.
+
+The ready-made theme *IA: lanzamientos y empresas* already keeps only AI stories that name a
+main company or a launch or announcement. Official company blogs (OpenAI, Google DeepMind,
+Google, Microsoft, NVIDIA, Hugging Face) and specialist AI press are among the sources.
+Official posts are labelled "(official)".
 
 ## Password protection
 

@@ -54,12 +54,15 @@ notification:
   provider: push          # push (notification from the app) | callmebot | twilio | greenapi | console
   headlines: 3            # how many headlines go in the notification
 
-# Neutral titles: Claude rewrites each story's headline from what all outlets report.
-# Only active when the ANTHROPIC_API_KEY secret exists. Each story is written once.
+# Neutral titles: an AI model rewrites each story's headline from what all outlets report.
+# Free by default (GitHub Models, daily limit); Claude is used instead if the
+# ANTHROPIC_API_KEY secret exists. Each story is written once.
 neutral_titles:
   enabled: true
-  model: claude-opus-5-5     # claude-haiku-5-5 costs ~40x less
-  max_stories: 120          # how many of the top stories get a neutral title
-  max_new_per_run: 40       # cost cap per hourly run
+  provider: auto                    # auto | github | anthropic
+  github_model: openai/gpt-4.1-mini # free with GitHub Models
+  model: claude-opus-5-5            # used only with ANTHROPIC_API_KEY (claude-haiku-5-5 costs ~40x less)
+  max_stories: 120                  # how many of the top stories get a neutral title
+  max_new_per_run: 30               # per hourly run (keeps the free daily limit)
 
 refresh_minutes: 60       # how often the site is rebuilt in `serve` mode

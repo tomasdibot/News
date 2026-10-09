@@ -41,7 +41,8 @@ def browser():
 def open_app(browser, url, prefs=None):
     ctx = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True)
     if prefs:
-        ctx.add_init_script(f"localStorage.setItem('newsdesk-prefs-v2', {json.dumps(json.dumps(prefs))})")
+        ctx.add_init_script("if (!localStorage.getItem('newsdesk-prefs-v2')) "
+                            f"localStorage.setItem('newsdesk-prefs-v2', {json.dumps(json.dumps(prefs))})")
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
@@ -126,3 +127,50 @@ def test_reorder_and_remove_themes(app):
     app.click('#tlist li[data-i="0"] .rm')            # drop Economía argentina
     app.click("#setsave")
     assert tab_names(app) == ["Lo más importante", "Tu país", "Ciencia", "Mundo"]
+
+
+@pytest.fixture
+def ai_site(articles, cfg, tmp_path, monkeypatch):
+    from datetime import timedelta
+
+    from conftest import SOURCES
+    from newsdesk.fetch import Article
+
+    def art(src, title, summary, h):
+        return Article(SOURCES[src], title, f"https://x/{abs(hash(title))}", summary, NOW - timedelta(hours=h))
+
+    extra = [
+        art("bbc", "OpenAI launches GPT-6 model for businesses", "The artificial intelligence company announced it.", 1),
+        art("dw", "Teachers worry about AI use in school homework", "Parents debate artificial intelligence at home.", 2),
+    ]
+    monkeypatch.delenv("NEWSDESK_PASSWORD", raising=False)
+    render(build_edition(cfg, articles=articles + extra, now=NOW), cfg, out_dir=tmp_path / "s2", data_path=tmp_path / "e2.json")
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path / "s2"))
+    handler.log_message = lambda *a: None
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield f"http://localhost:{server.server_address[1]}/"
+    server.shutdown()
+
+
+def test_precise_ai_theme_keeps_launches_not_chatter(ai_site, browser):
+    page = open_app(browser, ai_site, {"v": 2, "themes": ["Inteligencia artificial", "IA: lanzamientos y empresas"], "local": False})
+    broad, precise = panel_text(page, "Inteligencia artificial"), panel_text(page, "IA: lanzamientos y empresas")
+    assert "OpenAI" in broad and "homework" in broad
+    assert "OpenAI" in precise and "homework" not in precise
+    assert not page.errors, page.errors
+
+
+def test_fine_tune_a_theme_with_must_and_exclude_words(ai_site, browser):
+    page = open_app(browser, ai_site, {"v": 2, "themes": ["Inteligencia artificial"], "local": False})
+    page.click("#gear")
+    page.click('#tlist li[data-i="0"] .ed-btn')
+    page.select_option("#tlist li.ed select.addword", "openai")      # suggested words come in a dropdown
+    page.fill("#tlist li.ed input.not", "homework")
+    page.click("#setsave")
+    text = panel_text(page, "Inteligencia artificial")
+    assert "OpenAI" in text and "homework" not in text
+    page.reload()
+    page.wait_for_selector(".tab")
+    assert "homework" not in panel_text(page, "Inteligencia artificial")  # kept on the device
+    assert not page.errors, page.errors
