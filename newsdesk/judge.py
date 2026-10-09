@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 CACHE_PATH = ROOT / "build" / "theme-cache.json"
 BATCH = 10
-VERSION = 2      # bump when the way stories are judged changes: old verdicts are then ignored
+VERSION = 3      # bump when the way stories are judged changes: old verdicts are then ignored
 PER_THEME = 40   # a tab shows at most 15 stories: only the best candidates need reading
 
 SYSTEM = """You filter news for one reader. The reader described a theme in their own words. For each story, decide if it fits the theme EXACTLY.
@@ -50,7 +50,8 @@ ONE_SYSTEM = """You decide whether one news story belongs in a section of a read
 Answer true only if the story's MAIN subject is what the section describes, respecting every qualifier:
 - "Avances / launches / models / developments" means new products, models, research results or official announcements. Lawsuits, scandals, firings, stock prices, company valuations, opinion and people merely using a tool do not fit.
 - A country in the section (e.g. "Argentina") means news about that country; the same topic in another country does not fit.
-- A broad section such as "Mundo: General" (world news) accepts any significant international story: wars, diplomacy, disasters, elections, abroad.
+- A broad section such as "Mundo: General" (world news) accepts EVERY story mainly about other countries or international affairs: politics, conflicts, diplomacy, disasters, elections, awards, crime, science abroad. Stories mainly about the reader's own country do not fit it.
+- "Shows / conciertos / giras / lanzamientos" in music: new songs and albums, tours, concerts announced, cancelled or reviewed, tickets, live sessions, and interviews about a new release all fit. Gossip, private life and history pieces do not.
 - Ignore notes such as "written with AI help".
 
 Examples:
@@ -60,6 +61,9 @@ Section "Economía de Chile" / story "El Banco Central de Chile baja la tasa" ->
 Section "Economía de Chile" / story "La inflación en México se acelera" -> false
 Section "Mundo: General" / story "Francia y Alemania firman acuerdo de defensa" -> true
 Section "Mundo: General" / story "River gana el clásico" -> false
+Section "Mundo: General" / story "Un tribunal de EE.UU. condena a tres hombres por un asesinato" -> true
+Section "Música: novedades" / story "Banda cancela su recital por lluvia" -> true
+Section "Música: novedades" / story "Cantante celebra su aniversario de casada" -> false
 
 Reply only with JSON: {"fits": true} or {"fits": false}."""
 
@@ -184,9 +188,13 @@ def _ask(provider: str, client, model: str, theme: str, batch: list[tuple[str, d
             if isinstance(e, dict) and str(e.get("id")) in ids and "fits" in e}
 
 
+READER = {"country": ""}   # set from the profile: "Mundo" means "outside the reader's country"
+
+
 def _ask_one(provider: str, client, model: str, theme: str, material: dict) -> bool | None:
     story = "\n".join(material["headlines"]) + ("\n" + material["excerpt"] if material.get("excerpt") else "")
-    user = f"Section: {theme}\n\nStory:\n{story}\n\nDoes this story belong in the section?"
+    where = f"The reader lives in {READER['country']}.\n" if READER["country"] else ""
+    user = f"{where}Section: {theme}\n\nStory:\n{story}\n\nDoes this story belong in the section?"
     if provider == "anthropic":
         response = client.beta.messages.create(
             model=model, max_tokens=200, system=ONE_SYSTEM, messages=[{"role": "user", "content": user}],
@@ -227,6 +235,13 @@ def ask_many(provider: str, client, model: str, theme: str, items: list[tuple[st
     return got
 
 
+def set_reader(cfg: dict) -> None:
+    from .lexicon import COUNTRY_NAMES
+
+    code = cfg["profile"].get("country", "")
+    READER["country"] = COUNTRY_NAMES.get("en", {}).get(code, code)
+
+
 def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, client=None) -> list[str]:
     """Set `s.fits[theme_key] = True/False` on judged stories. Returns the keys of the themes used."""
     themes = configured_themes(cfg)
@@ -246,6 +261,7 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
     else:
         model = os.environ.get("NEWSDESK_THEME_MODEL") or os.environ.get("NEWSDESK_LOCAL_MODEL", "")
     mode = opts.get("mode", "single")
+    set_reader(cfg)
     deadline = time.time() + float(opts.get("time_budget_seconds", 300))
     now, judged, keys, queues = int(time.time()), 0, [], []
     for theme in themes:

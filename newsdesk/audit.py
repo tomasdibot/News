@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from .cluster import cluster
 from .config import load_sources
 from .fetch import fetch_all
-from .judge import PER_THEME, _material, ask_many, candidates, configured_themes, theme_key
+from .judge import PER_THEME, _material, ask_many, candidates, configured_themes, set_reader, theme_key
 from .neutral import _provider
 from .rank import score_stories
 
@@ -102,6 +102,7 @@ def run(cfg, out=print) -> int:
     setups = [tuple(x.split("@", 1)) for x in os.environ.get("AUDIT_SETUPS", f"single@{default}").split(",") if "@" in x]
     now = datetime.now(timezone.utc)
     lines: list[str] = [f"# AI theme filter check ({provider})", ""]
+    set_reader(cfg)
 
     # 1. Test with known answers, for each setup.
     lines += ["## 1. Test with known answers", ""]

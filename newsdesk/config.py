@@ -39,7 +39,7 @@ DEFAULTS: dict = {
     "neutral_titles": {"enabled": True, "provider": "auto", "github_model": "openai/gpt-4.1-mini",
                        "model": "claude-opus-5-5", "max_stories": 120, "max_new_per_run": 30,
                        "max_new_per_run_local": 18, "time_budget_seconds": 480},
-    "theme_filter": {"enabled": True, "time_budget_seconds": 300},
+    "theme_filter": {"enabled": True, "mode": "single", "time_budget_seconds": 420},
     "themes": [],
     "refresh_minutes": 60,
 }

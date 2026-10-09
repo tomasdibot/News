@@ -26,7 +26,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.ollama/models
-          key: ollama-qwen2.5-3b
+          key: ollama-qwen2.5-3b-7b
 
       - name: Start local AI model
         timeout-minutes: 15
@@ -39,12 +39,13 @@ jobs:
           ollama pull qwen2.5:3b
           ollama pull qwen2.5:7b
           echo "NEWSDESK_LOCAL_MODEL=qwen2.5:3b" >> "$GITHUB_ENV"
+          echo "NEWSDESK_THEME_MODEL=qwen2.5:7b" >> "$GITHUB_ENV"
 
       - name: Check the filter
         run: python -m newsdesk audit
         env:
           NEWSDESK_PROFILE: ${{ secrets.NEWSDESK_PROFILE }}
           NEWSDESK_THEMES: ${{ vars.NEWSDESK_THEMES || secrets.NEWSDESK_THEMES }}
-          # Compare: old way (10 stories per request), one story per request, and a bigger free model.
-          AUDIT_SETUPS: "batch@qwen2.5:3b,single@qwen2.5:3b,single@qwen2.5:7b"
-          AUDIT_SAMPLE: "20"
+          # Setups to check (mode@model, comma-separated); single@qwen2.5:7b is what the hourly build uses.
+          AUDIT_SETUPS: "single@qwen2.5:7b"
+          AUDIT_SAMPLE: "25"

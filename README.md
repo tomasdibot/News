@@ -117,6 +117,9 @@ AI agent does not fit that theme). The job runs on GitHub, so your themes must r
 connect the app once (see *Automatic themes* below) and they are sent every time you tap
 **Guardar**. ⚙ then says *✓ Filtro IA activo* (about 10 minutes later). Each story is read
 once per theme; right after a change, a theme uses keyword matching until its stories are read.
+The filter uses a larger free model (Qwen2.5 7B), one story at a time. To see how well it
+decides: **Actions** → **Check AI theme filter** → **Run workflow**; the run's summary shows its
+score on example stories and its decision on each of today's stories.
 
 ### Automatic themes
 
