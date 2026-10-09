@@ -68,9 +68,10 @@ How the app works:
 
 - **Tabs you swipe:** *Most important now*, *Your country*, then one tab per topic. Swipe left
   or right to move between them, or tap a tab name.
-- **Short by default:** each story is one compact row (topic, time, how many outlets, headline,
-  photo). Tap a story to open its summary, the outlets that covered it, and a *Read the full
-  story* button. The first story of each tab has a bigger photo and a two-line summary.
+- **Newspaper layout, 4 stories per tab:** each tab shows only its 4 most important stories,
+  all the same size (topic, time, outlets, headline, short summary, photo). *Show more* opens
+  the rest; *Show less* closes them. Tap a story for its summary, the outlets that covered it,
+  and a *Read the full story* button.
 - **Your themes make the tabs:** the first time you open the app it asks *What do you want to
   follow?* Type themes in your own words, in Spanish or English (*economía argentina*,
   *inteligencia artificial*, *Fórmula 1*, *Medio Oriente*...) or tap a suggestion. Each theme

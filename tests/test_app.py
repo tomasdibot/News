@@ -174,3 +174,39 @@ def test_fine_tune_a_theme_with_must_and_exclude_words(ai_site, browser):
     page.wait_for_selector(".tab")
     assert "homework" not in panel_text(page, "Inteligencia artificial")  # kept on the device
     assert not page.errors, page.errors
+
+
+@pytest.fixture
+def big_site(articles, cfg, tmp_path, monkeypatch):
+    from datetime import timedelta
+
+    from conftest import SOURCES
+    from newsdesk.fetch import Article
+
+    topics = ["parliament budget vote", "central bank interest rates", "telescope discovers planet",
+              "hospital vaccine campaign", "wildfire forces evacuation", "chipmaker unveils processor",
+              "summit on trade tariffs", "court rules on election law"]
+    extra = [Article(SOURCES["bbc" if i % 2 else "dw"], f"Officials report {t} in region {i}", f"https://x/big{i}",
+                     f"Details on {t}.", NOW - timedelta(hours=i + 1)) for i, t in enumerate(topics)]
+    monkeypatch.delenv("NEWSDESK_PASSWORD", raising=False)
+    render(build_edition(cfg, articles=articles + extra, now=NOW), cfg, out_dir=tmp_path / "s3", data_path=tmp_path / "e3.json")
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path / "s3"))
+    handler.log_message = lambda *a: None
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield f"http://localhost:{server.server_address[1]}/"
+    server.shutdown()
+
+
+def test_each_tab_shows_four_stories_until_asked_for_more(big_site, browser):
+    page = open_app(browser, big_site, {"v": 2, "themes": [], "local": False})
+    visible = "els => els.filter(e => e.offsetParent !== null).length"
+    total = page.eval_on_selector_all("#panel-0 .card", "els => els.length")
+    assert total > 4
+    assert page.eval_on_selector_all("#panel-0 .card", visible) == 4
+    page.click("#panel-0 .moreall")
+    assert page.eval_on_selector_all("#panel-0 .card", visible) == total
+    assert page.text_content("#panel-0 .moreall") == "Ver menos"
+    page.click("#panel-0 .moreall")
+    assert page.eval_on_selector_all("#panel-0 .card", visible) == 4
+    assert not page.errors, page.errors
