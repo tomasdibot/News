@@ -120,6 +120,7 @@ def theme_dictionary(cfg: dict) -> dict:
                              "names": [normalize(t["name"])], "keywords": [normalize(k) for k in t["keywords"]]})
     for c in CONCEPTS:
         concepts.append({"id": c["id"], "label": c["label"].get(lang, c["label"]["en"]), "topic": c["topic"],
+                         "short": (c.get("short") or {}).get(lang, ""),
                          "names": c["names"], "keywords": c["keywords"], "must": c.get("must", []),
                          "not": c.get("not", []), "strict": c.get("strict", False)})
     by_id = {c["id"]: c["label"] for c in concepts}

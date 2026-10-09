@@ -68,6 +68,11 @@ How the app works:
 
 - **Tabs you swipe:** *Most important now*, *Your country*, then one tab per topic. Swipe left
   or right to move between them, or tap a tab name.
+- **Opening:** the app icon turns into the front page, which flips open (once per visit;
+  skipped if the phone has *Reduce motion* on).
+- **Sections:** long themes get a short tab name automatically (e.g. *Avances de la IA de
+  fuentes oficiales* → *IA*); change it in ⚙ → ✎ → *Nombre de la pestaña*. At the bottom of
+  each section, *Sección siguiente* moves on.
 - **Newspaper layout, 4 stories per tab:** each tab shows only its 4 most important stories,
   all the same size (topic, time, outlets, headline, short summary, photo). *Show more* opens
   the rest; *Show less* closes them. Tap a story for its summary, the outlets that covered it,

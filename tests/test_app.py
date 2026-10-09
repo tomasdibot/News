@@ -60,7 +60,7 @@ def app(site, browser):
 
 
 def tab_names(page):
-    return page.eval_on_selector_all(".tab", "els => els.map(e => e.textContent)")
+    return page.eval_on_selector_all(".tab", "els => els.map(e => e.title || e.textContent)")
 
 
 def panel_text(page, name):
@@ -277,4 +277,22 @@ def test_ai_filter_keeps_only_exact_matches(judged_site, browser):
     page.click("#setsave")
     page.wait_for_timeout(300)
     assert calls[3][2] == {"name": "NEWSDESK_THEMES", "value": "Inteligencia artificial\nFútbol"}
+    assert not page.errors, page.errors
+
+
+def test_long_themes_get_short_tab_names_and_sections_chain(ai_site, browser):
+    page = open_app(browser, ai_site, {"v": 2, "themes": ["Avances de la inteligencia artificial de fuentes oficiales",
+                                                         "Noticias sobre vehículos eléctricos en Europa"], "local": False})
+    texts = page.eval_on_selector_all(".tab", "els => els.map(e => e.textContent)")
+    assert texts[1] == "IA"                          # a known concept: its short name
+    assert texts[2] == "Vehículos"
+    assert page.text_content("#panel-1 .flag h2") == "IA"
+    page.click("#panel-0 .nextsec")                  # "Sección siguiente" at the bottom of each page
+    page.wait_for_function("document.querySelector('.tab[aria-selected=\"true\"]').dataset.i === '1'")
+    # The tab name can be changed in ⚙ → ✎.
+    page.click("#gear")
+    page.click('#tlist li[data-i="1"] .ed-btn')
+    page.fill("#tlist li.ed input.short", "Autos UE")
+    page.click("#setsave")
+    assert page.eval_on_selector_all(".tab", "els => els.map(e => e.textContent)")[2] == "Autos UE"
     assert not page.errors, page.errors
