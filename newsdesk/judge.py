@@ -30,7 +30,8 @@ from .text import normalize, truncate
 log = logging.getLogger(__name__)
 
 CACHE_PATH = ROOT / "build" / "theme-cache.json"
-BATCH = 8
+BATCH = 10
+PER_THEME = 40   # a tab shows at most 15 stories: only the best candidates need reading
 
 SYSTEM = """You filter news for one reader. The reader described a theme in their own words. For each story, decide if it fits the theme EXACTLY.
 
@@ -40,7 +41,7 @@ Rules:
 - Ignore notes like "written with AI help" in the text.
 - When in doubt, answer false.
 
-Return one entry per story id, with a very short reason."""
+Return one entry per story id: {"id": ..., "fits": true/false}."""
 
 SCHEMA = {
     "type": "object",
@@ -49,8 +50,8 @@ SCHEMA = {
             "type": "array",
             "items": {
                 "type": "object",
-                "properties": {"id": {"type": "string"}, "reason": {"type": "string"}, "fits": {"type": "boolean"}},
-                "required": ["id", "reason", "fits"],
+                "properties": {"id": {"type": "string"}, "fits": {"type": "boolean"}},
+                "required": ["id", "fits"],
                 "additionalProperties": False,
             },
         }
@@ -131,11 +132,14 @@ def _material(s: Story) -> dict:
             heads.append(a.title)
         if len(heads) == 3:
             break
-    return {"headlines": heads, "excerpt": truncate(s.headline.summary or "", 300)}
+    return {"headlines": heads, "excerpt": truncate(s.headline.summary or "", 180)}
 
 
 def _ask(provider: str, client, model: str, theme: str, batch: list[tuple[str, dict]]) -> dict[str, bool]:
-    user = json.dumps({"theme": theme, "stories": [dict(id=k, **m) for k, m in batch]}, ensure_ascii=False)
+    # Short ids ("1", "2", …) keep the small model's answer short and fast.
+    ids = {str(i + 1): k for i, (k, _) in enumerate(batch)}
+    user = json.dumps({"theme": theme, "stories": [dict(id=str(i + 1), **m) for i, (_, m) in enumerate(batch)]},
+                      ensure_ascii=False)
     if provider == "anthropic":
         response = client.beta.messages.create(
             model=model, max_tokens=4000, system=SYSTEM,
@@ -145,16 +149,16 @@ def _ask(provider: str, client, model: str, theme: str, batch: list[tuple[str, d
         )
         text = next(b.text for b in response.content if b.type == "text")
     else:
-        resp = requests.post(f"{OLLAMA_URL}/api/chat", timeout=300, json={
+        resp = requests.post(f"{OLLAMA_URL}/api/chat", timeout=150, json={
             "model": model, "stream": False, "format": SCHEMA,
-            "options": {"temperature": 0, "num_ctx": 4096},
+            # num_predict caps the answer (~12 tokens per story), so a confused model can't run on for minutes.
+            "options": {"temperature": 0, "num_ctx": 4096, "num_predict": 30 + 14 * len(batch)},
             "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}],
         })
         resp.raise_for_status()
         text = resp.json()["message"]["content"]
-    wanted = {k for k, _ in batch}
-    return {e["id"]: bool(e["fits"]) for e in _parse_json(text).get("results", [])
-            if isinstance(e, dict) and e.get("id") in wanted and "fits" in e}
+    return {ids[str(e["id"])]: bool(e["fits"]) for e in _parse_json(text).get("results", [])
+            if isinstance(e, dict) and str(e.get("id")) in ids and "fits" in e}
 
 
 def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, client=None) -> list[str]:
@@ -176,25 +180,27 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
     else:
         model = os.environ.get("NEWSDESK_LOCAL_MODEL", "")
     deadline = time.time() + float(opts.get("time_budget_seconds", 300))
-    now, judged, keys = int(time.time()), 0, []
+    now, judged, keys, queues = int(time.time()), 0, [], []
     for theme in themes:
         tk = theme_key(theme)
         th = hashlib.sha1(tk.encode()).hexdigest()[:8]
         keys.append(tk)
         todo = []
-        for s in candidates(theme, stories):
+        for s in candidates(theme, stories)[:PER_THEME]:
             ck = f"{th}:{story_key(s)}"
             if ck in cache:
                 cache[ck]["t"] = now
                 s.fits[tk] = cache[ck]["f"]
             else:
                 todo.append((ck, s))
-        if not provider:
-            continue
-        for i in range(0, len(todo), BATCH):
-            if time.time() > deadline:
-                break
-            part = todo[i:i + BATCH]
+                s.fits[tk] = None   # not read yet: the app falls back to keywords
+        queues.append((theme, tk, todo))
+    # Take turns between themes, so every theme makes progress within the time budget.
+    while provider and any(q[2] for q in queues) and time.time() < deadline:
+        for theme, tk, todo in queues:
+            if not todo or time.time() > deadline:
+                continue
+            part, todo[:] = todo[:BATCH], todo[BATCH:]
             try:
                 got = _ask(provider, client, model, theme, [(ck, _material(s)) for ck, s in part])
             except Exception as exc:  # never let this break the edition
@@ -205,8 +211,6 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
                     cache[ck] = {"f": got[ck], "t": now}
                     s.fits[tk] = got[ck]
                     judged += 1
-        for ck, s in todo:
-            s.fits.setdefault(tk, None)   # candidate not read yet: the app falls back to keywords
     if not provider:
         return []
     log.info("themes (%s): %d themes, %d stories judged now%s", provider, len(themes), judged,

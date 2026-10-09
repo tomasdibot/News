@@ -59,3 +59,24 @@ def test_without_a_model_nothing_is_filtered(monkeypatch, cfg, tmp_path):
     monkeypatch.setenv("NEWSDESK_THEMES", THEME)
     ss = stories(cfg)
     assert judge.judge_themes(ss, cfg, cache_path=tmp_path / "c.json") == []
+
+
+def test_local_model_gets_short_ids_and_a_capped_answer(monkeypatch):
+    sent = {}
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": '{"results": [{"id": "1", "fits": true}, {"id": "2", "fits": false}]}'}}
+
+    def post(url, timeout, json):
+        sent.update(json)
+        return Resp()
+
+    monkeypatch.setattr(judge.requests, "post", post)
+    got = judge._ask("local", None, "m", "Música: lanzamientos", [("ab:111", {"headlines": ["x"]}), ("ab:222", {"headlines": ["y"]})])
+    assert got == {"ab:111": True, "ab:222": False}
+    assert '"id": "1"' in sent["messages"][1]["content"] and "ab:111" not in sent["messages"][1]["content"]
+    assert sent["options"]["num_predict"] <= 60
