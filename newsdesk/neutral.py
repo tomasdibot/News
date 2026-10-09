@@ -1,9 +1,11 @@
 """Neutral headlines: an AI model reads what every outlet reported and writes one plain, factual title.
 
 Providers (config: neutral_titles.provider, default "auto"):
-  github    - GitHub Models, free with the repository's built-in GITHUB_TOKEN (daily request limit).
+  local     - a small open model run by Ollama on the same machine (free, private). The workflow
+              starts it and sets NEWSDESK_LOCAL_MODEL.
   anthropic - Claude, paid, needs ANTHROPIC_API_KEY.
-  auto      - anthropic if ANTHROPIC_API_KEY is set, otherwise github if GITHUB_TOKEN is set.
+  github    - GitHub Models (free with GITHUB_TOKEN; currently not answering, kept as an option).
+  auto      - anthropic if ANTHROPIC_API_KEY is set, otherwise local if NEWSDESK_LOCAL_MODEL is set.
 Results are cached between runs (build/neutral-cache.json, kept by the workflow), so each
 story is written once. Anything that fails falls back to the cleaned-up original headline.
 """
@@ -100,14 +102,14 @@ def article_excerpt(url: str, limit: int = 1500) -> str:
         return ""
 
 
-def _material(s: Story, excerpt: str) -> dict:
+def _material(s: Story, excerpt: str, max_outlets: int = 5) -> dict:
     seen, outlets = set(), []
     for a in sorted(s.articles, key=lambda a: a.published):
         if a.outlet in seen:
             continue
         seen.add(a.outlet)
         outlets.append({"outlet": a.outlet, "headline": a.title, "excerpt": truncate(a.summary, 400)})
-        if len(outlets) == 5:
+        if len(outlets) == max_outlets:
             break
     item = {"outlets": outlets}
     if excerpt:
@@ -205,13 +207,40 @@ def _parse_json(text: str) -> dict:
     return json.loads(text[start:end + 1])
 
 
+OLLAMA_URL = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+if not OLLAMA_URL.startswith("http"):
+    OLLAMA_URL = "http://" + OLLAMA_URL
+
+
+def _ask_local(model: str, language: str, batch: list[tuple[str, dict]]) -> dict[str, dict]:
+    """One small batch to the local model; Ollama constrains the reply to our JSON schema."""
+    payload = [dict(id=k, **m) for k, m in batch]
+    resp = requests.post(f"{OLLAMA_URL}/api/chat", timeout=300, json={
+        "model": model,
+        "stream": False,
+        "format": SCHEMA,
+        "options": {"temperature": 0.2, "num_ctx": 4096},
+        "messages": [
+            {"role": "system", "content": SYSTEM.format(language=language)},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ],
+    })
+    resp.raise_for_status()
+    data = _parse_json(resp.json()["message"]["content"])
+    wanted = {k for k, _ in batch}
+    return {e["id"]: e for e in data.get("stories", [])
+            if isinstance(e, dict) and e.get("id") in wanted and str(e.get("title", "")).strip()}
+
+
 def _provider(opts: dict, client) -> str | None:
     if client is not None:
         return "anthropic"
     choice = opts.get("provider", "auto")
     if choice in ("anthropic", "auto") and os.environ.get("ANTHROPIC_API_KEY"):
         return "anthropic"
-    if choice in ("github", "auto") and os.environ.get("GITHUB_TOKEN"):
+    if choice in ("local", "auto") and os.environ.get("NEWSDESK_LOCAL_MODEL"):
+        return "local"
+    if choice == "github" and os.environ.get("GITHUB_TOKEN"):
         return "github"
     return None
 
@@ -241,12 +270,16 @@ def neutralize(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, c
     written = 0
     provider = _provider(opts, client)
     if todo and provider:
-        todo = todo[: int(opts.get("max_new_per_run", 40))]
+        local = provider == "local"
+        todo = todo[: int(opts.get("max_new_per_run_local" if local else "max_new_per_run", 40))]
         language = LANG_NAMES.get(cfg["site"]["ui_language"], "English")
+        limit = 700 if local else 1500   # small models: shorter material is faster and works better
         with cf.ThreadPoolExecutor(10) as pool:
-            excerpts = list(pool.map(lambda ks: article_excerpt(ks[1].headline.link), todo))
-        material = [(k, _material(s, ex)) for (k, s), ex in zip(todo, excerpts)]
-        batches = [material[i:i + BATCH] for i in range(0, len(material), BATCH)]
+            excerpts = list(pool.map(lambda ks: article_excerpt(ks[1].headline.link, limit), todo))
+        material = [(k, _material(s, ex, 3 if local else 5)) for (k, s), ex in zip(todo, excerpts)]
+        size = 3 if local else BATCH
+        batches = [material[i:i + size] for i in range(0, len(material), size)]
+        deadline = time.time() + float(opts.get("time_budget_seconds", 480))
 
         results = {}
         if provider == "anthropic":
@@ -255,10 +288,16 @@ def neutralize(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, c
             client = client or anthropic.Anthropic()
             model = opts.get("model", "claude-opus-5-5")
             ask = lambda b: _ask_claude(client, model, language, b)  # noqa: E731
+        elif local:
+            model = os.environ["NEWSDESK_LOCAL_MODEL"]
+            ask = lambda b: _ask_local(model, language, b)  # noqa: E731
         else:
             token, model = os.environ["GITHUB_TOKEN"], opts.get("github_model", "openai/gpt-4.1-mini")
             ask = lambda b: _ask_github(token, model, language, b)  # noqa: E731
         for batch in batches:  # one at a time: kind to rate limits
+            if time.time() > deadline:
+                log.info("neutral titles: time budget used; the rest waits for the next run")
+                break
             try:
                 results.update(ask(batch))
             except OutOfQuota as exc:

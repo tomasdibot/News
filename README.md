@@ -93,14 +93,14 @@ How the app works:
 
 ## Neutral titles (free)
 
-Every hour an AI model reads each new story (all outlets' headlines and summaries, plus the
-start of the article) and writes one plain, factual title and summary. These are marked
-*written by AI* in the app. By default it uses **GitHub Models**: free, with the workflow's
-built-in token, so there is nothing to set up. It has a daily limit, so up to 30 new stories
-are rewritten per hour. When the limit is reached, the cleaned-up original headline is shown
-("EN VIVO |", "VIDEO:", "¡...!", emojis and shouting removed). Optional: add an
-`ANTHROPIC_API_KEY` secret to use Claude instead (paid). Settings: `neutral_titles` in
-`config.yaml`.
+Every hour a small open AI model (Qwen2.5 3B) runs inside the GitHub job itself, using
+Ollama. Nothing leaves GitHub and there's nothing to set up. It reads each new story (all
+outlets' headlines and summaries, plus the start of the article) and writes one plain,
+factual title and summary, marked *written by AI* in the app. It's slower than a big model,
+so up to 18 new stories per hour are rewritten (most important first) and the rest wait for
+the next hour. Stories not yet rewritten show the cleaned-up original headline ("EN VIVO |",
+"VIDEO:", "¡...!", emojis and shouting removed). Optional: add an `ANTHROPIC_API_KEY` secret
+to use Claude instead (paid, better titles). Settings: `neutral_titles` in `config.yaml`.
 
 ## Precise themes
 

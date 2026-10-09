@@ -23,7 +23,7 @@ class FakeClaude:
 
 
 def test_titles_are_rewritten_once_and_cached(articles, cfg, tmp_path, monkeypatch):
-    monkeypatch.setattr(neutral, "article_excerpt", lambda url: "Texto del artículo.")
+    monkeypatch.setattr(neutral, "article_excerpt", lambda url, limit=0: "Texto del artículo.")
     stories = score_stories(cluster(articles), cfg, NOW)
     fake, cache = FakeClaude(), tmp_path / "cache.json"
     assert neutral.neutralize(stories, cfg, cache_path=cache, client=fake) == len(stories)
@@ -51,7 +51,7 @@ def test_without_api_key_original_headlines_stay(articles, cfg, tmp_path, monkey
 
 
 def test_edition_uses_neutral_title_and_marks_it(articles, cfg, tmp_path, monkeypatch):
-    monkeypatch.setattr(neutral, "article_excerpt", lambda url: "")
+    monkeypatch.setattr(neutral, "article_excerpt", lambda url, limit=0: "")
     fake = FakeClaude()
     monkeypatch.setattr(neutral, "CACHE_PATH", tmp_path / "c.json")
     real = neutral.neutralize
@@ -62,7 +62,8 @@ def test_edition_uses_neutral_title_and_marks_it(articles, cfg, tmp_path, monkey
 
 
 def test_free_github_models_provider(articles, cfg, tmp_path, monkeypatch):
-    monkeypatch.setattr(neutral, "article_excerpt", lambda url: "")
+    cfg["neutral_titles"]["provider"] = "github"
+    monkeypatch.setattr(neutral, "article_excerpt", lambda url, limit=0: "")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("GITHUB_TOKEN", "ghs_test")
     sent = []
@@ -100,7 +101,8 @@ def test_free_github_models_provider(articles, cfg, tmp_path, monkeypatch):
 
 
 def test_free_quota_used_up_keeps_original_headlines(articles, cfg, tmp_path, monkeypatch):
-    monkeypatch.setattr(neutral, "article_excerpt", lambda url: "")
+    cfg["neutral_titles"]["provider"] = "github"
+    monkeypatch.setattr(neutral, "article_excerpt", lambda url, limit=0: "")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("GITHUB_TOKEN", "ghs_test")
     calls = []
@@ -138,3 +140,34 @@ def test_tries_other_github_endpoints_when_one_says_just_ok(monkeypatch):
     assert tried[-1] == ("https://models.inference.ai.azure.com/chat/completions", None, "gpt-4.1-mini")
     assert neutral._WORKING == [tried[-1]]
     neutral._WORKING.clear()
+
+
+def test_free_local_model_writes_titles_in_small_batches(articles, cfg, tmp_path, monkeypatch):
+    monkeypatch.setattr(neutral, "article_excerpt", lambda url, limit=0: "x" * limit)
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "qwen2.5:3b")
+    calls = []
+
+    def fake_post(url, timeout, json):
+        calls.append((url, json))
+        stories = __import__("json").loads(json["messages"][1]["content"])
+        out = {"stories": [{"id": s["id"], "title": "Local: " + s["outlets"][0]["headline"][:20], "summary": "R."}
+                           for s in stories]}
+        return SimpleNamespace(raise_for_status=lambda: None, json=lambda: {"message": {"content": __import__("json").dumps(out)}})
+
+    monkeypatch.setattr(neutral.requests, "post", fake_post)
+    stories = score_stories(cluster(articles), cfg, NOW)
+    assert neutral.neutralize(stories, cfg, cache_path=tmp_path / "c.json") == len(stories)
+    url, body = calls[0]
+    assert url.endswith("/api/chat") and body["model"] == "qwen2.5:3b" and body["format"]["type"] == "object"
+    sent = __import__("json").loads(body["messages"][1]["content"])
+    assert len(sent) <= 3 and all(len(s.get("article_text", "")) <= 700 for s in sent)
+    assert all(s.neutral["title"].startswith("Local: ") for s in stories)
+
+
+def test_local_model_stops_at_time_budget(articles, cfg, tmp_path, monkeypatch):
+    monkeypatch.setattr(neutral, "article_excerpt", lambda url, limit=0: "")
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "qwen2.5:3b")
+    cfg["neutral_titles"]["time_budget_seconds"] = -1
+    monkeypatch.setattr(neutral.requests, "post", lambda *a, **k: (_ for _ in ()).throw(AssertionError("called")))
+    stories = score_stories(cluster(articles), cfg, NOW)
+    assert neutral.neutralize(stories, cfg, cache_path=tmp_path / "c.json") == 0

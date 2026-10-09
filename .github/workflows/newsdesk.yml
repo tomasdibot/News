@@ -47,6 +47,27 @@ jobs:
       - id: pages
         uses: actions/configure-pages@v5
 
+      # Free neutral titles: a small open model (Qwen2.5 3B) run by Ollama on this machine.
+      # The model files are cached, so they are downloaded only once.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-qwen2.5-3b
+
+      - name: Start local AI model
+        id: llm
+        continue-on-error: true   # if it fails, the edition is built with cleaned-up original headlines
+        timeout-minutes: 8
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          sudo systemctl stop ollama 2>/dev/null || true
+          export OLLAMA_MODELS="$HOME/.ollama/models"
+          nohup ollama serve > /tmp/ollama.log 2>&1 &
+          for i in $(seq 1 30); do curl -s http://127.0.0.1:11434/api/tags >/dev/null && break; sleep 1; done
+          ollama pull qwen2.5:3b
+          ollama list | grep -q "qwen2.5:3b"
+          echo "NEWSDESK_LOCAL_MODEL=qwen2.5:3b" >> "$GITHUB_ENV"
+
       # Neutral titles already written in earlier runs (so each story is paid for once).
       - uses: actions/cache@v4
         with:

@@ -37,7 +37,8 @@ DEFAULTS: dict = {
         "headlines": 5,
     },
     "neutral_titles": {"enabled": True, "provider": "auto", "github_model": "openai/gpt-4.1-mini",
-                       "model": "claude-opus-5-5", "max_stories": 120, "max_new_per_run": 30},
+                       "model": "claude-opus-5-5", "max_stories": 120, "max_new_per_run": 30,
+                       "max_new_per_run_local": 18, "time_budget_seconds": 480},
     "refresh_minutes": 60,
 }
 

@@ -55,14 +55,16 @@ notification:
   headlines: 3            # how many headlines go in the notification
 
 # Neutral titles: an AI model rewrites each story's headline from what all outlets report.
-# Free by default (GitHub Models, daily limit); Claude is used instead if the
-# ANTHROPIC_API_KEY secret exists. Each story is written once.
+# Free by default: a small open model (Qwen2.5 3B via Ollama) runs inside the hourly job.
+# If the ANTHROPIC_API_KEY secret exists, Claude is used instead (paid). Each story is
+# written once and remembered.
 neutral_titles:
   enabled: true
-  provider: auto                    # auto | github | anthropic
-  github_model: openai/gpt-4.1-mini # free with GitHub Models
-  model: claude-opus-5-5            # used only with ANTHROPIC_API_KEY (claude-haiku-5-5 costs ~40x less)
+  provider: auto                    # auto | local | anthropic | github
+  model: claude-opus-5-5            # only with ANTHROPIC_API_KEY (claude-haiku-5-5 costs ~40x less)
   max_stories: 120                  # how many of the top stories get a neutral title
-  max_new_per_run: 30               # per hourly run (keeps the free daily limit)
+  max_new_per_run: 30               # per hourly run, Claude
+  max_new_per_run_local: 18         # per hourly run, local model (slower)
+  time_budget_seconds: 480          # stop rewriting after this long; the rest waits for the next run
 
 refresh_minutes: 60       # how often the site is rebuilt in `serve` mode

@@ -46,3 +46,4 @@ def no_real_ai_calls(monkeypatch):
     # Never reach a real AI provider from tests (the sandbox may have tokens set).
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("NEWSDESK_LOCAL_MODEL", raising=False)

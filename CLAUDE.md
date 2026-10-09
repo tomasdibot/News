@@ -22,8 +22,9 @@ daily phone notification (Web Push) from the installed app. See README.md for de
 - Automation: `.github/workflows/newsdesk.yml` runs hourly (build + deploy to Pages) and at
   the `NOTIFY_CRON` time (also sends the reminder). Times in that file are UTC.
 - Secrets: `NEWSDESK_PASSWORD` (required), `PUSH_SUBSCRIPTIONS` (codes from the app's bell),
-  optional `ANTHROPIC_API_KEY`. Neutral titles (`neutral.py`) default to free GitHub Models via the
-  workflow's `GITHUB_TOKEN` (`models: read`); cached in build/neutral-cache.json.
+  optional `ANTHROPIC_API_KEY`. Neutral titles (`neutral.py`) default to a free local model (Ollama +
+  qwen2.5:3b started in the workflow, NEWSDESK_LOCAL_MODEL); GitHub Models answered only "OK" in
+  real runs, so it is opt-in only. Cached in build/neutral-cache.json.
   `NEWSDESK_PROFILE`, `VAPID_PRIVATE_KEY`, and WhatsApp provider secrets.
 - UI preference: suggestions/choices are always shown as a dropdown list (native `<select>`,
   plus `<datalist>` autocomplete on text boxes), never as chips/buttons.
