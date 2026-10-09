@@ -70,6 +70,7 @@ def test_free_github_models_provider(articles, cfg, tmp_path, monkeypatch):
     class Resp:
         status_code = 200
         text = ""
+        headers = {}
 
         def __init__(self, body):
             self.body = body
@@ -80,7 +81,7 @@ def test_free_github_models_provider(articles, cfg, tmp_path, monkeypatch):
         def json(self):
             return self.body
 
-    def fake_post(url, headers, json, timeout):
+    def fake_post(url, headers, json, timeout, allow_redirects=True):
         sent.append((url, headers, json))
         stories = __import__("json").loads(json["messages"][1]["content"])
         out = {"stories": [{"id": s["id"], "title": "Libre: " + s["outlets"][0]["headline"][:20], "summary": "R."}

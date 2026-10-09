@@ -143,10 +143,7 @@ class OutOfQuota(RuntimeError):
 
 def _ask_github(token: str, model: str, language: str, batch: list[tuple[str, dict]]) -> dict[str, dict]:
     payload = [dict(id=k, **m) for k, m in batch]
-    resp = requests.post(
-        GITHUB_MODELS_URL,
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        json={
+    body = {
             "model": model,
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
@@ -155,9 +152,17 @@ def _ask_github(token: str, model: str, language: str, batch: list[tuple[str, di
                  + '\n\nAnswer only with JSON: {"stories": [{"id": "...", "title": "...", "summary": "..."}]}'},
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
             ],
-        },
-        timeout=120,
-    )
+    }
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json",
+               "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+    url = GITHUB_MODELS_URL
+    for _ in range(3):  # follow redirects ourselves: a plain redirect would turn the POST into a GET
+        resp = requests.post(url, headers=headers, json=body, timeout=120, allow_redirects=False)
+        if resp.status_code in (301, 302, 303, 307, 308) and resp.headers.get("Location"):
+            url = requests.compat.urljoin(url, resp.headers["Location"])
+            log.info("neutral titles: GitHub Models redirected to %s", url)
+            continue
+        break
     if resp.status_code in (403, 429):
         raise OutOfQuota(f"GitHub Models said {resp.status_code}: {resp.text[:200]}")
     resp.raise_for_status()
@@ -165,7 +170,7 @@ def _ask_github(token: str, model: str, language: str, batch: list[tuple[str, di
         text = resp.json()["choices"][0]["message"]["content"] or ""
         data = _parse_json(text)
     except (ValueError, KeyError, IndexError, TypeError) as exc:
-        raise ValueError(f"unreadable reply ({resp.status_code}): {resp.text[:300]!r}") from exc
+        raise ValueError(f"unreadable reply ({resp.status_code} from {url}): {resp.text[:300]!r}") from exc
     wanted = {k for k, _ in batch}
     return {e["id"]: e for e in data.get("stories", [])
             if isinstance(e, dict) and e.get("id") in wanted and str(e.get("title", "")).strip()}
