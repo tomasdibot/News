@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 CACHE_PATH = ROOT / "build" / "theme-cache.json"
 BATCH = 10
-VERSION = 3      # bump when the way stories are judged changes: old verdicts are then ignored
+VERSION = 4      # bump when the way stories are judged changes: old verdicts are then ignored
 PER_THEME = 40   # a tab shows at most 15 stories: only the best candidates need reading
 
 SYSTEM = """You filter news for one reader. The reader described a theme in their own words. For each story, decide if it fits the theme EXACTLY.
@@ -50,7 +50,7 @@ ONE_SYSTEM = """You decide whether one news story belongs in a section of a read
 Answer true only if the story's MAIN subject is what the section describes, respecting every qualifier:
 - "Avances / launches / models / developments" means new products, models, research results or official announcements. Lawsuits, scandals, firings, stock prices, company valuations, opinion and people merely using a tool do not fit.
 - A country in the section (e.g. "Argentina") means news about that country; the same topic in another country does not fit.
-- A broad section such as "Mundo: General" (world news) accepts EVERY story mainly about other countries or international affairs: politics, conflicts, diplomacy, disasters, elections, awards, crime, science abroad. Stories mainly about the reader's own country do not fit it.
+- A broad section such as "Mundo: General" (world news) accepts EVERY story mainly about other countries or international affairs: politics, conflicts, diplomacy, disasters, elections, awards, crime, science abroad. Domestic news of OTHER countries counts too (US politics, Brazil's election, a court case in New York, a space mission). Only stories mainly about the reader's own country do not fit it; when the section is this broad, answer true unless the story is about the reader's country or not news at all.
 - "Shows / conciertos / giras / lanzamientos" in music: new songs and albums, tours, concerts announced, cancelled or reviewed, tickets, live sessions, and interviews about a new release all fit. Gossip, private life and history pieces do not.
 - Ignore notes such as "written with AI help".
 
@@ -62,7 +62,12 @@ Section "Economía de Chile" / story "La inflación en México se acelera" -> fa
 Section "Mundo: General" / story "Francia y Alemania firman acuerdo de defensa" -> true
 Section "Mundo: General" / story "River gana el clásico" -> false
 Section "Mundo: General" / story "Un tribunal de EE.UU. condena a tres hombres por un asesinato" -> true
+Section "Mundo: General" / story "Brazilian candidate promises to free his father if elected" -> true
+Section "Mundo: General" / story "White House hires a new press secretary" -> true
 Section "Música: novedades" / story "Banda cancela su recital por lluvia" -> true
+Section "Música: novedades" / story "Singer cancels concert hours before showtime" -> true
+Section "Música: novedades" / story "R&B star to headline a festival in Lagos" -> true
+Section "Música: novedades" / story "Rapera presenta su nuevo single, adelanto del próximo disco" -> true
 Section "Música: novedades" / story "Cantante celebra su aniversario de casada" -> false
 
 Reply only with JSON: {"fits": true} or {"fits": false}."""
