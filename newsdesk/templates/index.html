@@ -173,6 +173,10 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
 .tlist li.off label span { color: var(--muted); }
 .tlist .mv { width: 40px; height: 40px; border: 0; background: none; font-size: 18px; color: var(--muted); cursor: pointer; border-radius: 8px; }
 .tlist .mv:disabled { opacity: .25; }
+.artbox .addrow { margin-top: 2px; }
+.artbox #spbtn { background: #1db954; color: #fff; }
+.artbox.hasid #spid { display: none; }
+.artbox.hasid .addrow button { flex: 1; }
 .aibox { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .aibox .addrow { margin-top: 6px; }
 .aibox .howto { font-size: 13px; color: var(--muted); }
@@ -289,6 +293,13 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   <label class="picklabel" for="look">{{ ui.look }}</label>
   <select id="look"><option value="light">{{ ui.look_light }}</option><option value="dark">{{ ui.look_dark }}</option>
     <option value="auto">{{ ui.look_auto }}</option></select>
+  <div class="artbox">
+    <label class="picklabel" for="artists">{{ ui.artists_label }}</label>
+    <input type="text" id="artists" placeholder="{{ ui.artists_ph }}" autocomplete="off">
+    <form class="addrow" id="spform"><input type="text" id="spid" placeholder="{{ ui.spotify_id_ph }}" autocomplete="off">
+      <button type="submit" id="spbtn">{{ ui.spotify_btn }}</button></form>
+    <p class="hint" id="spstate"></p>
+  </div>
   {% if repo %}<div class="aibox"><p class="hint" id="aistate"></p>
     <form class="addrow" id="aiform"><input type="password" id="aikey" placeholder="{{ ui.ai_key_ph }}" autocomplete="off">
       <button type="submit" class="primary">{{ ui.ai_connect }}</button></form>
@@ -308,6 +319,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
         "remove": ui.remove, "showmore": ui.show_more, "showless": ui.show_less, "refine": ui.refine, "mustl": ui.must_label, "notl": ui.not_label,
         "mustph": ui.must_ph, "notph": ui.not_ph, "addword": ui.add_word, "ai": ui.ai_note, "pickone": ui.pick_one, "popular": ui.popular, "alltopics": ui.all_topics, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn,
         "shortl": ui.short_label, "folio": ui.folio, "nextsec": ui.next_section, "front": ui.front_page,
+        "sphint": ui.spotify_hint, "spok": ui.spotify_ok, "spfail": ui.spotify_fail,
         "aion": ui.ai_on, "aioff": ui.ai_off, "aisent": ui.ai_sent, "aisending": ui.ai_sending, "aifail": ui.ai_fail}
 }|tojson }}</script>
 
@@ -363,6 +375,8 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     s.textStems = {}; words(s.text).forEach(function (w) { s.textStems[stem(w)] = 1; });
   });
 
+  var SHOWN = 4;   // the 4 most important stories of each tab; the rest open with "Ver más"
+
   // ---------- turning a typed theme into a matcher ----------
   var aliases = [];  // [normalized alias, part]
   TH.concepts.forEach(function (c) {
@@ -412,7 +426,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     var parts = compileCache[th.label] || (compileCache[th.label] = compile(th.label));
     var sc = 1, fit = (s.fits || {})[themeKey(th.label)];
     if (fit === 0 || fit === 1) sc = fit;   // the AI filter read the story (judge.py)
-    else if (fit === undefined && D.judged.indexOf(themeKey(th.label)) >= 0) sc = 0;   // not even a candidate
+    else if (D.judged.indexOf(themeKey(th.label)) >= 0) sc = 0;   // not read yet (or not a candidate): left out
     else parts.forEach(function (p) { sc = Math.min(sc, partScore(s, p)); });   // every part must match
     if (th.must.length && !anyWord(s, th.must)) sc = 0;                      // "only if it mentions"
     if (th.not.length && anyWord(s, th.not)) sc = 0;                         // "exclude"
@@ -442,6 +456,14 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     return kept;
   }
 
+  // Stories reported by two or more outlets (or announced officially) go first; single-source
+  // ones only fill a section that would otherwise have fewer than 4 stories.
+  function confirmed(list) {
+    var many = list.filter(function (s) { return s.outlets.length >= 2 || s.official; });
+    if (many.length >= SHOWN) return many;
+    return many.concat(list.filter(function (s) { return many.indexOf(s) < 0; }).slice(0, SHOWN - many.length));
+  }
+
   // ---------- which stories go in each tab ----------
   function buildTabs() {
     var best = {};
@@ -462,7 +484,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       if ((perTopic[k] || 0) >= 3) return;
       perTopic[k] = (perTopic[k] || 0) + 1; top.push(s);
     });
-    ranked.forEach(function (s) { if (top.length < 10 && top.indexOf(s) < 0 && !s.hype) top.push(s); });
+    ranked.forEach(function (s) { if (top.length < SHOWN && top.indexOf(s) < 0 && !s.hype) top.push(s); });
 
     var out = [{ id: "top", label: T.top, items: top, prompt: !prefs.themes.length }];
     if (prefs.local) {
@@ -471,7 +493,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       loc = dedupe(loc).slice(0, 12);
       if (loc.length) out.push({ id: "local", label: T.local, items: loc });
     }
-    prefs.themes.forEach(function (th) { out.push({ id: "th", label: th.label, short: shortName(th), items: dedupe(matches(th)).slice(0, 15) }); });
+    prefs.themes.forEach(function (th) { out.push({ id: "th", label: th.label, short: shortName(th), items: confirmed(dedupe(matches(th))).slice(0, 15) }); });
     return out;
   }
 
@@ -526,7 +548,6 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       + '<a class="read" href="' + esc(s.link) + '" target="_blank" rel="noopener">' + esc(T.read) + " →</a></div>"
       + "</article>";
   }
-  var SHOWN = 4;   // the 4 most important stories of each tab; the rest open with "Ver más"
   function render() {
     scoreCache = {}; compileCache = {};
     tabs = buildTabs();
@@ -693,6 +714,8 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     draft = { themes: prefs.themes.map(asTheme), edit: -1 };
     document.getElementById("showlocal").checked = !!prefs.local;
     document.getElementById("look").value = prefs.look || "light";
+    document.getElementById("artists").value = (prefs.artists || []).join(", ");
+    drawSpotify();
     input.value = "";
     drawSettings();
     dlg.showModal();
@@ -739,7 +762,8 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       th.short = ed.querySelector(".short").value.trim();
     }
     var look = document.getElementById("look").value;
-    prefs = { v: 2, themes: draft.themes, local: document.getElementById("showlocal").checked, look: look };
+    prefs = { v: 2, themes: draft.themes, local: document.getElementById("showlocal").checked, look: look,
+              artists: splitWords(document.getElementById("artists").value) };
     document.documentElement.classList.toggle("dark", look === "dark" || (look === "auto" && matchMedia("(prefers-color-scheme: dark)").matches));
     save(prefs); dlg.close(); current = 0; render(); go(0, false);
     aiMsg = ""; sendThemes(ls(GH_KEY)).catch(function (code) { aiMsg = T.aifail.replace("{code}", code); });   // keep the AI filter's themes in sync
@@ -764,11 +788,9 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json" }
     });
   }
-  function sendThemes(token, force) {
-    var text = themesText(prefs.themes);
-    if (!token || !text || (!force && ls(GH_SENT) === text)) return Promise.resolve(true);
-    var body = { name: "NEWSDESK_THEMES", value: text };
-    return gh(token, "PATCH", "/actions/variables/NEWSDESK_THEMES", body).then(function (r) {
+  function setVar(token, name, value) {
+    var body = { name: name, value: value || "-" };   // GitHub refuses empty variables
+    return gh(token, "PATCH", "/actions/variables/" + name, body).then(function (r) {
       return r.status === 404 ? gh(token, "POST", "/actions/variables", body) : r;
     }).then(function (r) {
       if (!r.ok) {   // show GitHub's own explanation, e.g. "Resource not accessible by personal access token"
@@ -777,7 +799,16 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
           throw r.status + (msg ? ": " + msg : "");
         });
       }
-      ls(GH_SENT, text);
+    });
+  }
+  function sendThemes(token, force) {
+    var text = themesText(prefs.themes), artists = (prefs.artists || []).join("\n");
+    var sent = text + "\u0000" + artists;
+    if (!token || !text || (!force && ls(GH_SENT) === sent)) return Promise.resolve(true);
+    return setVar(token, "NEWSDESK_THEMES", text).then(function () {
+      return setVar(token, "NEWSDESK_ARTISTS", artists);
+    }).then(function () {
+      ls(GH_SENT, sent);
       // Rebuild now instead of waiting for the hourly run (fine if this one isn't allowed).
       return gh(token, "POST", "/actions/workflows/newsdesk.yml/dispatches", { ref: D.ref || "main" })
         .catch(function () {}).then(function () { return true; });
@@ -799,6 +830,59 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     });
   }
   document.getElementById("setcancel").addEventListener("click", function () { dlg.close(); });
+
+  // ---------- your artists from Spotify (sign-in on Spotify's own page; no password here) ----------
+  var SP_ID = "newsdesk-spotify-id", SP_VER = "newsdesk-spotify-verifier", spMsg = "";
+  function b64url(bytes) {
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function spRedirect() { return location.origin + location.pathname; }
+  function drawSpotify() {
+    document.querySelector(".artbox").classList.toggle("hasid", !!ls(SP_ID));
+    document.getElementById("spstate").textContent = spMsg || (ls(SP_ID) ? "" : T.sphint);
+  }
+  document.getElementById("spform").addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var id = ls(SP_ID) || document.getElementById("spid").value.trim();
+    if (!id) return;
+    ls(SP_ID, id);
+    var verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
+    ls(SP_VER, verifier);
+    crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)).then(function (hash) {
+      location.href = "https://accounts.spotify.com/authorize?" + new URLSearchParams({
+        client_id: id, response_type: "code", redirect_uri: spRedirect(), scope: "user-top-read user-follow-read",
+        code_challenge_method: "S256", code_challenge: b64url(hash)
+      });
+    });
+  });
+  function spGet(token, path) {
+    return fetch("https://api.spotify.com/v1/" + path, { headers: { Authorization: "Bearer " + token } })
+      .then(function (r) { return r.ok ? r.json() : {}; });
+  }
+  (function backFromSpotify() {
+    var q = new URLSearchParams(location.search), code = q.get("code");
+    if ((!code && !q.get("error")) || !ls(SP_VER)) return;
+    history.replaceState(null, "", location.pathname);
+    var verifier = ls(SP_VER); ls(SP_VER, null);
+    var done = function (msg) { spMsg = msg; openSettings(); };
+    if (!code) return done(T.spfail.replace("{code}", q.get("error")));
+    fetch("https://accounts.spotify.com/api/token", {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ grant_type: "authorization_code", code: code, redirect_uri: spRedirect(),
+                                  client_id: ls(SP_ID), code_verifier: verifier })
+    }).then(function (r) { return r.json(); }).then(function (tok) {
+      if (!tok.access_token) throw tok.error_description || tok.error || "token";
+      return Promise.all([spGet(tok.access_token, "me/top/artists?limit=30&time_range=medium_term"),
+                          spGet(tok.access_token, "me/following?type=artist&limit=50")]);
+    }).then(function (res) {
+      var names = (res[0].items || []).concat((res[1].artists || {}).items || []).map(function (a) { return a.name; });
+      var all = (prefs.artists || []).slice();
+      names.forEach(function (n) { if (all.indexOf(n) < 0) all.push(n); });
+      prefs.artists = all.slice(0, 40); save(prefs);
+      sendThemes(ls(GH_KEY)).catch(function () {});
+      done(T.spok.replace("{n}", names.length));
+    }).catch(function (e) { done(T.spfail.replace("{code}", e)); });
+  })();
 
   render();
   if (firstRun) setTimeout(openSettings, document.getElementById("intro") ? 1800 : 0);   // after the opening

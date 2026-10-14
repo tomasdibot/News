@@ -189,8 +189,9 @@ def big_site(articles, cfg, tmp_path, monkeypatch):
     topics = ["parliament budget vote", "central bank interest rates", "telescope discovers planet",
               "hospital vaccine campaign", "wildfire forces evacuation", "chipmaker unveils processor",
               "summit on trade tariffs", "court rules on election law"]
-    extra = [Article(SOURCES["bbc" if i % 2 else "dw"], f"Officials report {t} in region {i}", f"https://x/big{i}",
-                     f"Details on {t}.", NOW - timedelta(hours=i + 1)) for i, t in enumerate(topics)]
+    extra = [Article(SOURCES[src], f"Officials report {t} in region {i}", f"https://x/big{i}{src}",
+                     f"Details on {t}.", NOW - timedelta(hours=i + 1))
+             for i, t in enumerate(topics) for src in ("bbc", "dw")]   # each story: two outlets
     monkeypatch.delenv("NEWSDESK_PASSWORD", raising=False)
     render(build_edition(cfg, articles=articles + extra, now=NOW), cfg, out_dir=tmp_path / "s3", data_path=tmp_path / "e3.json")
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path / "s3"))
@@ -269,14 +270,15 @@ def test_ai_filter_keeps_only_exact_matches(judged_site, browser):
     page.wait_for_function("document.getElementById('aistate').textContent.includes('enviados')")
     assert calls[0][:2] == ("PATCH", "/actions/variables/NEWSDESK_THEMES")
     assert calls[1][:3] == ("POST", "/actions/variables", {"name": "NEWSDESK_THEMES", "value": "Inteligencia artificial"})
-    assert calls[2][:3] == ("POST", "/actions/workflows/newsdesk.yml/dispatches", {"ref": "main"})
+    assert calls[2][:3] == ("PATCH", "/actions/variables/NEWSDESK_ARTISTS", {"name": "NEWSDESK_ARTISTS", "value": "-"})
+    assert calls[3][:3] == ("POST", "/actions/workflows/newsdesk.yml/dispatches", {"ref": "main"})
     assert calls[1][3] == "Bearer github_pat_test"
     assert not page.is_visible("#aikey")                       # connected: the key box is gone
     page.fill("#newtheme", "Fútbol")
     page.click("#addform button")
     page.click("#setsave")
     page.wait_for_timeout(300)
-    assert calls[3][2] == {"name": "NEWSDESK_THEMES", "value": "Inteligencia artificial\nFútbol"}
+    assert calls[4][2] == {"name": "NEWSDESK_THEMES", "value": "Inteligencia artificial\nFútbol"}
     assert not page.errors, page.errors
 
 

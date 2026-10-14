@@ -32,13 +32,17 @@ log = logging.getLogger(__name__)
 
 CACHE_PATH = ROOT / "build" / "neutral-cache.json"
 BATCH = 15
+VERSION = 2   # bump when the title rules change: titles are then rewritten
 LANG_NAMES = {"es": "Spanish (rioplatense neutral register, no voseo)", "en": "English"}
 
 SYSTEM = """You write headlines for a strictly neutral news digest read by one person who wants facts, not spin.
 
 For each story you get the headline and excerpt from every outlet that covered it, and sometimes part of the article text. Write in {language}:
 
-- title: one plain, factual headline (max 14 words). Say who did what, with the key number or place. No judgement adjectives, no hype, no clickbait, no questions, no exclamation marks, no quotes used as the headline, no loaded or partisan wording. Prefer the most neutral common term for contested things.
+- title: one plain, factual headline (max 14 words). Say who did what, with the key number or place. It must be understandable on its own by someone who has not read the story:
+  - Name the actual actor. A person or a party is not "the country" or "the government" (e.g. "Nigel Farage, líder del Brexit, ..." — never "Reino Unido ..." for something one politician said).
+  - Add a 1–4 word description to names a general reader may not know: places ("la isla Diego García"), people ("el líder del Brexit Nigel Farage"), companies ("la agrobiotecnológica Bioceres").
+  - Keep conditional or reported claims as such ("propuso", "según ..."). No judgement adjectives, no hype, no clickbait, no questions, no exclamation marks, no quotes used as the headline, no loaded or partisan wording. Prefer the most neutral common term for contested things.
 - summary: one sentence (max 30 words) with the most important facts a reader needs.
 
 Use only what is in the material; never add facts, numbers or context from elsewhere. If something is an allegation, a claim by one side, or reported by only one outlet, attribute it ("según ...", "according to ..."). If outlets disagree on a fact, say so briefly in the summary.
@@ -266,7 +270,7 @@ def neutralize(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, c
         key, n = story_key(s), len(s.outlets)
         hit = cache.get(key)
         # Re-write when two or more new outlets joined: there is more to go on.
-        if hit and n < hit.get("n", 0) + 2:
+        if hit and hit.get("v") == VERSION and n < hit.get("n", 0) + 2:
             hit["t"] = int(time.time())  # still in the news: keep it
             s.neutral = hit
         else:
@@ -294,7 +298,7 @@ def neutralize(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, c
             model = opts.get("model", "claude-opus-5-5")
             ask = lambda b: _ask_claude(client, model, language, b)  # noqa: E731
         elif local:
-            model = os.environ["NEWSDESK_LOCAL_MODEL"]
+            model = os.environ.get("NEWSDESK_TITLE_MODEL") or os.environ["NEWSDESK_LOCAL_MODEL"]
             ask = lambda b: _ask_local(model, language, b)  # noqa: E731
         else:
             token, model = os.environ["GITHUB_TOKEN"], opts.get("github_model", "openai/gpt-4.1-mini")
@@ -314,7 +318,7 @@ def neutralize(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, c
         for key, s in todo:
             if key in results:
                 entry = {"title": results[key]["title"].strip(), "summary": results[key]["summary"].strip(),
-                         "n": len(s.outlets), "t": now}
+                         "n": len(s.outlets), "t": now, "v": VERSION}
                 cache[key] = s.neutral = entry
                 written += 1
         log.info("neutral titles (%s): %d written now", provider, written)

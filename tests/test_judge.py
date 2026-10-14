@@ -112,3 +112,42 @@ def test_one_story_per_request_with_a_tiny_answer(monkeypatch):
     got = judge.ask_many("local", None, "m", "Música", [("a", {"headlines": ["x"]}), ("b", {"headlines": ["y"]})])
     assert got == {"a": True, "b": True} and len(sent) == 2
     assert "Section: Música" in sent[0]["messages"][1]["content"] and sent[0]["options"]["num_predict"] <= 12
+
+
+def test_artist_news_keeps_each_outlet_and_needs_the_artist_in_the_headline():
+    from datetime import datetime, timezone
+
+    from newsdesk.artists import parse_search
+
+    rss = b"""<?xml version="1.0"?><rss><channel>
+    <item><title>Lali anuncia una gira por Espa\xc3\xb1a - Clar\xc3\xadn</title><link>https://n/1</link>
+      <pubDate>Mon, 12 Oct 2026 10:00:00 GMT</pubDate><source url="https://clarin.com">Clar\xc3\xadn</source></item>
+    <item><title>La agenda del finde - Infobae</title><link>https://n/2</link>
+      <pubDate>Mon, 12 Oct 2026 10:00:00 GMT</pubDate><source url="https://infobae.com">Infobae</source></item>
+    </channel></rss>"""
+    got = parse_search(rss, "Lali", "es", datetime(2026, 10, 13, tzinfo=timezone.utc))
+    assert [(a.outlet, a.title) for a in got] == [("Clarín", "Lali anuncia una gira por España")]
+
+
+def test_candidates_put_official_launches_before_mere_mentions(cfg):
+    from datetime import timedelta
+
+    from conftest import NOW, SOURCES
+
+    from newsdesk.cluster import cluster
+    from newsdesk.config import Source
+    from newsdesk.fetch import Article
+    from newsdesk.rank import score_stories
+
+    official = Source(id="oa", outlet="OpenAI (official)", url="", lang="en", tier="official")
+    arts = [Article(SOURCES["bbc"], "Shares rise as investors bet on artificial intelligence", "https://x/a", "", NOW - timedelta(hours=1)),
+            Article(SOURCES["dw"], "Shares rise as investors bet on artificial intelligence boom", "https://x/b", "", NOW - timedelta(hours=1)),
+            Article(official, "Introducing GPT-6: our new AI model", "https://x/c", "", NOW - timedelta(hours=5))]
+    ss = score_stories(cluster(arts), cfg, NOW)
+    got = judge.candidates("Inteligencia artificial: modelos y lanzamientos", ss)
+    assert got[0].headline.title.startswith("Introducing GPT-6")
+
+
+def test_artists_from_the_app(monkeypatch, cfg):
+    monkeypatch.setenv("NEWSDESK_ARTISTS", "Lali\nColdplay, Wos\n-")
+    assert judge.configured_artists(cfg) == ["Lali", "Coldplay", "Wos"]

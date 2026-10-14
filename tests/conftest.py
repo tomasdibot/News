@@ -47,4 +47,7 @@ def no_real_ai_calls(monkeypatch):
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("NEWSDESK_LOCAL_MODEL", raising=False)
+    monkeypatch.delenv("NEWSDESK_TITLE_MODEL", raising=False)
+    monkeypatch.delenv("NEWSDESK_THEME_MODEL", raising=False)
+    monkeypatch.delenv("NEWSDESK_ARTISTS", raising=False)
     monkeypatch.delenv("NEWSDESK_THEMES", raising=False)

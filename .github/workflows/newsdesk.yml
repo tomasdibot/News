@@ -68,7 +68,11 @@ jobs:
           ollama list | grep -q "qwen2.5:3b"
           echo "NEWSDESK_LOCAL_MODEL=qwen2.5:3b" >> "$GITHUB_ENV"
           # Theme filter: the bigger model judges best (see the "Check AI theme filter" workflow).
-          if ollama pull qwen2.5:7b; then echo "NEWSDESK_THEME_MODEL=qwen2.5:7b" >> "$GITHUB_ENV"; fi
+          # The bigger model also writes the neutral titles (clearer wording; fewer per hour).
+          if ollama pull qwen2.5:7b; then
+            echo "NEWSDESK_THEME_MODEL=qwen2.5:7b" >> "$GITHUB_ENV"
+            echo "NEWSDESK_TITLE_MODEL=qwen2.5:7b" >> "$GITHUB_ENV"
+          fi
 
       # Neutral titles already written in earlier runs (so each story is paid for once).
       - uses: actions/cache@v4
@@ -100,6 +104,7 @@ jobs:
           # Your themes, one per line, sent by the app (⚙ → Connect GitHub): the AI keeps only
           # the stories that fit each one exactly.
           NEWSDESK_THEMES: ${{ vars.NEWSDESK_THEMES || secrets.NEWSDESK_THEMES }}
+          NEWSDESK_ARTISTS: ${{ vars.NEWSDESK_ARTISTS }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

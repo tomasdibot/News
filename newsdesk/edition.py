@@ -18,7 +18,8 @@ from .config import ROOT, load_sources
 from .fetch import fetch_all, fetch_og_image
 from .lexicon import COUNTRY_NAMES, LOCK_UI, UI
 from .lock import encrypt, password_from_env, site_salt
-from .judge import candidates, configured_themes, judge_themes
+from .artists import fetch_artist_news
+from .judge import candidates, configured_artists, configured_themes, judge_themes, set_reader
 from .neutral import neutralize
 from .push import public_key_b64
 from .lexicon import CONCEPTS, COUNTRY_KEYWORDS, SUGGESTED_THEMES, TOPIC_ALIASES, TOPIC_KEYWORDS
@@ -66,6 +67,7 @@ def story_dict(s: Story, ui_lang: str) -> dict:
         "base": round(s.base, 4),
         "fixed": round(s.fixed, 3),
         "hype": bool(s.hype),
+        "official": any(a.source.tier == "official" for a in s.articles),
         "fits": {k: 2 if v is None else int(v) for k, v in s.fits.items()},   # 2 = not read yet
         "score": round(s.score, 3),
         "sources": [
@@ -80,10 +82,14 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     ui_lang = cfg["site"]["ui_language"]
     if articles is None:
         articles = fetch_all(load_sources(cfg), country=cfg["profile"]["country"])
+        artists = configured_artists(cfg)
+        if artists:
+            articles += fetch_artist_news(artists, now)
     stories = score_stories(cluster(articles), cfg, now)
     sections = select_sections(stories, cfg)  # what the morning notification uses
     pool = select_pool(stories, cfg)            # what the app shows and re-ranks
     # Your own themes (NEWSDESK_THEMES) always get their best candidates in, even niche ones.
+    set_reader(cfg)
     seen = {id(s) for s in pool}
     for theme in configured_themes(cfg):
         for s in candidates(theme, stories)[:25]:

@@ -42,6 +42,7 @@ CASES = {
         ("La actividad económica creció 0,8% en agosto, según el EMAE", "El dato del INDEC superó lo esperado.", True),
         ("El desempleo en Argentina bajó a 6,9% en el segundo trimestre", "Lo informó el INDEC.", True),
         ("El Gobierno anunció una baja de retenciones al trigo", "La medida rige desde el lunes.", True),
+        ("Moolec convoca a votar la liquidación de la agrobiotecnológica Bioceres", "La asamblea será en noviembre.", False),
         ("Brazil's central bank holds rates at 10.5%", "Policymakers cited sticky inflation.", False),
         ("Opinión: el plan económico está condenado al fracaso", "Una columna sobre el rumbo del Gobierno.", False),
         ("Messi marcó un doblete en la victoria de Inter Miami", "El argentino fue la figura del partido.", False),

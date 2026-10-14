@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 CACHE_PATH = ROOT / "build" / "theme-cache.json"
 BATCH = 10
-VERSION = 4      # bump when the way stories are judged changes: old verdicts are then ignored
+VERSION = 5      # bump when the way stories are judged changes: old verdicts are then ignored
 PER_THEME = 40   # a tab shows at most 15 stories: only the best candidates need reading
 
 SYSTEM = """You filter news for one reader. The reader described a theme in their own words. For each story, decide if it fits the theme EXACTLY.
@@ -52,6 +52,7 @@ Answer true only if the story's MAIN subject is what the section describes, resp
 - A country in the section (e.g. "Argentina") means news about that country; the same topic in another country does not fit.
 - A broad section such as "Mundo: General" (world news) accepts EVERY story mainly about other countries or international affairs: politics, conflicts, diplomacy, disasters, elections, awards, crime, science abroad. Domestic news of OTHER countries counts too (US politics, Brazil's election, a court case in New York, a space mission). Only stories mainly about the reader's own country do not fit it; when the section is this broad, answer true unless the story is about the reader's country or not news at all.
 - "Shows / conciertos / giras / lanzamientos" in music: new songs and albums, tours, concerts announced, cancelled or reviewed, tickets, live sessions, and interviews about a new release all fit. Gossip, private life and history pieces do not.
+- An economy section (e.g. "Economía Argentina") means the economy as a whole: data and indicators, inflation, the central bank, the dollar, debt, jobs, markets, economic policy. News about one company (a merger, a liquidation, an executive, a farm) does not fit unless the section asks for companies or business.
 - Ignore notes such as "written with AI help".
 
 Examples:
@@ -105,6 +106,19 @@ def theme_key(label: str) -> str:
     return " ".join(w for w in re.split(r"[^a-z0-9]+", normalize(label or "")) if w)
 
 
+def configured_artists(cfg: dict) -> list[str]:
+    """Artists you like (NEWSDESK_ARTISTS: one per line or comma-separated; the app sends them,
+    typed by you or read from Spotify)."""
+    raw = os.environ.get("NEWSDESK_ARTISTS", "") + "\n" + "\n".join(str(a) for a in cfg.get("artists") or [])
+    out, seen = [], set()
+    for a in re.split(r"[\n,;]+", raw):
+        a = a.strip(" -•\t")
+        if a and normalize(a) not in seen:
+            seen.add(normalize(a))
+            out.append(a)
+    return out[:40]
+
+
 def configured_themes(cfg: dict) -> list[str]:
     raw = os.environ.get("NEWSDESK_THEMES", "")
     themes = [t.strip(" -•\t") for t in raw.replace(";", "\n").splitlines()]
@@ -128,10 +142,16 @@ def _concept_parts():
     return parts
 
 
+def _kw_re(k: str) -> re.Pattern:
+    return re.compile(r"(^|[^a-z0-9])" + re.escape(k) + r"($|[^a-z0-9])")
+
+
 def candidates(theme: str, stories: list[Story]) -> list[Story]:
-    """Cheap first pass so the model only reads stories that could fit."""
+    """Cheap first pass so the model only reads stories that could fit, most relevant first:
+    the theme's words in the headline, official/specialist sources and wider coverage come first
+    (so e.g. a company's own launch post isn't pushed out by stories that merely mention AI)."""
     t = " " + " ".join(words(theme)) + " "
-    kws, topics = set(), set()
+    kws, topics, music = set(), set(), False
     named = sorted(((" ".join(words(n)), kw, tp) for names, kw, tp in _concept_parts() for n in names),
                    key=lambda x: -len(x[0]))
     for name, kw, tp in named:
@@ -139,21 +159,30 @@ def candidates(theme: str, stories: list[Story]) -> list[Story]:
             kws.update(normalize(k) for k in kw)
             if tp and kw is TOPIC_KEYWORDS.get(tp):
                 topics.add(tp)
+            music = music or name in ("musica", "music")
             t = t.replace(f" {name} ", " ")
+    if music:   # your favourite artists (NEWSDESK_ARTISTS / Spotify) count as music words
+        kws.update(normalize(a) for a in READER["artists"] if len(a) > 2)
     stems = {w[:5] for w in t.split() if len(w) >= 3}
-    out = []
-    for s in stories:
-        text = normalize(" ".join([s.headline.title, s.headline.summary or ""]
-                                  + [a.title for a in s.articles[:5]]
-                                  + ([s.neutral["title"]] if s.neutral else [])))
+    res = [_kw_re(k) for k in kws]
+    scored = []
+    for i, s in enumerate(stories):
+        titles = normalize(" ".join([s.headline.title] + [a.title for a in s.articles[:5]]
+                                    + ([s.neutral["title"]] if s.neutral else [])))
+        text = titles + " " + normalize(s.headline.summary or "")
         if kws or topics:
-            hit = any(s.topic_scores.get(tp, 0) >= 0.3 for tp in topics) or any(
-                re.search(r"(^|[^a-z0-9])" + re.escape(k) + r"($|[^a-z0-9])", text) for k in kws)
+            in_title = sum(1 for r in res if r.search(titles))
+            hit = in_title or any(s.topic_scores.get(tp, 0) >= 0.3 for tp in topics) or any(r.search(text) for r in res)
         else:
-            hit = bool(stems & {w[:5] for w in words(text)})
+            in_title = len(stems & {w[:5] for w in words(titles)})
+            hit = in_title or bool(stems & {w[:5] for w in words(text)})
         if hit:
-            out.append(s)
-    return out
+            special = any(a.source.tier in ("official", "specialist") for a in s.articles)
+            # The theme's other words ("modelos", "lanzamientos"…) in the headline count too.
+            extra = len(stems & {w[:5] for w in words(titles)}) if (kws or topics) else 0
+            rel = 2 * min(in_title + extra, 3) + special + min(2, len(s.outlets) - 1)
+            scored.append((-rel, i, s))
+    return [s for _, _, s in sorted(scored, key=lambda x: (x[0], x[1]))]
 
 
 def _material(s: Story) -> dict:
@@ -193,12 +222,15 @@ def _ask(provider: str, client, model: str, theme: str, batch: list[tuple[str, d
             if isinstance(e, dict) and str(e.get("id")) in ids and "fits" in e}
 
 
-READER = {"country": ""}   # set from the profile: "Mundo" means "outside the reader's country"
+READER = {"country": "", "artists": []}   # set from the profile: "Mundo" means "outside the reader's country"
 
 
 def _ask_one(provider: str, client, model: str, theme: str, material: dict) -> bool | None:
     story = "\n".join(material["headlines"]) + ("\n" + material["excerpt"] if material.get("excerpt") else "")
     where = f"The reader lives in {READER['country']}.\n" if READER["country"] else ""
+    if READER["artists"] and any(w in normalize(theme) for w in ("music", "musica")):
+        where += ("The reader's favourite artists: " + ", ".join(READER["artists"][:25])
+                  + ". In a music section, news about their new songs, albums, tours and concerts fits.\n")
     user = f"{where}Section: {theme}\n\nStory:\n{story}\n\nDoes this story belong in the section?"
     if provider == "anthropic":
         response = client.beta.messages.create(
@@ -245,6 +277,7 @@ def set_reader(cfg: dict) -> None:
 
     code = cfg["profile"].get("country", "")
     READER["country"] = COUNTRY_NAMES.get("en", {}).get(code, code)
+    READER["artists"] = configured_artists(cfg)
 
 
 def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH, client=None) -> list[str]:

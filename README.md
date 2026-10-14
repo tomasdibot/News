@@ -140,6 +140,24 @@ workflow. It is stored in the repo variable `NEWSDESK_THEMES` (Settings → Secr
 variables → Actions → **Variables**). When the key expires, ⚙ shows an error: make a new one
 the same way. **Desconectar GitHub** in ⚙ forgets it.
 
+### Your artists (music themes)
+
+In ⚙ → *Tus artistas*, type the artists you like (comma-separated) and tap **Guardar**. Each
+hour the job searches news about them and a music theme (e.g. *Música: lanzamientos, shows*)
+shows their releases, tours and concerts. Needs *Automatic themes* (above) to be connected.
+
+#### Spotify (optional: read your artists automatically)
+
+1. Open https://developer.spotify.com/dashboard, log in with Spotify, tap **Create app**.
+2. **App name:** `Newsdesk`. **App description:** anything. **Redirect URIs:**
+   `https://tomasdibot.github.io/News/` (exactly, with the final `/`) → **Add**.
+   Tick **Web API**, accept the terms, **Save**.
+3. Open the app's **Settings** and copy the **Client ID**.
+4. In the app: ⚙ → paste it in *Client ID de Spotify* → **Leer de Spotify** → log in on
+   Spotify's page → **Agree**. Back in the app it says how many artists it read; tap **Guardar**.
+
+Your top and followed artists are added to *Tus artistas*. Repeat step 4 any time to refresh.
+
 ### Keyword fine-tuning
 
 Tap ✎ next to a theme in ⚙ to fine-tune it:

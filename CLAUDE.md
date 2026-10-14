@@ -29,6 +29,9 @@ daily phone notification (Web Push) from the installed app. See README.md for de
   localStorage, or a secret; one theme per line): `judge.py` has the same model read
   each candidate story and keep only exact fits (cached in build/theme-cache.json); the app
   falls back to keyword matching for themes not in the secret.
+  `NEWSDESK_ARTISTS` (repo variable, same mechanism; typed or read from Spotify via PKCE in the
+  app): `artists.py` searches Google News per artist; music themes get those stories.
+  Theme tabs show multi-outlet (or official) stories first; titles and theme filter use qwen2.5:7b.
   `NEWSDESK_PROFILE`, `VAPID_PRIVATE_KEY`, and WhatsApp provider secrets.
 - UI preference: suggestions/choices are always shown as a dropdown list (native `<select>`,
   plus `<datalist>` autocomplete on text boxes), never as chips/buttons.

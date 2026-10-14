@@ -46,6 +46,7 @@ jobs:
         env:
           NEWSDESK_PROFILE: ${{ secrets.NEWSDESK_PROFILE }}
           NEWSDESK_THEMES: ${{ vars.NEWSDESK_THEMES || secrets.NEWSDESK_THEMES }}
+          NEWSDESK_ARTISTS: ${{ vars.NEWSDESK_ARTISTS }}
           # Setups to check (mode@model, comma-separated); single@qwen2.5:7b is what the hourly build uses.
           AUDIT_SETUPS: "single@qwen2.5:7b"
           AUDIT_SAMPLE: "25"
