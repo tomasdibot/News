@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 CACHE_PATH = ROOT / "build" / "theme-cache.json"
 BATCH = 10
-VERSION = 5      # bump when the way stories are judged changes: old verdicts are then ignored
+VERSION = 6      # bump when the way stories are judged changes: old verdicts are then ignored
 PER_THEME = 40   # a tab shows at most 15 stories: only the best candidates need reading
 
 SYSTEM = """You filter news for one reader. The reader described a theme in their own words. For each story, decide if it fits the theme EXACTLY.
@@ -45,33 +45,51 @@ Rules:
 Return one entry per story id: {"id": ..., "fits": true/false}."""
 
 # One story at a time: small models mix stories up when given several at once.
-ONE_SYSTEM = """You decide whether one news story belongs in a section of a reader's personal newspaper. The reader described the section in their own words.
+# The prompt for one story is built per section: only the rules that apply to that kind of section are
+# included (a small model applies every rule it sees, e.g. the economy rule to AI launches).
+ONE_BASE = """You decide whether one news story belongs in a section of a reader's personal newspaper. The reader described the section in their own words.
 
-Answer true only if the story's MAIN subject is what the section describes, respecting every qualifier:
-- "Avances / launches / models / developments" means new products, models, research results or official announcements. Lawsuits, scandals, firings, stock prices, company valuations, opinion and people merely using a tool do not fit.
-- A country in the section (e.g. "Argentina") means news about that country; the same topic in another country does not fit.
-- A broad section such as "Mundo: General" (world news) accepts EVERY story mainly about other countries or international affairs: politics, conflicts, diplomacy, disasters, elections, awards, crime, science abroad. Domestic news of OTHER countries counts too (US politics, Brazil's election, a court case in New York, a space mission). Only stories mainly about the reader's own country do not fit it; when the section is this broad, answer true unless the story is about the reader's country or not news at all.
-- "Shows / conciertos / giras / lanzamientos" in music: new songs and albums, tours, concerts announced, cancelled or reviewed, tickets, live sessions, and interviews about a new release all fit. Gossip, private life and history pieces do not.
-- An economy section (e.g. "Economía Argentina") means the economy as a whole: data and indicators, inflation, the central bank, the dollar, debt, jobs, markets, economic policy. News about one company (a merger, a liquidation, an executive, a farm) does not fit unless the section asks for companies or business.
-- Ignore notes such as "written with AI help".
+Answer true only if the story's MAIN subject is what the section describes, respecting every qualifier. Ignore notes such as "written with AI help".
+{rules}
+Reply only with JSON: {{"fits": true}} or {{"fits": false}}."""
 
+# (words in the section that switch the rule on, rule text with its examples)
+ONE_RULES = [
+    (("avance", "lanzamiento", "launch", "modelo", "model", "desarrollo", "development", "novedad", "oficial",
+      "official", "empresa", "compan"), """
+- Launches / advances / models / company news means: new products, models, chips, features, research results, partnerships and official announcements by the companies. Lawsuits, scandals, arrests, firings, stock prices, funding rounds, valuations, opinion and people merely using a tool do not fit.
 Examples:
-Section "Tecnología: lanzamientos" / story "Apple presenta un nuevo iPhone" -> true
-Section "Tecnología: lanzamientos" / story "Juicio contra Apple por monopolio" -> false
+Section "IA: lanzamientos" / story "Google presenta Gemini 4, su nuevo modelo" -> true
+Section "IA: lanzamientos" / story "NVIDIA opens its new chip architecture to partners" -> true
+Section "IA: lanzamientos" / story "Startup raises $40M for its AI chat app" -> false
+Section "IA: lanzamientos" / story "Judge orders OpenAI to hand over records" -> false"""),
+    (("mundo", "world", "internacional", "international", "global"), """
+- A world section accepts EVERY story mainly about other countries or international affairs: politics, conflicts, diplomacy, disasters, elections, awards, crime, science abroad, including domestic news of other countries. Stories mainly about the reader's own country do not fit.
+Examples:
+Section "Mundo" / story "Francia y Alemania firman acuerdo de defensa" -> true
+Section "Mundo" / story "White House hires a new press secretary" -> true
+Section "Mundo" / story "River gana el clásico" -> false"""),
+    (("musica", "music"), """
+- Music: new songs and albums, tours, concerts announced, cancelled or reviewed, festivals, tickets, live sessions, and interviews about a new release fit. Gossip, private life, industry executives and history pieces do not.
+Examples:
+Section "Música" / story "Singer cancels concert hours before showtime" -> true
+Section "Música" / story "Rapera presenta su nuevo single" -> true
+Section "Música" / story "Cantante celebra su aniversario de casada" -> false"""),
+    (("econom", "finanz", "finance", "mercado", "market", "dolar", "inflacion"), """
+- An economy section means the economy as a whole: data and indicators, inflation, the central bank, the dollar, debt, jobs, markets, economic policy. News about one company (a merger, a liquidation, an executive, a farm) does not fit unless the section asks for companies or business.
+- A country named in the section means that country only: the same topic elsewhere does not fit.
+Examples:
 Section "Economía de Chile" / story "El Banco Central de Chile baja la tasa" -> true
 Section "Economía de Chile" / story "La inflación en México se acelera" -> false
-Section "Mundo: General" / story "Francia y Alemania firman acuerdo de defensa" -> true
-Section "Mundo: General" / story "River gana el clásico" -> false
-Section "Mundo: General" / story "Un tribunal de EE.UU. condena a tres hombres por un asesinato" -> true
-Section "Mundo: General" / story "Brazilian candidate promises to free his father if elected" -> true
-Section "Mundo: General" / story "White House hires a new press secretary" -> true
-Section "Música: novedades" / story "Banda cancela su recital por lluvia" -> true
-Section "Música: novedades" / story "Singer cancels concert hours before showtime" -> true
-Section "Música: novedades" / story "R&B star to headline a festival in Lagos" -> true
-Section "Música: novedades" / story "Rapera presenta su nuevo single, adelanto del próximo disco" -> true
-Section "Música: novedades" / story "Cantante celebra su aniversario de casada" -> false
+Section "Economía de Chile" / story "Una empresa chilena liquida su filial" -> false"""),
+]
 
-Reply only with JSON: {"fits": true} or {"fits": false}."""
+
+def one_system(theme: str) -> str:
+    t = normalize(theme)
+    rules = [text for words_, text in ONE_RULES if any(w in t for w in words_)]
+    return ONE_BASE.format(rules="".join(rules) + "\n")
+
 
 ONE_SCHEMA = {"type": "object", "properties": {"fits": {"type": "boolean"}}, "required": ["fits"],
               "additionalProperties": False}
@@ -234,7 +252,7 @@ def _ask_one(provider: str, client, model: str, theme: str, material: dict) -> b
     user = f"{where}Section: {theme}\n\nStory:\n{story}\n\nDoes this story belong in the section?"
     if provider == "anthropic":
         response = client.beta.messages.create(
-            model=model, max_tokens=200, system=ONE_SYSTEM, messages=[{"role": "user", "content": user}],
+            model=model, max_tokens=200, system=one_system(theme), messages=[{"role": "user", "content": user}],
             output_config={"effort": "low", "format": {"type": "json_schema", "schema": ONE_SCHEMA}},
             betas=["server-side-fallback-2026-07-01"], fallbacks="default",
         )
@@ -243,7 +261,7 @@ def _ask_one(provider: str, client, model: str, theme: str, material: dict) -> b
         resp = requests.post(f"{OLLAMA_URL}/api/chat", timeout=60, json={
             "model": model, "stream": False, "format": ONE_SCHEMA, "keep_alive": "30m",
             "options": {"temperature": 0, "num_ctx": 2048, "num_predict": 12},
-            "messages": [{"role": "system", "content": ONE_SYSTEM}, {"role": "user", "content": user}],
+            "messages": [{"role": "system", "content": one_system(theme)}, {"role": "user", "content": user}],
         })
         resp.raise_for_status()
         text = resp.json()["message"]["content"]
