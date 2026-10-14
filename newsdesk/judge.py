@@ -31,7 +31,7 @@ log = logging.getLogger(__name__)
 
 CACHE_PATH = ROOT / "build" / "theme-cache.json"
 BATCH = 10
-VERSION = 6      # bump when the way stories are judged changes: old verdicts are then ignored
+VERSION = 7      # bump when the way stories are judged changes: old verdicts are then ignored
 PER_THEME = 40   # a tab shows at most 15 stories: only the best candidates need reading
 
 SYSTEM = """You filter news for one reader. The reader described a theme in their own words. For each story, decide if it fits the theme EXACTLY.
@@ -74,6 +74,7 @@ Section "Mundo" / story "River gana el clásico" -> false"""),
 Examples:
 Section "Música" / story "Singer cancels concert hours before showtime" -> true
 Section "Música" / story "Rapera presenta su nuevo single" -> true
+Section "Música" / story "Músico cumple 75 años y la ciudad lo celebra con shows gratis" -> true
 Section "Música" / story "Cantante celebra su aniversario de casada" -> false"""),
     (("econom", "finanz", "finance", "mercado", "market", "dolar", "inflacion"), """
 - An economy section means the economy as a whole: data and indicators, inflation, the central bank, the dollar, debt, jobs, markets, economic policy. News about one company (a merger, a liquidation, an executive, a farm) does not fit unless the section asks for companies or business.
@@ -88,6 +89,8 @@ Section "Economía de Chile" / story "Una empresa chilena liquida su filial" -> 
 def one_system(theme: str) -> str:
     t = normalize(theme)
     rules = [text for words_, text in ONE_RULES if any(w in t for w in words_)]
+    if len(rules) > 1 and ONE_RULES[2][1] in rules:   # music "lanzamientos" are songs, not AI models
+        rules.remove(ONE_RULES[0][1])
     return ONE_BASE.format(rules="".join(rules) + "\n")
 
 
