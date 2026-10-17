@@ -193,3 +193,11 @@ Options: A) serif headlines + legible body; B) all-sans; C) text-size dropdown.
 Decision: B + C (owner's picks), plus more spacing.
 Prediction (Normal size): summary ≥16 px/≥1.45, story text 17 px/1.5 with ≥12 px between paragraphs, 45–75 chars/line, 0 text <12 px (≥13 px for anything to read), ≤2 ALL-CAPS styles and no caps run >20 chars, contrast ≥4.5, settings 0 targets <44 px and hints ≥14 px, ≥3 cards on the first screen, headline visible ≤500 ms; Large/Extra large scale all text ×1.12/×1.25 without horizontal overflow; pytest green.
 Measurement: investigator re-runs scratchpad read.py on the new code; pytest.
+
+### D17 — Stop mixing different stories together (2026-10-17) — status: open
+Goal (owner): "Cómo lo cuenta cada medio" mixes up news. Owner example: TicketNews "Tame Impala tickets on sale in Montreal at Centre Bell" + Northern Transmissions "Tame Impala announces new 2026 Tour Dates" + RTTNews "Erykah Badu Cancels Several European Tour Dates…" in one story.
+Evidence (investigator, offline chain fixture of 6 realistic sets): today's single-link cluster() wrongly merges all of them (24 wrong pairs) — a shared name gets counted three times (title token + overlap + 0.12 entity bonus), the "first word is a name" rule (D10) adds to it for summary-less gnews/artist items, and single-link chains A~B~C. The D10 pair fixture can't see this (L14). The per-outlet list shows the earliest article per outlet with no check against the lead.
+Options: A) lead/average-link; B) smaller entity bonus + avg-link (loses 3/15 same-event); C) name-only gate (loses 2/15); D) display check: drop outlet rows dissimilar to the lead and show each outlet's article closest to the lead; outlet count and lean bar from the same kept rows.
+Decision: A + D now (keeps same-event 14/15), owner's example + chain sets as tests; log member titles in the multi-outlet sample so real runs can be judged.
+Prediction: chain fixture wrong pairs shown 24 → ≤6; owner's three titles never shown together; D10 same-event ≥14/15, wrong ≤4/10; per-theme multi_outlet may drop 10–20%.
+Measurement: pytest (chain + owner fixture); next newsdesk.yml multi-outlet sample with member titles (investigator samples 10).
