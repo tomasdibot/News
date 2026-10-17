@@ -102,12 +102,30 @@ def _published(entry) -> datetime | None:
     return None
 
 
+EDITIONS = {"es": "hl=es-419&gl=AR&ceid=AR:es-419", "en": "hl=en-US&gl=US&ceid=US:en"}
+
+
+def feed_url(source: Source) -> str:
+    if source.gnews:
+        return f"https://news.google.com/rss/search?q=site:{source.gnews}+when:2d&{EDITIONS.get(source.lang, EDITIONS['en'])}"
+    return source.url
+
+
+def _gnews_title(entry, title: str) -> str:
+    publisher = clean_html((entry.get("source") or {}).get("title", ""))
+    if publisher:
+        return re.sub(r"\s+-\s+" + re.escape(publisher) + r"\s*$", "", title)   # "Headline - Outlet"
+    return re.sub(r"\s+-\s+[^-]+$", "", title)
+
+
 def parse_feed(source: Source, content: bytes, now: datetime | None = None, country: str = "") -> list[Article]:
     now = now or datetime.now(timezone.utc)
     parsed = feedparser.parse(content)
     articles = []
     for entry in parsed.entries:
         title = clean_html(entry.get("title", ""))
+        if source.gnews:
+            title = _gnews_title(entry, title)
         link = entry.get("link", "")
         tags = [t.get("term", "") for t in entry.get("tags", []) or [] if t.get("term")]
         if not title or not SAFE_LINK.match(link) or is_opinion(title, link):
@@ -123,7 +141,7 @@ def parse_feed(source: Source, content: bytes, now: datetime | None = None, coun
             source=source,
             title=title,
             link=link,
-            summary=clean_html(entry.get("summary", "")),
+            summary="" if source.gnews else clean_html(entry.get("summary", "")),
             published=published,
             image=extract_image(entry),
             tags=tags,
@@ -133,7 +151,7 @@ def parse_feed(source: Source, content: bytes, now: datetime | None = None, coun
 
 def fetch_source(source: Source, country: str = "") -> list[Article]:
     try:
-        return parse_feed(source, _get(source.url).content, country=country)
+        return parse_feed(source, _get(feed_url(source)).content, country=country)
     except Exception as exc:  # one broken feed must never break the edition
         log.warning("feed %s failed: %s", source.id, exc)
         return []

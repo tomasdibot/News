@@ -55,6 +55,7 @@ class Source:
     tier: str = "commercial"
     topics: list[str] = field(default_factory=list)
     lean: str = ""   # left | center-left | center | center-right | right; empty = unknown
+    gnews: str = ""   # outlets without working RSS: site domain, read through a Google News search
 
 
 def deep_merge(base: dict, override: dict) -> dict:
@@ -93,7 +94,7 @@ def load_sources(cfg: dict, path: str | Path | None = None) -> list[Source]:
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or []
     langs = set(cfg["profile"]["languages"])
     country = cfg["profile"]["country"]
-    sources = [Source(**item) for item in raw]
+    sources = [Source(**{"url": "", **item}) for item in raw]
     return [
         s for s in sources
         if s.lang in langs and (s.region == "global" or s.region.upper() == country)

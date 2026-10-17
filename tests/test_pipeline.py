@@ -214,3 +214,34 @@ def test_feed_items_with_non_http_links_are_dropped():
            '</channel></rss>').encode()
     got = parse_feed(SOURCES["bbc"], xml, now=NOW)
     assert [a.link for a in got] == ["https://example.com/a"]
+
+
+GNEWS_XML = ('<rss><channel>'
+             '<item><title>Sube el dólar y cae la bolsa - Página12</title><link>https://news.google.com/rss/articles/abc</link>'
+             '<source url="https://www.pagina12.com.ar">Página12</source></item>'
+             '<item><title>Nota mala - Página12</title><link>javascript:alert(1)</link><source>Página12</source></item>'
+             '</channel></rss>').encode()
+
+
+def test_gnews_feed_strips_publisher_and_keeps_configured_outlet():
+    from newsdesk.config import Source
+    from newsdesk.fetch import parse_feed
+    src = Source(id="pagina12", outlet="Página/12", url="", lang="es", region="AR", gnews="pagina12.com.ar")
+    got = parse_feed(src, GNEWS_XML, now=NOW)
+    assert [(a.title, a.outlet) for a in got] == [("Sube el dólar y cae la bolsa", "Página/12")]
+
+
+def test_gnews_source_loads_without_url_and_builds_search_url(tmp_path, cfg):
+    from newsdesk.config import load_sources
+    from newsdesk.fetch import feed_url
+    f = tmp_path / "s.yaml"
+    f.write_text('- { id: p, outlet: "Página/12", lang: es, region: AR, gnews: "pagina12.com.ar" }\n', encoding="utf-8")
+    (src,) = load_sources(cfg, f)
+    assert feed_url(src) == ("https://news.google.com/rss/search?q=site:pagina12.com.ar+when:2d"
+                             "&hl=es-419&gl=AR&ceid=AR:es-419")
+
+
+def test_real_sources_yaml_lists_pagina12_once():
+    from newsdesk.config import load_sources
+    ids = [s.id for s in load_sources({"profile": {"languages": ["es", "en"], "country": "AR"}})]
+    assert ids.count("pagina12") == 1 and "pagina12-eco" not in ids and "pagina12-esp" not in ids

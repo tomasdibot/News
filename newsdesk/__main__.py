@@ -40,7 +40,7 @@ def cmd_notify(cfg, args) -> int:
 
 
 def cmd_check_feeds(cfg, args) -> int:
-    from .fetch import fetch_source
+    from .fetch import feed_url, fetch_source
 
     sources = load_sources(cfg)
     bad = 0
@@ -49,7 +49,7 @@ def cmd_check_feeds(cfg, args) -> int:
         with_img = sum(1 for a in arts if a.image)
         status = "OK " if arts else "ERR"
         bad += not arts
-        print(f"{status} {s.id:18} {len(arts):4} articles  {with_img:4} with images  {s.url}")
+        print(f"{status} {s.id:18} {len(arts):4} articles  {with_img:4} with images  {feed_url(s)}")
     print(f"\n{len(sources) - bad}/{len(sources)} feeds working")
     return 0
 

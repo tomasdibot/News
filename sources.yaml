@@ -15,6 +15,8 @@
 #   lean    - optional editorial lean: left, center-left, center, center-right, right
 #             (empty = unknown). Approximate and editable by the owner; based on
 #             academic studies (arXiv 2310.08701) and Media Bias/Fact Check.
+#   gnews   - instead of url, for outlets without a working RSS: the site's domain,
+#             read through a Google News search (outlet name is still the one set here)
 #   topics  - optional hint for section feeds (business, science, ...)
 #
 # Run `python -m newsdesk check-feeds` to see which feeds respond.
@@ -51,7 +53,7 @@
 - { id: bbc-arts,      outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml", topics: [culture], lean: center }
 - { id: npr-music,     outlet: NPR,        lang: en, region: global, tier: public, url: "https://feeds.npr.org/1039/rss.xml", topics: [culture], lean: center }
 - { id: billboard,     outlet: Billboard,  lang: en, region: global, tier: specialist, url: "https://www.billboard.com/feed/", topics: [culture] }
-- { id: rollingstone-es, outlet: Rolling Stone en Español, lang: es, region: global, tier: specialist, url: "https://es.rollingstone.com/feed/", topics: [culture] }
+- { id: rollingstone-es, outlet: Rolling Stone en Español, lang: es, region: global, tier: specialist, gnews: "es.rollingstone.com", topics: [culture] }
 
 # --- Global, Spanish -------------------------------------------------------
 - { id: bbc-mundo,     outlet: BBC,        lang: es, region: global, tier: public, url: "https://feeds.bbci.co.uk/mundo/rss.xml", lean: center }
@@ -63,13 +65,11 @@
 - { id: infobae,       outlet: Infobae,    lang: es, region: AR, tier: commercial, url: "https://www.infobae.com/arc/outboundfeeds/rss/", lean: center }
 - { id: lanacion,      outlet: La Nación,  lang: es, region: AR, tier: commercial, url: "https://www.lanacion.com.ar/arc/outboundfeeds/rss/?outputType=xml", lean: center-right }
 - { id: clarin,        outlet: Clarín,     lang: es, region: AR, tier: commercial, url: "https://www.clarin.com/rss/lo-ultimo/", lean: center }
-- { id: pagina12,      outlet: Página/12,  lang: es, region: AR, tier: commercial, url: "https://www.pagina12.com.ar/rss/secciones/el-pais/notas", lean: center-left }
+- { id: pagina12,      outlet: Página/12,  lang: es, region: AR, tier: commercial, gnews: "pagina12.com.ar", lean: center-left }
 - { id: perfil,        outlet: Perfil,     lang: es, region: AR, tier: commercial, url: "https://www.perfil.com/feed", lean: center }
 - { id: ambito,        outlet: Ámbito,     lang: es, region: AR, tier: commercial, url: "https://www.ambito.com/rss/pages/home.xml", topics: [economy], lean: center }
-- { id: pagina12-eco,  outlet: Página/12,  lang: es, region: AR, tier: commercial, lean: center-left, url: "https://www.pagina12.com.ar/rss/secciones/economia/notas", topics: [economy] }
-- { id: pagina12-esp,  outlet: Página/12,  lang: es, region: AR, tier: commercial, lean: center-left, url: "https://www.pagina12.com.ar/rss/secciones/espectaculos/notas", topics: [culture] }
 - { id: eldiarioar,    outlet: elDiarioAR, lang: es, region: AR, tier: commercial, lean: center-left, url: "https://www.eldiarioar.com/rss/" }
-- { id: cronista-eco,  outlet: El Cronista, lang: es, region: AR, tier: commercial, lean: center-right, url: "https://www.cronista.com/files/rss/economia.xml", topics: [economy] }
+- { id: cronista-eco,  outlet: El Cronista, lang: es, region: AR, tier: commercial, lean: center-right, gnews: "cronista.com", topics: [economy] }
 - { id: infobae-eco,   outlet: Infobae,    lang: es, region: AR, tier: commercial, lean: center, url: "https://www.infobae.com/arc/outboundfeeds/rss/category/economia/", topics: [economy] }
 - { id: lanacion-eco,  outlet: La Nación,  lang: es, region: AR, tier: commercial, lean: center-right, url: "https://www.lanacion.com.ar/arc/outboundfeeds/rss/category/economia/?outputType=xml", topics: [economy] }
 - { id: clarin-eco,    outlet: Clarín,     lang: es, region: AR, tier: commercial, lean: center, url: "https://www.clarin.com/rss/economia/", topics: [economy] }

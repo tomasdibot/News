@@ -41,6 +41,10 @@ jobs:
           echo "NEWSDESK_LOCAL_MODEL=qwen2.5:3b" >> "$GITHUB_ENV"
           echo "NEWSDESK_THEME_MODEL=qwen2.5:7b" >> "$GITHUB_ENV"
 
+      - name: Check the feeds
+        continue-on-error: true
+        run: python -m newsdesk check-feeds
+
       - name: Check the filter
         run: python -m newsdesk audit
         env:

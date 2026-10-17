@@ -304,4 +304,5 @@ Tests run offline against sample feeds in `tests/fixtures/`.
 Edit `sources.yaml`. Keep `outlet` the same for feeds from the same newsroom, use
 `region: global` for international feeds or a country code for national ones, then run
 `python -m newsdesk check-feeds`. Feed URLs change now and then. A broken feed is skipped
-and doesn't stop the edition.
+and doesn't stop the edition. Outlets without a working RSS use `gnews: <domain>` instead of
+`url` and are read through Google News.
