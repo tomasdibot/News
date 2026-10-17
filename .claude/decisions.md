@@ -165,3 +165,11 @@ Decision: Música A+B+C; IA A+B; audit CASES +3 real rows (Elorian IN, Replit/An
 Prediction: Música candidates 21 → 35–40, accepted 7 → ≥11, shows tier 2 → ≥4, audit Música real rows still all agree; IA known answers 9/11 → ≥10/11, accepted 2 → ≥4 with FP ≤1, check-feeds OK for new AI feeds; other sections' known answers unchanged; job ≤ 20 min on the cold-cache run, ≤ 16 after.
 Measurement: audit.yml (sections 1–2, check-feeds), newsdesk.yml theme lines, `sources Música/IA:` lines, music order.
 Review round 1 (blocking): two new IA examples paraphrased audit CASES (bank/Itaú, startup first model/Elorian) — reworded ("Retailer says AI helps it cut delivery times" false; "Lab presents a new open-weights language model" true). "banda" removed from fecha context. Expect thin sections for ~1 hour after deploy (VERSION 8 re-judges all). Watch microsoft-ai for marketing posts; drop or set commercial if they leak.
+
+### D14 — Faster opening and a tidier newspaper layout (2026-10-17) — status: open
+Goal (owner): better opening animation and layout. Owner chose: quick page-turn (news visible at once, ~0.4 s flip on cold open, tap skips), tidier newspaper look, nothing when a story has no photo, replace the gothic title with a plain modern one.
+Evidence (investigator, Playwright 390×844): intro hides content ~1.0–1.8 s, no skip, replays on every cold PWA open; 129 px of chrome above the first card + ~70 px section flag; 3 cards per screen; gear/↻ 38 px, tabs 42 px; smallest text 9.5 px; kicker row wraps with a stray "·" and 📍; empty 96 px photo boxes; "Fuente única" in accent red; econ card leaves a hole with 3 items; drop cap splits "E l". Contrast already fine (≥6.5).
+Options: A) quick page-turn + slimmer chrome + small fixes; B) shorter intro only; C) lead story + list rework.
+Decision: A (owner's picks).
+Prediction: time to readable headline ≤ 500 ms (was ~1.8 s); chrome above first card ≤ 90 px; ≥ 4 cards per first screen; 0 tap targets < 44 px; smallest text ≥ 11 px; contrast stays ≥ 4.5; reduced-motion still skips; pytest green.
+Measurement: investigator re-runs the Playwright screenshots/timings (scratchpad shoot.py) after the change; pytest.
