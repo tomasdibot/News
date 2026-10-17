@@ -58,7 +58,7 @@ SOFT_TOPICS = {"entertainment", "lifestyle"}
 def ar_leans(s: Story) -> dict[str, str]:
     """Lean per Argentine outlet; foreign outlets are left out (the lean bar only covers AR)."""
     leans: dict[str, str] = {}
-    for a in s.articles:
+    for a in s.sources_for_display():   # only outlets shown for the story count
         if a.source.region.upper() == "AR":
             leans.setdefault(a.outlet, a.source.lean)
     return leans
@@ -83,7 +83,7 @@ def blindspot(s: Story) -> str | None:
 def log_multi_outlet_sample(multi: list[Story], n: int = 8) -> None:
     """Log a few multi-outlet headlines (public) so wrong merges can be judged from the run log."""
     for s in sorted(multi, key=lambda s: len(ar_leans(s)), reverse=True)[:n]:
-        who = ", ".join(f"{o}({lean or '?'})" for o, lean in ar_leans(s).items())
+        who = "; ".join(f"{a.outlet}({a.source.lean or '?'}): {a.title}" for a in s.sources_for_display())
         log.info("multi-outlet sample: %s | %s", s.headline.title, who)
 
 

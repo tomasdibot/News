@@ -103,6 +103,8 @@ def tokens(s: str) -> set[str]:
 ENTITY_STOP = set("""
 monday tuesday wednesday thursday friday saturday sunday january february march april may june july
 august september october november december breaking live update updates watch video exclusive
+tour tours dates date ticket tickets sale show shows concert concerts announces announced cancels
+cancelled canceled album single
 """.split())
 
 
@@ -151,6 +153,26 @@ def entities(title: str, context: str | None = "") -> set[str]:
             continue  # small numbers are too common to identify a story
         found.add(ALIASES.get(key, key))
     return found
+
+
+_RUN_RE = re.compile(r"[A-ZÁÉÍÓÚÑÜ][\wáéíóúñü'\-]*")
+
+
+def name_phrases(title: str, ents: set[str]) -> list[frozenset[str]]:
+    """Names in a headline, a run of capitalised words counting as ONE name ("Tame Impala").
+    Only words already accepted as entities count; small words and generic ones break a run."""
+    out, run = [], []
+    for w in title.replace(":", " : ").split():
+        key = normalize(w).strip(".,:;'\"-")
+        if _RUN_RE.match(w) and key in ents and key not in STOPWORDS:
+            run.append(ALIASES.get(key, key))
+            continue
+        if run:
+            out.append(frozenset(run))
+            run = []
+    if run:
+        out.append(frozenset(run))
+    return out
 
 
 def contains_any(text_norm: str, phrases: list[str]) -> list[str]:

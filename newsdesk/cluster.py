@@ -7,11 +7,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from .fetch import Article
-from .text import entities, figures, significant, tokens
+from .text import entities, figures, name_phrases, significant, tokens
 
 SAME_LANG_THRESHOLD = 0.42
 CROSS_LANG_THRESHOLD = 0.5
 WINDOW = timedelta(hours=48)
+DISPLAY_MIN = 0.3   # an outlet row needs at least this similarity to the story's lead headline
 
 
 @dataclass
@@ -22,6 +23,8 @@ class _Features:
     title_ents: set[str]
     all_ents: set[str]
     figures: frozenset[str]  # significant numbers in the title
+    names: tuple = ()        # name phrases: "Tame Impala" is one name, not two
+    query: str = ""          # artist search that found it
 
 
 def features(a: Article) -> _Features:
@@ -34,6 +37,8 @@ def features(a: Article) -> _Features:
         title_ents=title_ents,
         all_ents=title_ents | entities(summary),
         figures=frozenset(f for f in figures(a.title) if significant(f)),
+        names=tuple(name_phrases(a.title, title_ents)),
+        query=a.query,
     )
 
 
@@ -58,7 +63,9 @@ def similarity(a: _Features, b: _Features) -> float:
     if a.lang == b.lang:
         if a.figures and b.figures and not figures_match(a.figures, b.figures):
             return 0.0  # different release (e.g. September vs August inflation)
-        shared = len(a.title_ents & b.title_ents)
+        # Names found by the same artist search say nothing about the event (all are about that artist).
+        same_search = bool(a.query) and a.query == b.query
+        shared = 0 if same_search else sum(1 for p in a.names if any(p & q for q in b.names))
         # Overlap and shared names would inflate very short headlines ("Boca ganó" / "Boca perdió").
         short = min(len(a.title_tokens), len(b.title_tokens)) < 4
         return (0.7 * jaccard(a.title_tokens, b.title_tokens)
@@ -92,10 +99,8 @@ class Story:
 
     @property
     def outlets(self) -> list[str]:
-        seen: dict[str, None] = {}
-        for a in sorted(self.articles, key=lambda a: a.published):
-            seen.setdefault(a.outlet, None)
-        return list(seen)
+        """Outlets shown for the story: the same rows as `sources_for_display`."""
+        return [a.outlet for a in self.sources_for_display()]
 
     @property
     def langs(self) -> set[str]:
@@ -110,11 +115,22 @@ class Story:
         return min(a.published for a in self.articles)
 
     def sources_for_display(self) -> list[Article]:
-        """One link per outlet (the earliest), so the reader can compare coverage."""
-        out: dict[str, Article] = {}
-        for a in sorted(self.articles, key=lambda a: a.published):
-            out.setdefault(a.outlet, a)
-        return list(out.values())
+        """One link per outlet so the reader can compare coverage: the article closest to the lead
+        headline, and only outlets whose article really tells the same story as the lead."""
+        lead = self.headline or min(self.articles, key=lambda a: a.published)
+        feats = self.feats if len(self.feats) == len(self.articles) else [features(a) for a in self.articles]
+        fl = feats[self.articles.index(lead)]
+        best: dict[str, tuple[float, int]] = {}
+        for i, (a, f) in enumerate(zip(self.articles, feats)):
+            sim = 1.0 if a is lead else similarity(fl, f)
+            if a.outlet not in best or sim > best[a.outlet][0]:
+                best[a.outlet] = (sim, i)
+        rows = [(self.articles[i], sim) for sim, i in best.values() if sim >= DISPLAY_MIN]
+        return [a for a, _ in sorted(rows, key=lambda r: r[0].published)]
+
+
+def _margin(f: _Features, g: _Features) -> float:
+    return similarity(f, g) - (SAME_LANG_THRESHOLD if g.lang == f.lang else CROSS_LANG_THRESHOLD)
 
 
 def dedupe(articles: list[Article]) -> list[Article]:
@@ -143,10 +159,7 @@ def cluster(articles: list[Article]) -> list[Story]:
             story = stories[sid]
             if art.published - story.latest > WINDOW:
                 continue
-            margin = max(
-                similarity(f, g) - (SAME_LANG_THRESHOLD if g.lang == f.lang else CROSS_LANG_THRESHOLD)
-                for g in story.feats
-            )
+            margin = _margin(f, story.feats[0])   # against the lead only: A~B~C must not chain events
             if margin >= 0 and (best is None or margin > best_margin):
                 best, best_margin = sid, margin
 

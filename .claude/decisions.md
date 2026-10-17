@@ -22,6 +22,7 @@ orchestrator adds an entry for each decision and fills in the outcome after meas
 - L16 (D12): A global filter downstream (36 h max age in rank.py) can silently cancel an upstream change (search windows). Trace an item end to end before predicting.
 - L17 (D12): More feeds raise raw items, not accepted stories, when the theme is narrow: Música went 5→6→7 over D10–D12 with every accepted story right. The remaining lever is the owner's artists (Spotify), not more generic music sources. Log per-source candidates/accepted before adding sources.
 - L18 (D13): A judge VERSION bump re-judges everything and the time budget truncates the first run — measure accepted counts on the second (warm) run. Reworded prompt examples may not fix the real failing row; put real rows in audit CASES and fix tier boosts in code.
+- L19 (D17): Names counted as tokens + overlap + entity bonus, and single-link chaining, glue different stories together; pair fixtures can't see chains — test with chain sets and the owner's real examples.
 - L7: The owner does not trust Green API; never propose it. Paid options (Claude API) only as opt-in.
 
 ## Entry template
@@ -202,3 +203,4 @@ Addendum (owner's trio reproduced): Tame~Tame merges at 0.467 only via the artis
 Decision (revised): (1) count names as phrases ("Tame Impala" once), ignore generic words (tour, dates, tickets, announces…), and in Title Case headlines don't treat every capitalised word as a name; (2) lead/average-link; (3) no name bonus between two items of the same artist search; (4) display filter + closest article per outlet; member titles in the sample log. The owner's complaint outranks paraphrase recall: accept D10 same-event 14 → ≥12/15 (BCRA vs "Banco Central", "Murió/Falleció Federico Luppi" may split).
 Prediction: owner's trio → 3 separate stories; chain fixture wrong pairs 19–24 → ≤8; D10 same-event ≥12/15, wrong ≤4/10; per-theme multi_outlet may drop 10–25%.
 Measurement: pytest (chain + owner fixture); next newsdesk.yml multi-outlet sample with member titles (investigator samples 10).
+Offline result: chain wrong pairs 24 → 8; owner's trio → 3 stories; D10 same-event 15/15 → 12/15 (BCRA/Banco Central, Luppi, alerta/tormentas split), wrong 4/10. Reviewer APPROVE (194 pass; lead-only joining also 10× faster on a degenerate cluster). Optional later: keep a row if similar to headline OR earliest article.

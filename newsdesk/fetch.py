@@ -34,6 +34,7 @@ class Article:
     published: datetime
     image: str | None = None
     tags: list[str] = field(default_factory=list)
+    query: str = ""   # the artist search that found it (artists.py); empty for feeds
 
     @property
     def outlet(self) -> str:

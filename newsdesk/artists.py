@@ -45,7 +45,7 @@ def show_search_url(query: str) -> str:
 
 def parse_search(content: bytes, artist: str, lang: str, now: datetime) -> list[Article]:
     want = normalize(artist)
-    return _parse(content, lang, now, lambda title: want in normalize(title))   # the artist must be in the headline
+    return _parse(content, lang, now, lambda title: want in normalize(title), query=normalize(artist))   # the artist must be in the headline
 
 
 def parse_shows(content: bytes, now: datetime) -> list[Article]:
@@ -56,7 +56,7 @@ def parse_shows(content: bytes, now: datetime) -> list[Article]:
     return _parse(content, "es", now, music, SHOW_DAYS)
 
 
-def _parse(content: bytes, lang: str, now: datetime, keep, days: int = 7) -> list[Article]:
+def _parse(content: bytes, lang: str, now: datetime, keep, days: int = 7, query: str = "") -> list[Article]:
     out = []
     for e in feedparser.parse(content).entries[:PER_FEED]:
         outlet = clean_html((e.get("source") or {}).get("title", "")) or "Google News"
@@ -71,7 +71,7 @@ def _parse(content: bytes, lang: str, now: datetime, keep, days: int = 7) -> lis
         src = Source(id="gn-" + re.sub(r"[^a-z0-9]+", "-", normalize(outlet)), outlet=outlet, url="",
                      lang=lang, region="global", tier="commercial", topics=["culture"],
                      max_age_hours=days * 24)
-        out.append(Article(source=src, title=title, link=link, summary="", published=min(published, now)))
+        out.append(Article(source=src, title=title, link=link, summary="", published=min(published, now), query=query))
     return out
 
 

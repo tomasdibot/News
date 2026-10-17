@@ -12,7 +12,7 @@ def make_story(leans, local=True, topic="economy", regions=None):
     arts = []
     for i, (name, lean) in enumerate(leans):
         src = Source(id=f"{name}{i}", outlet=name, url="x", lang="es", region=(regions or {}).get(name, "AR"), lean=lean)
-        arts.append(Article(source=src, title=f"t{i}", link=f"https://x/{i}", summary="",
+        arts.append(Article(source=src, title="El INDEC informó que la inflación de septiembre fue de 1,9%", link=f"https://x/{i}", summary="",
                             published=NOW - timedelta(hours=10 - i)))
     s = Story(articles=arts, local=local, topic=topic)
     s.headline = arts[0]
@@ -90,4 +90,5 @@ def test_build_logs_multi_outlet_sample(caplog):
     s = make_story([("A", "center"), ("B", "center-right"), ("C", "")])
     with caplog.at_level(logging.INFO):
         log_multi_outlet_sample([s])
-    assert "multi-outlet sample: t0 | A(center), B(center-right), C(?)" in caplog.text
+    assert "multi-outlet sample: El INDEC informó que la inflación de septiembre fue de 1,9% | A(center): El INDEC" in caplog.text
+    assert "; C(?): El INDEC" in caplog.text
