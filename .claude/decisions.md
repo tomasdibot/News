@@ -16,6 +16,8 @@ orchestrator adds an entry for each decision and fills in the outcome after meas
 - L10 (D7): Google News `site:` feeds revive outlets with dead RSS (Página/12 98 items, Cronista 100); `check-feeds` in the audit run proves feeds in 15 s. No images from them.
 - L11 (D8): Free no-key AR APIs (dolarapi.com, argentinadatos.com) work from CI; build time depends mostly on cache warmth — compare runs with similar cache state.
 - L12 (D9): Only ~1 local story per build reaches ≥3 Argentine outlets in one cluster, so lean-based features (blindspots) have no data until AR stories cluster across outlets. Check the denominator before building on a metric; log feed outages next to lean-based flags.
+- L13 (D10): Number- and entity-aware grouping raised multi-outlet stories +62% (Economía 8→12, Mundo 5→11) with 0/8 wrong merges sampled; Música and IA did not move — they need more outlets, not looser matching.
+- L14 (D6–D10): Build an offline fixture and count wrong merges/false flags next to hits; log samples (titles + outlets) so real-run quality can be judged, since the page is encrypted.
 - L7: The owner does not trust Green API; never propose it. Paid options (Claude API) only as opt-in.
 
 ## Entry template
@@ -107,7 +109,7 @@ Measurement: newsdesk log line; manual sample of 5 flagged stories via Google Ne
 Result: run 39006995957 — `blindspot: 1 flagged (left_ignores=1, right_ignores=0) of 1 local multi-outlet stories` (m counts all scored stories, edition.py:145); 3 gnews feeds had a transient 503; job 6m00s. Predicted 3–15 flags — missed: almost no AR story reaches ≥3 AR outlets in one cluster. — no
 Verdict & lesson: parked (field kept, no UI) → L12. Root issue → D10.
 
-### D10 — Why Argentine stories rarely cluster across outlets (2026-10-17) — status: open
+### D10 — Why Argentine stories rarely cluster across outlets (2026-10-17) — status: kept
 Goal: more stories covered by several outlets (owner request: "news should be covered by more than one source"); prerequisite for blindspots.
 Evidence: D9 m=1; per-theme multi_outlet only 1–8 of accepted.
 Investigation (offline fixture, 15 same-event + 10 hard different-event AR headline pairs): baseline merges 10/15 same, 6/10 wrong. Causes: figures ("1,9%", "1.555") dropped from title tokens; capitalised first words not entities when there is no summary (all gnews items); paraphrases. Lowering the threshold alone trades misses for wrong merges (0.35: 11/15, 8/10).
@@ -116,3 +118,10 @@ Decision: B (guards against merging different INDEC releases); C only if the bui
 Prediction: fixture same ≥14/15, wrong ≤5/10 (and INDEC Sept vs Aug, riesgo país 648 vs 720, blue 1555 vs oficial 1535 never merge); build per-theme multi_outlet +30–50% (Economía ~7 → ~10); blindspot m 1 → 3–6 (if m stays ≤2, the limit is feed overlap, not scoring).
 Measurement: pytest fixture test; next newsdesk.yml per-theme and blindspot lines; investigator samples 10 multi-outlet stories for wrong merges if a debug log exists.
 Review round 2: overlap term and name bonus only for titles with ≥4 tokens ("Boca ganó"/"Boca perdió" no longer merge); figures within 1% match (2% merged blue vs oficial). Known limit: outlets quoting different counts (120 vs 135 muertos) split into two stories. Fixture after: 14/15 same, 4/10 wrong.
+Result: run 39008682199 — multi_outlet Economía 8→12, Mundo 5→11, Música 1→1, IA 2→2 (total 16→26, +62%); blindspot m 1→8 (2 flagged, both "left ignores", likely service/statistics items: VTV, morosidad); multi-outlet samples 8/8 one event (1 uncertain); job 15m53s (neutral titles at their budget; judge ~4 min). — yes
+Verdict & lesson: kept → L13, L14. D9 stays parked until flagged titles are logged and ≥4/5 sampled flags are real political blindspots.
+
+## Open follow-ups (next /improve)
+- D9: log flagged blindspot titles + ignoring side; sample 5; show tab only if ≥4/5 real.
+- Música/IA: more outlets (Argentine music/espectáculos; owner's artists list is still empty).
+- Build time ~16 min when caches are cold: keep an eye on it (neutral titles fill their budget).
