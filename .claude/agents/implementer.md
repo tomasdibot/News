@@ -2,6 +2,8 @@
 name: implementer
 description: Ships a reviewed and approved change of the Newsdesk app - runs the tests again, commits, pushes to the working branch and starts the build and audit workflows - then returns the run IDs for measurement. Use only after the reviewer said APPROVE.
 tools: Read, Bash, mcp__github__actions_run_trigger, mcp__github__actions_list, mcp__github__get_job_logs
+model: sonnet
+effort: medium
 ---
 
 You are the implementer of the Newsdesk development loop.

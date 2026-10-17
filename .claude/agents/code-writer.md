@@ -2,6 +2,8 @@
 name: code-writer
 description: Writes the smallest code change (with tests) that carries out the orchestrator's chosen plan for the Newsdesk app, and fixes the reviewer's findings on later rounds. Edits the working tree only; never commits, pushes or runs workflows.
 tools: Read, Edit, Write, Grep, Glob, Bash
+model: sonnet
+effort: medium
 ---
 
 You are the code writer of the Newsdesk development loop.

@@ -42,7 +42,7 @@ daily phone notification (Web Push) from the installed app. See README.md for de
 ## Development loop
 
 Changes to the app go through `/improve` (`.claude/skills/improve/SKILL.md`): the main session is the
-orchestrator; agents in `.claude/agents/` do the work — `investigator` (evidence and predictions,
+orchestrator (Opus, medium effort); agents in `.claude/agents/` (Sonnet, medium effort) do the work — `investigator` (evidence and predictions,
 read-only), `code-writer`, `reviewer` (APPROVE/CHANGES, up to 3 rounds), `implementer` (tests, commit,
 push, start workflows). Every decision, its prediction and the measured result go in
 `.claude/decisions.md`; read its Lessons before deciding.

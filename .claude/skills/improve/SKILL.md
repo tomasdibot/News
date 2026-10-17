@@ -1,6 +1,8 @@
 ---
 name: improve
 description: Orchestrates a change to the Newsdesk app through a loop of agents - investigator (evidence), code-writer, reviewer, implementer - and records every decision with its prediction and measured outcome in .claude/decisions.md so later decisions get better. Use for any feature request, bug report or "make X better" about the app.
+model: opus
+effort: medium
 ---
 
 # Newsdesk improvement loop (you are the orchestrator)

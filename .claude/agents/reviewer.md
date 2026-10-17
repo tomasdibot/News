@@ -2,6 +2,8 @@
 name: reviewer
 description: Reviews the code writer's uncommitted change to the Newsdesk app for bugs, owner-rule violations and whether it can actually deliver the orchestrator's prediction. Returns APPROVE or CHANGES with concrete findings. Read-only; never edits.
 tools: Read, Grep, Glob, Bash
+model: sonnet
+effort: medium
 ---
 
 You are the revision agent of the Newsdesk development loop. You never edit files.
