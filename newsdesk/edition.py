@@ -49,6 +49,36 @@ def fill_missing_images(stories: list[Story], limit: int = 40) -> None:
             s.image = img
 
 
+LEFT_SIDE = {"left", "center-left"}
+RIGHT_SIDE = {"center-right", "right"}
+SOFT_TOPICS = {"entertainment", "lifestyle"}
+
+
+def ar_leans(s: Story) -> dict[str, str]:
+    """Lean per Argentine outlet; foreign outlets are left out (the lean bar only covers AR)."""
+    leans: dict[str, str] = {}
+    for a in s.articles:
+        if a.source.region.upper() == "AR":
+            leans.setdefault(a.outlet, a.source.lean)
+    return leans
+
+
+def blindspot(s: Story) -> str | None:
+    """"left" or "right": the side of the lean bar that has no Argentine outlet on a local story."""
+    if not s.local or s.topic in SOFT_TOPICS:
+        return None
+    leans = ar_leans(s)
+    if len(leans) < 3 or sum(1 for v in leans.values() if v) < 2:
+        return None
+    left = any(v in LEFT_SIDE for v in leans.values())
+    right = any(v in RIGHT_SIDE for v in leans.values())
+    if right and not left:
+        return "left"
+    if left and not right:
+        return "right"
+    return None
+
+
 def story_dict(s: Story, ui_lang: str) -> dict:
     h = s.headline
     summary = h.summary or next((a.summary for a in s.articles if a.summary and a.source.lang == h.source.lang), "")
@@ -64,6 +94,7 @@ def story_dict(s: Story, ui_lang: str) -> dict:
         "published": s.latest.isoformat(),
         "outlets": s.outlets,
         "local": s.local,
+        "blind": blindspot(s),
         "topics": {k: round(v, 2) for k, v in s.topic_scores.items() if v >= 0.2},
         "base": round(s.base, 4),
         "fixed": round(s.fixed, 3),
@@ -110,6 +141,11 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     if cfg["profile"]["country"] == "AR":
         econ = fetch_econ(now)
         log.info("econ data: %d/4", len(econ))
+
+    multi = [s for s in stories if s.local and len(ar_leans(s)) >= 3]
+    flags = [blindspot(s) for s in multi]
+    log.info("blindspot: %d flagged (left_ignores=%d, right_ignores=%d) of %d local multi-outlet stories",
+             sum(1 for f in flags if f), flags.count("left"), flags.count("right"), len(multi))
 
     tz = ZoneInfo(cfg["notification"]["timezone"])
     return {

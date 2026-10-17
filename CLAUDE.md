@@ -35,6 +35,7 @@ daily phone notification (Web Push) from the installed app. See README.md for de
   `NEWSDESK_PROFILE`, `VAPID_PRIVATE_KEY`, and WhatsApp provider secrets.
 - Sources: `sources.yaml` has an optional `lean` per outlet (left … right, approximate, owner-editable); the app shows a lean bar and each outlet's headline per story. Outlets without working RSS use `gnews: <domain>` (Google News site search; outlet name kept). The build logs `theme <name>: candidates=… accepted=… multi_outlet=…` per theme.
 - Official numbers (AR only): `econdata.py` reads dolarapi.com and argentinadatos.com (no keys; each item fails alone, hidden if missing) into `edition["econ"]`; the card shows above economy theme tabs; `check-feeds` prints the 4 endpoints. Log line `econ data: n/4`.
+- Blindspot (D9, not shown in the UI yet): `edition.blindspot()` puts `blind` ("left"/"right" = the side that ignores a local, non-soft story with ≥3 outlets) in each story; the build logs `blindspot: n flagged (left_ignores=a, right_ignores=b) of m local multi-outlet stories`.
 - UI preference: suggestions/choices are always shown as a dropdown list (native `<select>`,
   plus `<datalist>` autocomplete on text boxes), never as chips/buttons.
 - The owner prefers free options; Claude API is an opt-in paid upgrade.
