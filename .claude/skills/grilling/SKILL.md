@@ -5,23 +5,18 @@ description: Grill the user relentlessly about a plan, decision, or idea. Use wh
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
-Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the whole frontier in one round: number each question and give your recommended answer. Then wait for the user's answers before the next round.
+Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are already settled: the questions you can ask _now_ without guessing at answers you haven't heard yet. Ask the frontier in one round, then wait for the user's answers before the next round.
 
-Format a round like so:
+**Ask with interactive options, never as written options in the chat.** Put each round to the user with the `AskUserQuestion` tool (load it with ToolSearch `select:AskUserQuestion` if it is deferred):
 
-```
-❓ **Q1** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
+- Up to 4 questions per call. If the frontier has more, ask the 4 that unblock the most, and the rest in the next call of the same round.
+- Each question: a short `header` (≤12 chars), a plain-language `question` ending in "?", and 2–4 `options`. Each option gets a short `label` (1–5 words) and a one-line `description` of what it means or what happens next.
+- Put your recommended answer **first**, with " (Recommended)" at the end of its label.
+- Use `multiSelect: true` only when the choices can be combined.
+- Use `preview` only to compare concrete artefacts (a mock-up, a snippet).
+- The user can always pick "Other" and type their own answer. Treat it as a full answer, and turn it into follow-up questions if it opens new branches.
 
-➡️ <your recommended answer>
-
----
-
-❓ **Q2** - **<question title>**: <question body, might be multiple paragraphs, including multiple choices>
-
-➡️ <your recommended answer>
-```
-
-Word each question so "yes" accepts your recommended answer.
+Before the call, write at most one short line of context in the chat. Do not repeat the questions or options as text.
 
 Each round the user answers reshapes the tree: settled decisions push the frontier outward and unblock questions that depended on them. Recompute the frontier and ask the next round. A question whose answer depends on another question still open in this round belongs to a _later_ round, not this one.
 
