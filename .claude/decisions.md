@@ -23,6 +23,7 @@ orchestrator adds an entry for each decision and fills in the outcome after meas
 - L17 (D12): More feeds raise raw items, not accepted stories, when the theme is narrow: Música went 5→6→7 over D10–D12 with every accepted story right. The remaining lever is the owner's artists (Spotify), not more generic music sources. Log per-source candidates/accepted before adding sources.
 - L18 (D13): A judge VERSION bump re-judges everything and the time budget truncates the first run — measure accepted counts on the second (warm) run. Reworded prompt examples may not fix the real failing row; put real rows in audit CASES and fix tier boosts in code.
 - L19 (D17): Names counted as tokens + overlap + entity bonus, and single-link chaining, glue different stories together; pair fixtures can't see chains — test with chain sets and the owner's real examples.
+- L20 (D15): Reworded prompt examples can't flip the 7B model on show/ticket headlines, even as audit CASES; fix such recall gaps with a code rule.
 - L7: The owner does not trust Green API; never propose it. Paid options (Claude API) only as opt-in.
 
 ## Entry template
@@ -180,12 +181,14 @@ Measurement: investigator re-runs the Playwright screenshots/timings (scratchpad
 Result (D13 warm run 39067607835): judged now 113 → 8; Música 52/18 accepted (was 7), confirmed 6 (was 2–3); music order artist=6 shows=9 releases=1; artist news 107 articles for 20 artists; IA 26/5 (was 1–2). The 4 new AI gnews feeds still return nothing. — yes (Música, IA ≥4)
 D14 result: deploy OK (run 39067607835, 10 min); writer's Playwright: headline visible 398 ms (was ~1.8 s), chrome 89 px (was 129), ≥4 cards on big fixture, 0 targets < 44 px, min text 11 px. — yes
 
-### D15 — IA precision + Música show recall (2026-10-17) — status: open
+### D15 — IA precision + Música show recall (2026-10-17) — status: adjusted
 Goal: keep Música/IA volume, remove known wrong calls.
 Decision: drop the 4 dead AI gnews feeds unless `when:7d` returns items (check-feeds decides); reject "How <company> is building/using AI"-style case studies in code before the official boost; Música launch/show rule gets a tour dates/ticket prices example; audit CASES add real failing rows (BTS La Plata shows IN, U2 ticket prices IN, Iron Maiden 2027 tour IN, Itaú OUT); artist_rank ignores passing mentions ("escuchó Radiohead").
 Prediction: audit known answers IA ≥13/14 incl. Itaú OUT, Música ≥12/13 with the new rows; build Música accepted ≥15, IA ≥4; no new FP in samples.
 Measurement: audit.yml section 1–2 (+check-feeds), newsdesk theme lines and samples (warm run, L18).
 Review: round 1 CHANGES (case-study regex hit real launches like "How we built GPT-6"; artist rule missed "El regreso de Tool") → fixed: first person/how-to and lab subjects go to the model; ACT_WORDS widened. Round 2 APPROVE. Watch: broad ACT_WORDS (vivo, video, nuevo) in music order samples; 5-day-old official posts outranking fresh stories.
+Result: audit 39069971230 — AI feeds with when:7d: Anthropic 3, Meta AI 1, Mistral 1 items, Microsoft AI 0; known answers IA 13/14 (Itaú now OUT; calorie app still IN), Música 10/13 (BTS, U2 prices, Iron Maiden still OUT — prompt example didn't flip the 7B model), Economía 11/11, Mundo 9/9; section 2: IA 0 FP/0 misses (Mistral "Timestral" IN), Música recall ~10/15, 0 FP. Cold build only (L18). — partly
+Verdict & lesson: adjusted by D18 → L20.
 
 ### D16 — Readable everywhere: modern letters, bigger text, more space, text-size choice (2026-10-17) — status: open
 Goal (owner): the whole app easier to read. Owner said everything is hard (text size, letter style, crowding, the opened story); chose all-modern letters and a text-size dropdown in ⚙.
@@ -204,3 +207,9 @@ Decision (revised): (1) count names as phrases ("Tame Impala" once), ignore gene
 Prediction: owner's trio → 3 separate stories; chain fixture wrong pairs 19–24 → ≤8; D10 same-event ≥12/15, wrong ≤4/10; per-theme multi_outlet may drop 10–25%.
 Measurement: pytest (chain + owner fixture); next newsdesk.yml multi-outlet sample with member titles (investigator samples 10).
 Offline result: chain wrong pairs 24 → 8; owner's trio → 3 stories; D10 same-event 15/15 → 12/15 (BCRA/Banco Central, Luppi, alerta/tormentas split), wrong 4/10. Reviewer APPROVE (194 pass; lead-only joining also 10× faster on a degenerate cluster). Optional later: keep a row if similar to headline OR earliest article.
+
+### D18 — Shows accepted by rule; drop the dead Microsoft AI feed (2026-10-17) — status: open
+Goal: Música recall on tours/shows/tickets (~10/15 now).
+Decision: for music themes, a headline with a show word (show, shows, gira, tour, fechas, entradas, precios, recital, concierto, festival) plus a place (Argentina, Buenos Aires, a city, a venue) or a year (2026, 2027…) is accepted before the model (like is_case_study rejects before it); remove microsoft-ai from sources.yaml. No VERSION bump needed if the rule runs before the cache (check).
+Prediction: audit Música 10/13 → 13/13 (rule applied in the audit path too); section 2 Música recall ≥13/15 with FP ≤1; build Música accepted ≥ previous warm value.
+Measurement: audit.yml; warm newsdesk run.
