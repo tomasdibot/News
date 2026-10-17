@@ -121,6 +121,15 @@ Review round 2: overlap term and name bonus only for titles with ≥4 tokens ("B
 Result: run 39008682199 — multi_outlet Economía 8→12, Mundo 5→11, Música 1→1, IA 2→2 (total 16→26, +62%); blindspot m 1→8 (2 flagged, both "left ignores", likely service/statistics items: VTV, morosidad); multi-outlet samples 8/8 one event (1 uncertain); job 15m53s (neutral titles at their budget; judge ~4 min). — yes
 Verdict & lesson: kept → L13, L14. D9 stays parked until flagged titles are logged and ≥4/5 sampled flags are real political blindspots.
 
+## Owner decisions (grilling, 2026-10-17)
+- Order of work: Música → blind spots → IA.
+- Unbiased = several leans cover it + neutral titles + official numbers first (see GLOSSARY.md).
+- Confirmed story = 3+ outlets or an official source (Música and IA: 2+); sections fill the rest with 2-outlet stories.
+- Leans stay approximate and owner-editable.
+- Música: news about the owner's artists first (Spotify followed + most played; top 20 by plays), then shows in Argentina + big tours, then big releases. Owner will connect Spotify.
+- Blind spots: Argentine politics/economy only; shown as a mark on story cards, only after ≥4/5 sampled flags are real.
+- IA: launches and models first; big research results also fit (audit case "protein-structure model" stays IN).
+
 ## Open follow-ups (next /improve)
 - D9: log flagged blindspot titles + ignoring side; sample 5; show tab only if ≥4/5 real.
 - Música/IA: more outlets (Argentine music/espectáculos; owner's artists list is still empty).
