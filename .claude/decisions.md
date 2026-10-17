@@ -24,6 +24,7 @@ orchestrator adds an entry for each decision and fills in the outcome after meas
 - L18 (D13): A judge VERSION bump re-judges everything and the time budget truncates the first run — measure accepted counts on the second (warm) run. Reworded prompt examples may not fix the real failing row; put real rows in audit CASES and fix tier boosts in code.
 - L19 (D17): Names counted as tokens + overlap + entity bonus, and single-link chaining, glue different stories together; pair fixtures can't see chains — test with chain sets and the owner's real examples.
 - L20 (D15): Reworded prompt examples can't flip the 7B model on show/ticket headlines, even as audit CASES; fix such recall gaps with a code rule.
+- L21 (D18): Build rules from real audit rows (fixture first): "<band> announce 2027 tour" has no place, "Festival X en Escobar" no band — predictions on recall must come from running the rule on those rows.
 - L7: The owner does not trust Green API; never propose it. Paid options (Claude API) only as opt-in.
 
 ## Entry template
@@ -208,9 +209,11 @@ Prediction: owner's trio → 3 separate stories; chain fixture wrong pairs 19–
 Measurement: pytest (chain + owner fixture); next newsdesk.yml multi-outlet sample with member titles (investigator samples 10).
 Offline result: chain wrong pairs 24 → 8; owner's trio → 3 stories; D10 same-event 15/15 → 12/15 (BCRA/Banco Central, Luppi, alerta/tormentas split), wrong 4/10. Reviewer APPROVE (194 pass; lead-only joining also 10× faster on a degenerate cluster). Optional later: keep a row if similar to headline OR earliest article.
 
-### D18 — Shows accepted by rule; drop the dead Microsoft AI feed (2026-10-17) — status: open
+### D18 — Shows accepted by rule; drop the dead Microsoft AI feed (2026-10-17) — status: kept
 Goal: Música recall on tours/shows/tickets (~10/15 now).
 Decision: for music themes, a headline with a show word (show, shows, gira, tour, fechas, entradas, precios, recital, concierto, festival) plus a place (Argentina, Buenos Aires, a city, a venue) or a year (2026, 2027…) is accepted before the model (like is_case_study rejects before it); remove microsoft-ai from sources.yaml. No VERSION bump needed if the rule runs before the cache (check).
 Prediction: audit Música 10/13 → 13/13 (rule applied in the audit path too); section 2 Música recall ≥13/15 with FP ≤1; build Música accepted ≥ previous warm value.
 Measurement: audit.yml; warm newsdesk run.
 Review: round 1 CHANGES (rule accepted film festivals, Tour de France, football tickets, drones show) → music evidence required, deny list, lead headline only; round 2 APPROVE. Known trade-off: a comedy show at a music venue (Gran Rex) passes. Audit path judges only the first headline without artist info, so it is slightly stricter than the build.
+Result: audit 39075701904 — known answers 46/47 (Música 13/13, IA 13/14 — calorie app still IN), check-feeds 49/49; section 2 Música 12 IN, 0 FP, recall ~12/16 (was ~10/15; predicted ≥13/15 — missed): still missed Iron Maiden 2027 tour (no place/music word in the lead), Festival Daltónica en Escobar, BTS shows in cinemas. IA 0 FP. — partly
+Verdict & lesson: kept; follow-up: English "<band> … tour" headlines and named festivals + place. → L21.
