@@ -151,3 +151,14 @@ def test_candidates_put_official_launches_before_mere_mentions(cfg):
 def test_artists_from_the_app(monkeypatch, cfg):
     monkeypatch.setenv("NEWSDESK_ARTISTS", "Lali\nColdplay, Wos\n-")
     assert judge.configured_artists(cfg) == ["Lali", "Coldplay", "Wos"]
+
+
+def test_each_theme_logs_candidates_accepted_and_multi_outlet(monkeypatch, cfg, tmp_path, caplog):
+    monkeypatch.setenv("NEWSDESK_THEMES", THEME)
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    monkeypatch.setattr(judge, "_ask_one", lambda *a: True)
+    with caplog.at_level("INFO", logger="newsdesk.judge"):
+        judge.judge_themes(stories(cfg), cfg, cache_path=tmp_path / "c.json")
+    line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("theme "))
+    assert line.startswith(f"theme {THEME}: candidates=")
+    assert "accepted=" in line and "multi_outlet=" in line

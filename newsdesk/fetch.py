@@ -83,6 +83,9 @@ def extract_image(entry) -> str | None:
     return upgrade_image(url) if url.startswith("http") else None
 
 
+SAFE_LINK = re.compile(r"https?://", re.I)   # links go into href: no javascript: etc.
+
+
 def is_opinion(title: str, link: str) -> bool:
     t = normalize(title).strip()
     if any(t.startswith(p) for p in OPINION_TITLE_PREFIXES):
@@ -107,7 +110,7 @@ def parse_feed(source: Source, content: bytes, now: datetime | None = None, coun
         title = clean_html(entry.get("title", ""))
         link = entry.get("link", "")
         tags = [t.get("term", "") for t in entry.get("tags", []) or [] if t.get("term")]
-        if not title or not link or is_opinion(title, link):
+        if not title or not SAFE_LINK.match(link) or is_opinion(title, link):
             continue
         reason = exclusion_reason(title, link, tags, source.region, country)
         if reason:

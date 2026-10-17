@@ -54,6 +54,7 @@ class Source:
     region: str = "global"
     tier: str = "commercial"
     topics: list[str] = field(default_factory=list)
+    lean: str = ""   # left | center-left | center | center-right | right; empty = unknown
 
 
 def deep_merge(base: dict, override: dict) -> dict:

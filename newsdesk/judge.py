@@ -322,13 +322,15 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
     mode = opts.get("mode", "single")
     set_reader(cfg)
     deadline = time.time() + float(opts.get("time_budget_seconds", 300))
-    now, judged, keys, queues = int(time.time()), 0, [], []
+    now, judged, keys, queues, cands = int(time.time()), 0, [], [], []
     for theme in themes:
         tk = theme_key(theme)
         th = hashlib.sha1(f"{VERSION}:{tk}".encode()).hexdigest()[:8]
         keys.append(tk)
         todo = []
-        for s in candidates(theme, stories)[:PER_THEME]:
+        found = candidates(theme, stories)[:PER_THEME]
+        cands.append((theme, tk, found))
+        for s in found:
             ck = f"{th}:{story_key(s)}"
             if ck in cache:
                 cache[ck]["t"] = now
@@ -354,6 +356,10 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
         return []
     log.info("themes (%s): %d themes, %d stories judged now%s", provider, len(themes), judged,
                  "; time budget used, the rest waits for the next run" if time.time() > deadline else "")
+    for theme, tk, found in cands:   # how well each theme is served
+        ok = [s for s in found if s.fits.get(tk)]
+        log.info("theme %s: candidates=%d accepted=%d multi_outlet=%d", theme, len(found), len(ok),
+                 sum(1 for s in ok if len(s.outlets) >= 2))
     cutoff = now - 3 * 86400
     cache = {k: v for k, v in cache.items() if v.get("t", 0) >= cutoff}
     cache_path.parent.mkdir(parents=True, exist_ok=True)

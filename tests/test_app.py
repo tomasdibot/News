@@ -121,6 +121,17 @@ def test_story_opens_with_sources(app):
     assert card.locator(".srcs a").count() == 3 and card.locator("a.read").is_visible()
 
 
+def test_multi_outlet_story_shows_lean_bar_and_each_outlets_headline(app):
+    card = app.locator("#panel-0 .card").first
+    card.locator(".row").click()
+    assert card.locator(".lean").is_visible()
+    assert "Centro" in card.locator(".leanl").text_content()
+    assert not card.locator(".tells a").first.is_visible()
+    card.locator(".tells summary").click()
+    assert card.locator(".tells a").first.is_visible()
+    assert card.locator(".tells a").count() == card.locator(".srcs a").count()
+
+
 def test_reorder_and_remove_themes(app):
     app.click("#gear")
     app.click('#tlist li[data-i="2"] .up')            # Ciencia above Mundo

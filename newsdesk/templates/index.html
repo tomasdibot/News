@@ -132,6 +132,15 @@ img { filter: saturate(.9) contrast(1.03); }
 .card.open .more { display: block; }
 .more p { margin: 0 0 8px; font: 400 16.5px/1.6 var(--serif); color: var(--ink2); }
 .more p::first-letter { float: left; font: 700 42px/.82 var(--head); margin: 4px 6px 0 0; }
+.lean { display: flex; height: 6px; margin: 6px 0 2px; gap: 1px; }
+.lean i { display: block; background: var(--accent); }
+.lean .b0 { opacity: 1; } .lean .b1 { opacity: .55; } .lean .b2 { opacity: .3; } .lean .b3 { background: var(--line); }
+.leanl { font: 600 11px/1.4 var(--sans); color: var(--muted); margin-bottom: 6px; }
+.tells { margin: 4px 0 8px; font: 400 14px/1.4 var(--sans); }
+.tells summary { cursor: pointer; min-height: 32px; font-weight: 600; color: var(--ink2); }
+.tells b { display: block; margin-top: 6px; font: 600 10.5px/1.4 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.tells a { display: block; color: var(--ink); text-decoration: none; padding: 2px 0; }
+.tells a span { color: var(--muted); }
 .ai { font: italic 12.5px/1.3 var(--serif); color: var(--muted); margin-bottom: 6px; }
 .cov { font: 600 10.5px/1.3 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
 .srcs { display: flex; flex-wrap: wrap; gap: 0 4px; margin-bottom: 10px; font: 14px/1.9 var(--serif); }
@@ -314,7 +323,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
 
 <script type="application/json" id="nd-data">{{ {
   "stories": e.stories, "themes": e.themes, "judged": e.judged or [], "repo": repo, "ref": ref, "labels": ui.topics, "country": country_name, "lang": lang,
-  "t": {"top": ui.top, "local": ui.local, "empty": ui.empty_theme, "read": ui.read_full, "covered": ui.covered_by,
+  "t": {"top": ui.top, "local": ui.local, "empty": ui.empty_theme, "read": ui.read_full, "covered": ui.covered_by, "lL": ui.lean_left, "lC": ui.lean_center, "lR": ui.lean_right, "lU": ui.lean_unknown, "each": ui.each_tells,
         "one": ui.sources_one, "many": ui.sources_many, "single": ui.single_source, "count": ui.theme_count, "count1": ui.theme_count_one,
         "remove": ui.remove, "showmore": ui.show_more, "showless": ui.show_less, "refine": ui.refine, "mustl": ui.must_label, "notl": ui.not_label,
         "mustph": ui.must_ph, "notph": ui.not_ph, "addword": ui.add_word, "ai": ui.ai_note, "pickone": ui.pick_one, "popular": ui.popular, "alltopics": ui.all_topics, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn,
@@ -526,6 +535,21 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   function img(src) {
     return src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : "";
   }
+  function bucket(l) { return l === "left" || l === "center-left" ? 0 : l === "center" ? 1 : l === "center-right" || l === "right" ? 2 : 3; }
+  function leanBlock(s) {   // coverage by lean + each outlet's own headline (2+ outlets)
+    if (s.sources.length < 2) return "";
+    var names = [T.lL, T.lC, T.lR, T.lU], groups = [[], [], [], []];
+    s.sources.forEach(function (x) { groups[bucket(x.lean)].push(x); });
+    var bar = groups.map(function (g, i) { return g.length ? '<i class="b' + i + '" style="flex:' + g.length + '"></i>' : ""; }).join("");
+    var leg = groups.map(function (g, i) { return g.length ? names[i] + " " + g.length : ""; }).filter(Boolean).join(" · ");
+    var list = groups.map(function (g, i) {
+      return g.length ? "<b>" + esc(names[i]) + "</b>" + g.map(function (x) {
+        return '<a href="' + esc(x.link) + '" target="_blank" rel="noopener"><span>' + esc(x.outlet) + ":</span> " + esc(x.title) + "</a>";
+      }).join("") : "";
+    }).join("");
+    return '<div class="lean" role="img" aria-label="' + esc(leg) + '">' + bar + '</div><div class="leanl">' + esc(leg) + "</div>"
+      + '<details class="tells"><summary>' + esc(T.each) + "</summary>" + list + "</details>";
+  }
   function card(s, extra) {   // extra: hidden until "Ver más"
     var n = s.outlets.length;
     var kick = (s.topic ? '<span class="t">' + esc(label(s.topic)) + "</span>" : "")
@@ -543,6 +567,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       + (s.image ? '<div class="thumb">' + img(s.image) + "</div>" : "") + "</button>"
       + '<div class="more">' + (s.summary ? "<p>" + esc(s.summary) + "</p>" : "")
       + (s.ai ? '<div class="ai">✎ ' + esc(T.ai) + "</div>" : "")
+      + leanBlock(s)
       + '<div class="cov">' + esc(T.covered) + ":</div>"
       + '<div class="srcs">' + srcs + "</div>"
       + '<a class="read" href="' + esc(s.link) + '" target="_blank" rel="noopener">' + esc(T.read) + " →</a></div>"

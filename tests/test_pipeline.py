@@ -184,3 +184,33 @@ def test_headline_cleanup():
     assert c("Dólar hoy: a cuánto cotiza") == "Dólar hoy: a cuánto cotiza"   # not a quote hook
     from newsdesk.rank import sensational_hits
     assert sensational_hits("‘Pure insanity’: Mathematicians react") >= 1
+
+
+def test_lean_is_loaded_from_sources_and_defaults_to_unknown(cfg):
+    from newsdesk.config import load_sources
+    by_id = {s.id: s for s in load_sources(cfg)}
+    assert by_id["pagina12"].lean == "center-left" and by_id["lanacion"].lean == "center-right"
+    assert by_id["bbc-world"].lean == "center"
+    assert by_id["openai-news"].lean == ""
+    assert {s.lean for s in by_id.values()} <= {"", "left", "center-left", "center", "center-right", "right"}
+
+
+def test_story_dict_lists_each_outlet_with_lean_and_own_headline(articles, cfg):
+    ed = build_edition(cfg, articles=articles, now=NOW)
+    multi = [s for s in ed["stories"] if len(s["outlets"]) >= 2]
+    assert multi
+    for s in multi:
+        assert [x["outlet"] for x in s["sources"]] == s["outlets"]       # one per outlet
+        assert all({"outlet", "lean", "title", "link"} <= set(x) for x in s["sources"])
+    assert {x["lean"] for s in multi for x in s["sources"]} & {"center", "center-right"}
+
+
+def test_feed_items_with_non_http_links_are_dropped():
+    from conftest import SOURCES
+    from newsdesk.fetch import parse_feed
+    xml = ('<rss><channel>'
+           '<item><title>Bad link story here</title><link>javascript:alert(1)</link></item>'
+           '<item><title>Good link story here</title><link>https://example.com/a</link></item>'
+           '</channel></rss>').encode()
+    got = parse_feed(SOURCES["bbc"], xml, now=NOW)
+    assert [a.link for a in got] == ["https://example.com/a"]

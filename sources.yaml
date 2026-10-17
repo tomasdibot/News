@@ -12,21 +12,24 @@
 #   region  - "global" feeds are always used; country feeds (AR, ES, MX, US...)
 #             are used only when they match profile.country.
 #   tier    - wire | public | commercial | institutional (sets trust weight)
+#   lean    - optional editorial lean: left, center-left, center, center-right, right
+#             (empty = unknown). Approximate and editable by the owner; based on
+#             academic studies (arXiv 2310.08701) and Media Bias/Fact Check.
 #   topics  - optional hint for section feeds (business, science, ...)
 #
 # Run `python -m newsdesk check-feeds` to see which feeds respond.
 # ---------------------------------------------------------------------------
 
 # --- Global, English -------------------------------------------------------
-- { id: bbc-world,     outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/world/rss.xml", topics: [world] }
-- { id: bbc-business,  outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/business/rss.xml", topics: [economy, business] }
-- { id: bbc-tech,      outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/technology/rss.xml", topics: [technology] }
-- { id: bbc-science,   outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml", topics: [science, environment] }
-- { id: bbc-health,    outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/health/rss.xml", topics: [health] }
-- { id: dw-en,         outlet: DW,         lang: en, region: global, tier: public, url: "https://rss.dw.com/rdf/rss-en-all" }
-- { id: france24-en,   outlet: France 24,  lang: en, region: global, tier: public, url: "https://www.france24.com/en/rss" }
-- { id: npr-world,     outlet: NPR,        lang: en, region: global, tier: public, url: "https://feeds.npr.org/1004/rss.xml", topics: [world] }
-- { id: cbc-world,     outlet: CBC,        lang: en, region: global, tier: public, url: "https://www.cbc.ca/webfeed/rss/rss-world", topics: [world] }
+- { id: bbc-world,     outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/world/rss.xml", topics: [world], lean: center }
+- { id: bbc-business,  outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/business/rss.xml", topics: [economy, business], lean: center }
+- { id: bbc-tech,      outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/technology/rss.xml", topics: [technology], lean: center }
+- { id: bbc-science,   outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml", topics: [science, environment], lean: center }
+- { id: bbc-health,    outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/health/rss.xml", topics: [health], lean: center }
+- { id: dw-en,         outlet: DW,         lang: en, region: global, tier: public, url: "https://rss.dw.com/rdf/rss-en-all", lean: center }
+- { id: france24-en,   outlet: France 24,  lang: en, region: global, tier: public, url: "https://www.france24.com/en/rss", lean: center }
+- { id: npr-world,     outlet: NPR,        lang: en, region: global, tier: public, url: "https://feeds.npr.org/1004/rss.xml", topics: [world], lean: center }
+- { id: cbc-world,     outlet: CBC,        lang: en, region: global, tier: public, url: "https://www.cbc.ca/webfeed/rss/rss-world", topics: [world], lean: center }
 - { id: abc-au-world,  outlet: ABC Australia, lang: en, region: global, tier: public, url: "https://www.abc.net.au/news/feed/51120/rss.xml" }
 - { id: un-news-en,    outlet: UN News,    lang: en, region: global, tier: institutional, url: "https://news.un.org/feed/subscribe/en/news/all/rss.xml", topics: [world] }
 - { id: sciencedaily,  outlet: ScienceDaily, lang: en, region: global, tier: commercial, url: "https://www.sciencedaily.com/rss/top/science.xml", topics: [science] }
@@ -45,24 +48,33 @@
 - { id: hf-blog,       outlet: Hugging Face (official), lang: en, region: global, tier: official, url: "https://huggingface.co/blog/feed.xml", topics: [technology] }
 
 # --- Culture & music (launches, tours, festivals, awards) -------------------
-- { id: bbc-arts,      outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml", topics: [culture] }
-- { id: npr-music,     outlet: NPR,        lang: en, region: global, tier: public, url: "https://feeds.npr.org/1039/rss.xml", topics: [culture] }
+- { id: bbc-arts,      outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml", topics: [culture], lean: center }
+- { id: npr-music,     outlet: NPR,        lang: en, region: global, tier: public, url: "https://feeds.npr.org/1039/rss.xml", topics: [culture], lean: center }
 - { id: billboard,     outlet: Billboard,  lang: en, region: global, tier: specialist, url: "https://www.billboard.com/feed/", topics: [culture] }
 - { id: rollingstone-es, outlet: Rolling Stone en Español, lang: es, region: global, tier: specialist, url: "https://es.rollingstone.com/feed/", topics: [culture] }
 
 # --- Global, Spanish -------------------------------------------------------
-- { id: bbc-mundo,     outlet: BBC,        lang: es, region: global, tier: public, url: "https://feeds.bbci.co.uk/mundo/rss.xml" }
-- { id: dw-es,         outlet: DW,         lang: es, region: global, tier: public, url: "https://rss.dw.com/rdf/rss-sp-all" }
-- { id: france24-es,   outlet: France 24,  lang: es, region: global, tier: public, url: "https://www.france24.com/es/rss" }
+- { id: bbc-mundo,     outlet: BBC,        lang: es, region: global, tier: public, url: "https://feeds.bbci.co.uk/mundo/rss.xml", lean: center }
+- { id: dw-es,         outlet: DW,         lang: es, region: global, tier: public, url: "https://rss.dw.com/rdf/rss-sp-all", lean: center }
+- { id: france24-es,   outlet: France 24,  lang: es, region: global, tier: public, url: "https://www.france24.com/es/rss", lean: center }
 - { id: un-news-es,    outlet: UN News,    lang: es, region: global, tier: institutional, url: "https://news.un.org/feed/subscribe/es/news/all/rss.xml", topics: [world] }
 
 # --- Argentina (spread across editorial lines) -----------------------------
-- { id: infobae,       outlet: Infobae,    lang: es, region: AR, tier: commercial, url: "https://www.infobae.com/arc/outboundfeeds/rss/" }
-- { id: lanacion,      outlet: La Nación,  lang: es, region: AR, tier: commercial, url: "https://www.lanacion.com.ar/arc/outboundfeeds/rss/?outputType=xml" }
-- { id: clarin,        outlet: Clarín,     lang: es, region: AR, tier: commercial, url: "https://www.clarin.com/rss/lo-ultimo/" }
-- { id: pagina12,      outlet: Página/12,  lang: es, region: AR, tier: commercial, url: "https://www.pagina12.com.ar/rss/portada" }
-- { id: perfil,        outlet: Perfil,     lang: es, region: AR, tier: commercial, url: "https://www.perfil.com/feed" }
-- { id: ambito,        outlet: Ámbito,     lang: es, region: AR, tier: commercial, url: "https://www.ambito.com/rss/pages/home.xml", topics: [economy] }
+- { id: infobae,       outlet: Infobae,    lang: es, region: AR, tier: commercial, url: "https://www.infobae.com/arc/outboundfeeds/rss/", lean: center }
+- { id: lanacion,      outlet: La Nación,  lang: es, region: AR, tier: commercial, url: "https://www.lanacion.com.ar/arc/outboundfeeds/rss/?outputType=xml", lean: center-right }
+- { id: clarin,        outlet: Clarín,     lang: es, region: AR, tier: commercial, url: "https://www.clarin.com/rss/lo-ultimo/", lean: center }
+- { id: pagina12,      outlet: Página/12,  lang: es, region: AR, tier: commercial, url: "https://www.pagina12.com.ar/rss/secciones/el-pais/notas", lean: center-left }
+- { id: perfil,        outlet: Perfil,     lang: es, region: AR, tier: commercial, url: "https://www.perfil.com/feed", lean: center }
+- { id: ambito,        outlet: Ámbito,     lang: es, region: AR, tier: commercial, url: "https://www.ambito.com/rss/pages/home.xml", topics: [economy], lean: center }
+- { id: pagina12-eco,  outlet: Página/12,  lang: es, region: AR, tier: commercial, lean: center-left, url: "https://www.pagina12.com.ar/rss/secciones/economia/notas", topics: [economy] }
+- { id: pagina12-esp,  outlet: Página/12,  lang: es, region: AR, tier: commercial, lean: center-left, url: "https://www.pagina12.com.ar/rss/secciones/espectaculos/notas", topics: [culture] }
+- { id: eldiarioar,    outlet: elDiarioAR, lang: es, region: AR, tier: commercial, lean: center-left, url: "https://www.eldiarioar.com/rss/" }
+- { id: cronista-eco,  outlet: El Cronista, lang: es, region: AR, tier: commercial, lean: center-right, url: "https://www.cronista.com/files/rss/economia.xml", topics: [economy] }
+- { id: infobae-eco,   outlet: Infobae,    lang: es, region: AR, tier: commercial, lean: center, url: "https://www.infobae.com/arc/outboundfeeds/rss/category/economia/", topics: [economy] }
+- { id: lanacion-eco,  outlet: La Nación,  lang: es, region: AR, tier: commercial, lean: center-right, url: "https://www.lanacion.com.ar/arc/outboundfeeds/rss/category/economia/?outputType=xml", topics: [economy] }
+- { id: clarin-eco,    outlet: Clarín,     lang: es, region: AR, tier: commercial, lean: center, url: "https://www.clarin.com/rss/economia/", topics: [economy] }
+- { id: clarin-esp,    outlet: Clarín,     lang: es, region: AR, tier: commercial, lean: center, url: "https://www.clarin.com/rss/espectaculos/", topics: [culture] }
+- { id: chequeado,     outlet: Chequeado,  lang: es, region: AR, tier: specialist, lean: center, url: "https://chequeado.com/feed/" }
 
 # --- Spain -----------------------------------------------------------------
 - { id: rtve,          outlet: RTVE,       lang: es, region: ES, tier: public, url: "https://api2.rtve.es/rss/temas_noticias.xml" }
@@ -75,5 +87,5 @@
 - { id: animalpolitico, outlet: Animal Político, lang: es, region: MX, tier: commercial, url: "https://www.animalpolitico.com/feed/" }
 
 # --- United States ---------------------------------------------------------
-- { id: npr-news,      outlet: NPR,        lang: en, region: US, tier: public, url: "https://feeds.npr.org/1001/rss.xml" }
+- { id: npr-news,      outlet: NPR,        lang: en, region: US, tier: public, url: "https://feeds.npr.org/1001/rss.xml", lean: center }
 - { id: pbs,           outlet: PBS NewsHour, lang: en, region: US, tier: public, url: "https://www.pbs.org/newshour/feeds/rss/headlines" }

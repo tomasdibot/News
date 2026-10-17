@@ -71,7 +71,8 @@ def story_dict(s: Story, ui_lang: str) -> dict:
         "fits": {k: 2 if v is None else int(v) for k, v in s.fits.items()},   # 2 = not read yet
         "score": round(s.score, 3),
         "sources": [
-            {"outlet": a.outlet, "title": truncate(a.title, 160), "link": a.link, "lang": a.source.lang}
+            {"outlet": a.outlet, "title": truncate(a.title, 160), "link": a.link, "lang": a.source.lang,
+             "lean": a.source.lean}
             for a in s.sources_for_display()
         ],
     }

@@ -17,7 +17,7 @@ from urllib.parse import quote
 import feedparser
 
 from .config import Source
-from .fetch import Article, _get, _published
+from .fetch import SAFE_LINK, Article, _get, _published
 from .text import clean_html, normalize
 
 log = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ def parse_search(content: bytes, artist: str, lang: str, now: datetime) -> list[
         title = clean_html(e.get("title", ""))
         title = re.sub(r"\s+-\s+" + re.escape(outlet) + r"\s*$", "", title)   # "Headline - Outlet"
         link = e.get("link", "")
-        if not title or not link or want not in normalize(title):   # the artist must be in the headline
+        if not title or not SAFE_LINK.match(link) or want not in normalize(title):   # the artist must be in the headline
             continue
         published = _published(e) or now
         if now - published > timedelta(days=7):

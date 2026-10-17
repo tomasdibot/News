@@ -10,10 +10,10 @@ FIX = Path(__file__).parent / "fixtures"
 NOW = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
 
 SOURCES = {
-    "bbc": Source(id="bbc", outlet="BBC", url="x", lang="en", region="global", tier="public", topics=["world"]),
+    "bbc": Source(id="bbc", outlet="BBC", url="x", lang="en", region="global", tier="public", topics=["world"], lean="center"),
     "dw": Source(id="dw", outlet="DW", url="x", lang="en", region="global", tier="public"),
-    "infobae": Source(id="infobae", outlet="Infobae", url="x", lang="es", region="AR"),
-    "lanacion": Source(id="lanacion", outlet="La Nación", url="x", lang="es", region="AR"),
+    "infobae": Source(id="infobae", outlet="Infobae", url="x", lang="es", region="AR", lean="center"),
+    "lanacion": Source(id="lanacion", outlet="La Nación", url="x", lang="es", region="AR", lean="center-right"),
 }
 
 

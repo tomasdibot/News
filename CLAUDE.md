@@ -33,6 +33,7 @@ daily phone notification (Web Push) from the installed app. See README.md for de
   app): `artists.py` searches Google News per artist; music themes get those stories.
   Theme tabs show multi-outlet (or official) stories first; titles and theme filter use qwen2.5:7b.
   `NEWSDESK_PROFILE`, `VAPID_PRIVATE_KEY`, and WhatsApp provider secrets.
+- Sources: `sources.yaml` has an optional `lean` per outlet (left … right, approximate, owner-editable); the app shows a lean bar and each outlet's headline per story. The build logs `theme <name>: candidates=… accepted=… multi_outlet=…` per theme.
 - UI preference: suggestions/choices are always shown as a dropdown list (native `<select>`,
   plus `<datalist>` autocomplete on text boxes), never as chips/buttons.
 - The owner prefers free options; Claude API is an opt-in paid upgrade.
