@@ -1,0 +1,1 @@
+Skills from https://github.com/mattpocock/skills (commit 49dd158, MIT, see LICENSE-mattpocock-skills): engineering and productivity sets, copied as editable files. Update by re-copying from that repo.

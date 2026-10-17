@@ -47,3 +47,5 @@ orchestrator (Opus, medium effort); agents in `.claude/agents/` (Sonnet, medium 
 read-only), `code-writer`, `reviewer` (APPROVE/CHANGES, up to 3 rounds), `implementer` (tests, commit,
 push, start workflows). Every decision, its prediction and the measured result go in
 `.claude/decisions.md`; read its Lessons before deciding.
+Matt Pocock's skills (engineering + productivity) are copied into `.claude/skills/` (MIT; see
+`.claude/skills/MATTPOCOCK-SKILLS.md`); the agents use `tdd`, `code-review`, `diagnosing-bugs` and `research`.
