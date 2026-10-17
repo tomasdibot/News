@@ -59,3 +59,11 @@ Verdict & lesson: kept → L3, L4. Follow-up: measure v7 music; Economía missed
 Decision: free local model (Ollama, qwen2.5) by default; GitHub Models opt-in only.
 Result: GitHub Models answered "OK" instead of titles in real runs. — n/a
 Verdict & lesson: → L5.
+
+### D6 — Balanced sources + coverage/lean view + per-theme metrics (2026-10-17) — status: open
+Goal: interesting, unbiased news that fits the owner's themes, modelled on existing apps.
+Evidence: (investigators) Página/12 feed 404 and Rolling Stone ES 403, so only 5 working AR outlets, mostly centre/centre-right; 1 economy feed (Ámbito home); no lean field anywhere; Economía accepted 6/25 in the audit, mostly single-outlet opinion; music 4/16; the build logs no per-theme counts. Ground News/AllSides/Google Full Coverage show the spread of coverage by lean and each outlet's headline; Semafor separates news from views.
+Options: A) sources + lean labels + coverage bar + side-by-side headlines + per-theme log; B) economy data card (INDEC/BCRA); C) Semafor-style summaries with the 7B model; D) Blindspot tab.
+Decision: A first (cheap, no model calls, makes everything else measurable). B, D next; C later (risk of invented facts, CI time).
+Prediction: working AR outlets 5 → ≥8; AR economy feeds 1 → ≥3; build log prints per theme candidates/accepted/multi-outlet; every multi-outlet story shows a lean bar and per-outlet headlines; build time +<1 min.
+Measurement: newsdesk.yml run log (fetch line, warnings, new per-theme line, duration); pytest.
