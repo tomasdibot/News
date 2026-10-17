@@ -94,7 +94,7 @@ def test_audit_scores_known_examples_and_lists_todays_verdicts(monkeypatch, cfg,
     out = []
     assert audit.run(cfg, out=out.append) == 0
     report = out[0]
-    assert "5/10 right" in report and "should be OUT" in report and "Overall: 5/10" in report
+    assert "8/13 right" in report and "should be OUT" in report and "Overall: 8/13" in report
     assert "no example stories" in report
     assert "## 2. Today's news" in report
 
@@ -253,7 +253,7 @@ def test_ia_launch_rule_has_the_new_examples_and_music_does_not():
               "Developer builds an AI agent to plan his meals", "Retailer says AI helps it cut delivery times"):
         assert e in ia
     assert "antibiotics" not in judge.one_system("Música: Lanzamientos")
-    assert judge.VERSION == 8
+    assert judge.VERSION == 9
 
 
 def test_official_ai_blogs_read_through_google_news_mark_their_stories_official(cfg):
@@ -269,3 +269,54 @@ def test_official_ai_blogs_read_through_google_news_mark_their_stories_official(
         assert f"site:{site}" in feed_url(s)
     ss = titled(cfg, by_id["anthropic-news"], "Introducing a new Claude model")
     assert story_dict(ss[0], cfg)["official"] is True
+
+
+def test_official_ai_blogs_search_a_week_and_keep_their_items_a_week(cfg):
+    from newsdesk.config import load_sources
+    from newsdesk.fetch import feed_url
+
+    by_id = {s.id: s for s in load_sources({"profile": {"languages": ["es", "en"], "country": "AR"}})}
+    for id_ in ("anthropic-news", "meta-ai", "microsoft-ai", "mistral-news"):
+        assert "+when:7d&" in feed_url(by_id[id_]) and by_id[id_].max_age_hours == 7 * 24
+    assert "+when:2d&" in feed_url(by_id["infobae-teleshow"])
+
+    old = NOW - timedelta(days=5)
+    art = Article(by_id["anthropic-news"], "Introducing a new Claude model", "https://x/c", "", old)
+    assert score_stories(cluster([art]), cfg, NOW)
+
+
+def _count_posts(monkeypatch):
+    sent = []
+
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"message": {"content": '{"fits": true}'}}
+
+    monkeypatch.setattr(judge.requests, "post", lambda url, timeout, json: sent.append(json) or Resp())
+    return sent
+
+
+def test_customer_stories_are_rejected_in_ai_themes_without_asking_the_model(monkeypatch):
+    sent = _count_posts(monkeypatch)
+    items = [("a", {"headlines": ["How Itaú is building generative AI for its entire customer base"]}),
+             ("b", {"headlines": ["Cómo Mercado Libre usa la IA para vender más"]}),
+             ("c", {"headlines": ["OpenAI launches GPT-6"]})]
+    got = judge.ask_many("local", None, "m", "IA: lanzamientos", items)
+    assert got == {"a": False, "b": False, "c": True} and len(sent) == 1
+    sent.clear()   # other themes are untouched
+    got = judge.ask_many("local", None, "m", "Economía", items[:1])
+    assert got == {"a": True} and len(sent) == 1
+
+
+def test_case_study_rule_leaves_lab_posts_how_tos_and_research_to_the_model(monkeypatch):
+    sent = _count_posts(monkeypatch)
+    heads = ["How we're building safer AI", "How we built GPT-6", "How OpenAI built GPT-6 using AI",
+             "How Anthropic is building a safer Claude with AI", "Cómo usar la IA de Google en tu celular",
+             "How researchers built an AI model that predicts storms", "How Google is using AI to forecast floods"]
+    got = judge.ask_many("local", None, "m", "IA: lanzamientos", [(str(i), {"headlines": [h]}) for i, h in enumerate(heads)])
+    assert all(got.values()) and len(sent) == len(heads)
+    assert judge.is_case_study("IA", {"headlines": ["How Itaú is building generative AI for its entire customer base"]})
+    assert judge.is_case_study("IA", {"headlines": ["Cómo Mercado Libre usa la IA para vender más"]})

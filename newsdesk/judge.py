@@ -32,7 +32,7 @@ log = logging.getLogger(__name__)
 
 CACHE_PATH = ROOT / "build" / "theme-cache.json"
 BATCH = 10
-VERSION = 8      # bump when the way stories are judged changes: old verdicts are then ignored
+VERSION = 9      # bump when the way stories are judged changes: old verdicts are then ignored
 PER_THEME = 40   # a tab shows at most 15 stories: only the best candidates need reading
 PER_MUSIC_THEME = 60   # music headlines rarely say "música": more candidates are needed
 # Extra words that make a story a music candidate (kept here: the app's keyword fallback uses the shorter lexicon list).
@@ -84,6 +84,8 @@ Examples:
 Section "Música" / story "Singer cancels concert hours before showtime" -> true
 Section "Música" / story "Rapera presenta su nuevo single" -> true
 Section "Música" / story "Músico cumple 75 años y la ciudad lo celebra con shows gratis" -> true
+Section "Música" / story "Banda anuncia gira con fechas en Argentina" -> true
+Section "Música" / story "Se conocieron los precios de las entradas para el show" -> true
 Section "Música" / story "Cantante celebra su aniversario de casada" -> false"""),
     (("econom", "finanz", "finance", "mercado", "market", "dolar", "inflacion"), """
 - An economy section means the economy as a whole: data and indicators, inflation, the central bank, the dollar, debt, jobs, markets, economic policy. News about one company (a merger, a liquidation, an executive, a farm) does not fit unless the section asks for companies or business.
@@ -313,10 +315,33 @@ def _ask_one(provider: str, client, model: str, theme: str, material: dict) -> b
     return v if isinstance(v, bool) else None
 
 
+CASE_STUDY = re.compile(r"^how (?!we\b|our\b|to\b|i\b)(?P<who>[^,:]{1,40}?) (is |are )?(building|uses|using|scaling|scaled) "
+                        r".*\b(ai|generative|chatgpt)\b"
+                        r"|^como (?!usar\b|utilizar\b)(?P<quien>[^,:]{1,40}?) (usa|utiliza|usan|utilizan) (la |el )?(ia|ai|inteligencia artificial)\b")
+AI_LABS = re.compile(r"\b(openai|anthropic|google|meta|microsoft|mistral|nvidia|hugging face|deepmind)\b")
+AI_THEME = re.compile(r"\b(ia|ai)\b|inteligencia artificial")
+
+
+def is_case_study(theme: str, material: dict) -> bool:
+    """A company telling how it uses AI is not AI news: rejected in code in AI themes, no model call.
+    Lab and Big Tech subjects, first person and how-tos are left to the model."""
+    if not AI_THEME.search(theme_key(theme)):
+        return False
+    for h in material["headlines"]:
+        m = CASE_STUDY.search(normalize(h).strip())
+        if m and not AI_LABS.search(m.group("who") or m.group("quien") or ""):
+            return True
+    return False
+
+
 def ask_many(provider: str, client, model: str, theme: str, items: list[tuple[str, dict]], mode: str = "single",
              deadline: float | None = None) -> dict[str, bool]:
     """Verdicts for (key, material) items: one story per request ("single") or several ("batch")."""
     got: dict[str, bool] = {}
+    for k, m in items:
+        if is_case_study(theme, m):
+            got[k] = False
+    items = [(k, m) for k, m in items if k not in got]
     step = 1 if mode == "single" else BATCH
     for i in range(0, len(items), step):
         if deadline and time.time() > deadline:

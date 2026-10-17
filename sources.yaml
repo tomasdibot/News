@@ -48,10 +48,10 @@
 - { id: google-ai,     outlet: Google (official),  lang: en, region: global, tier: official, url: "https://blog.google/technology/ai/rss/", topics: [technology] }
 - { id: nvidia-blog,   outlet: NVIDIA (official),  lang: en, region: global, tier: official, url: "https://blogs.nvidia.com/feed/", topics: [technology] }
 - { id: hf-blog,       outlet: Hugging Face (official), lang: en, region: global, tier: official, url: "https://huggingface.co/blog/feed.xml", topics: [technology] }
-- { id: anthropic-news, outlet: Anthropic (official), lang: en, region: global, tier: official, gnews: "anthropic.com/news", topics: [technology] }
-- { id: meta-ai,       outlet: Meta AI (official), lang: en, region: global, tier: official, gnews: "ai.meta.com/blog", topics: [technology] }
-- { id: microsoft-ai,  outlet: Microsoft AI (official), lang: en, region: global, tier: official, gnews: "blogs.microsoft.com/ai", topics: [technology] }
-- { id: mistral-news,  outlet: Mistral AI (official), lang: en, region: global, tier: official, gnews: "mistral.ai/news", topics: [technology] }
+- { id: anthropic-news, outlet: Anthropic (official), lang: en, region: global, tier: official, gnews: "anthropic.com/news", topics: [technology], gnews_days: 7, max_age_hours: 168 }
+- { id: meta-ai,       outlet: Meta AI (official), lang: en, region: global, tier: official, gnews: "ai.meta.com/blog", topics: [technology], gnews_days: 7, max_age_hours: 168 }
+- { id: microsoft-ai,  outlet: Microsoft AI (official), lang: en, region: global, tier: official, gnews: "blogs.microsoft.com/ai", topics: [technology], gnews_days: 7, max_age_hours: 168 }
+- { id: mistral-news,  outlet: Mistral AI (official), lang: en, region: global, tier: official, gnews: "mistral.ai/news", topics: [technology], gnews_days: 7, max_age_hours: 168 }
 
 # --- Culture & music (launches, tours, festivals, awards) -------------------
 - { id: bbc-arts,      outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml", topics: [culture], lean: center }

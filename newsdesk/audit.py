@@ -74,6 +74,9 @@ CASES = {
         ("El INDEC informó que la inflación de septiembre fue de 2,1%", "El índice acumula 25% en el año.", False),
         ("Netflix estrena una serie sobre la vida de un futbolista", "Llega a la plataforma el viernes.", False),
         ("OpenAI launches GPT-6 with stronger reasoning", "The company released its new flagship model.", False),
+        ("BTS en Argentina: cómo serán los shows en La Plata", "La banda coreana tocará en el estadio.", True),
+        ("U2 confirmó los precios de sus shows en Argentina", "Las entradas salen a la venta el martes.", True),
+        ("Iron Maiden announce 2027 world tour", "The band will play 40 dates across four continents.", True),
     ]),
 }
 

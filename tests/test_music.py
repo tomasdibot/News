@@ -183,3 +183,16 @@ def test_show_and_artist_articles_outlive_the_normal_age_limit_but_normal_ones_d
     assert "Coldplay confirma recital en Buenos Aires" in titles and "Lali anuncia recital" in titles
     assert old_normal.title not in titles
     assert any("Coldplay" in s.headline.title for s in candidates("Música: shows", kept))
+
+
+def test_artist_rank_ignores_a_passing_mention():
+    assert artist_rank(story("Nsqk dijo que escuchó Radiohead en su infancia"), ["Radiohead"]) is None
+    assert artist_rank(story("Radiohead anuncia gira"), ["Radiohead"]) == 0
+    assert artist_rank(story("Tras años de silencio, la gira de Radiohead sorprende"), ["Radiohead"]) == 0
+    assert artist_rank(story("Nsqk dijo que escuchó Radiohead en su infancia", "Radiohead lanza single"), ["Radiohead"]) == 0
+
+
+def test_artist_rank_keeps_headlines_about_returns_tickets_and_dates():
+    assert artist_rank(story("El regreso de Tool"), ["Tool"]) == 0
+    assert artist_rank(story("Cuánto cuestan las entradas de Tool en Argentina"), ["Tool"]) == 0
+    assert artist_rank(story("Nsqk dijo que escuchó Radiohead en su infancia"), ["Radiohead"]) is None

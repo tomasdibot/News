@@ -34,11 +34,27 @@ def _headlines(story: Story) -> str:
     return _tokens(" . ".join(a.title for a in story.articles))
 
 
+LEAD_WORDS = 3   # an artist among the first words of a headline is its subject (6 let "X dijo que escuchó Radiohead" through)
+ACT_WORDS = ["lanza", "presenta", "anuncia", "gira", "show", "shows", "album", "disco", "single", "tour",
+             "concierto", "recital", "entradas", "entrada", "regreso", "vuelve", "vuelta", "estrena", "nuevo", "nueva",
+             "fecha", "fechas", "toca", "tocara", "video", "ep", "cancion", "festival", "vivo"]   # next to the name: a release or a show, not a passing mention
+
+
+def _is_subject(headline: str, name: str) -> bool:
+    text, key = _tokens(headline), _tokens(name)
+    at = text.find(key)
+    if at < 0:
+        return False
+    if len(text[:at].split()) < LEAD_WORDS:
+        return True
+    before, after = text[:at].split()[-2:], text[at + len(key):].split()[:2]
+    return any(w in ACT_WORDS for w in before + after)
+
+
 def artist_rank(story: Story, artists: list[str]) -> int | None:
-    """Position in your artists list of the first artist named in any of the story's headlines."""
-    text = _headlines(story)
+    """Position in your artists list of the first artist that is the subject of one of the story's headlines."""
     for i, name in enumerate(artists):
-        if name.strip() and _has(text, [name]):
+        if name.strip() and any(_is_subject(a.title, name) for a in story.articles):
             return i
     return None
 

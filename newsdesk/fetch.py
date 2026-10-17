@@ -107,7 +107,7 @@ EDITIONS = {"es": "hl=es-419&gl=AR&ceid=AR:es-419", "en": "hl=en-US&gl=US&ceid=U
 
 def feed_url(source: Source) -> str:
     if source.gnews:
-        return f"https://news.google.com/rss/search?q=site:{source.gnews}+when:2d&{EDITIONS.get(source.lang, EDITIONS['en'])}"
+        return f"https://news.google.com/rss/search?q=site:{source.gnews}+when:{source.gnews_days}d&{EDITIONS.get(source.lang, EDITIONS['en'])}"
     return source.url
 
 
