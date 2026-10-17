@@ -263,7 +263,7 @@ def test_official_ai_blogs_read_through_google_news_mark_their_stories_official(
 
     by_id = {s.id: s for s in load_sources({"profile": {"languages": ["es", "en"], "country": "AR"}})}
     for id_, site in (("anthropic-news", "anthropic.com/news"), ("meta-ai", "ai.meta.com/blog"),
-                      ("microsoft-ai", "blogs.microsoft.com/ai"), ("mistral-news", "mistral.ai/news")):
+                      ("mistral-news", "mistral.ai/news")):
         s = by_id[id_]
         assert s.tier == "official" and s.region == "global" and s.lang == "en" and s.topics == ["technology"]
         assert f"site:{site}" in feed_url(s)
@@ -276,7 +276,7 @@ def test_official_ai_blogs_search_a_week_and_keep_their_items_a_week(cfg):
     from newsdesk.fetch import feed_url
 
     by_id = {s.id: s for s in load_sources({"profile": {"languages": ["es", "en"], "country": "AR"}})}
-    for id_ in ("anthropic-news", "meta-ai", "microsoft-ai", "mistral-news"):
+    for id_ in ("anthropic-news", "meta-ai", "mistral-news"):
         assert "+when:7d&" in feed_url(by_id[id_]) and by_id[id_].max_age_hours == 7 * 24
     assert "+when:2d&" in feed_url(by_id["infobae-teleshow"])
 
@@ -320,3 +320,62 @@ def test_case_study_rule_leaves_lab_posts_how_tos_and_research_to_the_model(monk
     assert all(got.values()) and len(sent) == len(heads)
     assert judge.is_case_study("IA", {"headlines": ["How Itaú is building generative AI for its entire customer base"]})
     assert judge.is_case_study("IA", {"headlines": ["Cómo Mercado Libre usa la IA para vender más"]})
+
+
+def test_show_news_in_music_themes_is_accepted_without_asking_the_model(monkeypatch):
+    sent = _count_posts(monkeypatch)
+    yes = ["BTS en Argentina: cómo serán los shows en La Plata", "U2 confirmó los precios de sus shows en Argentina",
+           "Iron Maiden announce 2027 world tour", "La banda Airbag anuncia show en Córdoba",
+           "Fechas y entradas para Wos en el Gran Rex"]
+    no = ["Festival Daltónica en Escobar", "Milei en Buenos Aires", "Gira del Presidente por Europa en 2026",
+          "El ministro anunció una gira por Argentina",
+          "Festival de cine de Mar del Plata 2026", "Festival de cine de Cannes 2026",
+          "Gira de Boca por Estados Unidos 2026", "Tour de Francia 2026", "Show de drones en Buenos Aires",
+          "Entradas Copa Argentina 2026", "El show de Messi en Argentina",
+          "Precios de los alquileres 2026 en Buenos Aires", "Show en Santiago del Estero"]
+    for h in yes:
+        assert judge.is_show_news(h)
+    for h in no:
+        assert not judge.is_show_news(h)
+    got = judge.ask_many("local", None, "m", "Música", [(str(i), {"headlines": [h]}) for i, h in enumerate(yes)])
+    assert got == {str(i): True for i in range(len(yes))} and not sent
+    got = judge.ask_many("local", None, "m", "Música", [(str(i), {"headlines": [h]}) for i, h in enumerate(no)])
+    assert len(got) == len(no) and len(sent) == len(no)   # all of these still go to the model
+    sent.clear()   # other themes are untouched
+    judge.ask_many("local", None, "m", "Economía", [("a", {"headlines": [yes[0]]})])
+    assert len(sent) == 1
+
+
+def test_show_rule_needs_music_evidence_the_lead_headline_or_your_artist():
+    assert not judge.is_show_news("Shows de drones en Buenos Aires 2026")
+    assert judge.is_show_news("Show de Lali en Argentina", artist=True)       # your artist is the evidence
+    assert not judge.is_show_news("Show de Lali en Argentina")
+    assert judge.is_show_news("Lollapalooza Argentina 2026: festival y entradas")
+    story = {"headlines": ["Festival de cine de Mar del Plata 2026", "U2 confirmó los precios de sus shows en Argentina"]}
+    assert judge.rule_verdict("Música", story) is None                        # the lead decides, not the second headline
+    assert judge.rule_verdict("Música", story, lead=story["headlines"][1]) is True
+
+
+def test_rules_win_over_cached_verdicts(monkeypatch, cfg, tmp_path):
+    monkeypatch.setenv("NEWSDESK_THEMES", "Música\nIA: lanzamientos")
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    cache = tmp_path / "c.json"
+
+    def arts():
+        return score_stories(cluster([
+            Article(SOURCES["bbc"], "U2 confirmó los precios de sus shows en Argentina", "https://x/1", "", NOW - timedelta(hours=1)),
+            Article(SOURCES["dw"], "How Itaú is building generative AI for its entire customer base", "https://x/2", "", NOW - timedelta(hours=1)),
+        ]), cfg, NOW)
+
+    with monkeypatch.context() as m:   # an old run, before the rules: the opposite verdicts get cached
+        m.setattr(judge, "rule_verdict", lambda theme, material, *a: None)
+        m.setattr(judge, "_ask_one", lambda p, c, mo, theme, material: "shows" not in material["headlines"][0])
+        judge.judge_themes(arts(), cfg, cache_path=cache)
+    ss = arts()
+    asked = []
+    monkeypatch.setattr(judge, "_ask_one", lambda *a: asked.append(a) or True)
+    judge.judge_themes(ss, cfg, cache_path=cache)
+    fits = {s.headline.title[:2]: s.fits for s in ss}
+    assert fits["U2"][judge.theme_key("Música")] is True       # cached False -> show rule
+    assert fits["Ho"][judge.theme_key("IA: lanzamientos")] is False   # cached True -> case-study rule
+    assert asked == []

@@ -24,7 +24,7 @@ import requests
 from .cluster import Story
 from .config import ROOT
 from .lexicon import CONCEPTS, TOPIC_ALIASES, TOPIC_KEYWORDS
-from .music import MAX_ARTISTS, artist_rank, min_outlets, music_tier
+from .music import MAX_ARTISTS, VENUE_WORDS, artist_rank, has, min_outlets, music_tier, tokens
 from .neutral import OLLAMA_URL, _parse_json, _provider, story_key
 from .text import normalize, truncate
 
@@ -319,6 +319,7 @@ CASE_STUDY = re.compile(r"^how (?!we\b|our\b|to\b|i\b)(?P<who>[^,:]{1,40}?) (is 
                         r".*\b(ai|generative|chatgpt)\b"
                         r"|^como (?!usar\b|utilizar\b)(?P<quien>[^,:]{1,40}?) (usa|utiliza|usan|utilizan) (la |el )?(ia|ai|inteligencia artificial)\b")
 AI_LABS = re.compile(r"\b(openai|anthropic|google|meta|microsoft|mistral|nvidia|hugging face|deepmind)\b")
+MUSIC_THEME = re.compile(r"\b(musica|music)\b")
 AI_THEME = re.compile(r"\b(ia|ai)\b|inteligencia artificial")
 
 
@@ -334,13 +335,48 @@ def is_case_study(theme: str, material: dict) -> bool:
     return False
 
 
+SHOW_NEWS_WORDS = ["show", "shows", "gira", "giras", "tour", "fechas", "entradas", "precios", "recital", "recitales",
+                   "concierto", "conciertos", "festival"]
+SHOW_NEWS_PLACES = ["argentina", "buenos aires", "cordoba", "rosario", "mendoza", "la plata", "montevideo",
+                    "santiago de chile"]
+SHOW_NEWS_YEAR = re.compile(r"\b20(2[5-9]|30)\b")
+# A show word alone is not music (film festivals, football tours, drone shows): one of these must be there too.
+MUSIC_EVIDENCE = ["banda", "cantante", "rapero", "dj", "album", "disco", "recital", "recitales", "concierto",
+                  "conciertos", "shows", "world tour", "sold out", "preventa", "line up", "lineup",
+                  "lollapalooza", "cosquin rock", "primavera sound"]
+NOT_MUSIC_SUBJECT = re.compile(r"\b(presidente|ministro|ministra|gobernador|gobernadora|milei|canciller|cine|pelicula|"
+                               r"futbol|copa|francia|boca|seleccion|alquileres|drones)\b")
+
+
+def is_show_news(headline: str, artist: bool = False) -> bool:
+    """A show, tour or ticket headline with music evidence (or your artist) and a place or a year is music news:
+    accepted in code, no model call. Political, film and sports "giras" and festivals are left to the model."""
+    text = tokens(headline)
+    if NOT_MUSIC_SUBJECT.search(text) or not has(text, SHOW_NEWS_WORDS):
+        return False
+    if not (artist or has(text, MUSIC_EVIDENCE + VENUE_WORDS)):
+        return False
+    return has(text, SHOW_NEWS_PLACES + VENUE_WORDS) or bool(SHOW_NEWS_YEAR.search(text))
+
+
+def rule_verdict(theme: str, material: dict, lead: str | None = None, artist: bool = False) -> bool | None:
+    """The code rules (case study out, show news in); None leaves the story to the cache or the model.
+    Show news is judged on the lead headline (the first one without `lead`)."""
+    if is_case_study(theme, material):
+        return False
+    if MUSIC_THEME.search(theme_key(theme)) and is_show_news(lead or material["headlines"][0], artist):
+        return True
+    return None
+
+
 def ask_many(provider: str, client, model: str, theme: str, items: list[tuple[str, dict]], mode: str = "single",
-             deadline: float | None = None) -> dict[str, bool]:
+             deadline: float | None = None, use_rules: bool = True) -> dict[str, bool]:
     """Verdicts for (key, material) items: one story per request ("single") or several ("batch")."""
     got: dict[str, bool] = {}
-    for k, m in items:
-        if is_case_study(theme, m):
-            got[k] = False
+    for k, m in items if use_rules else []:
+        v = rule_verdict(theme, m)
+        if v is not None:
+            got[k] = v
     items = [(k, m) for k, m in items if k not in got]
     step = 1 if mode == "single" else BATCH
     for i in range(0, len(items), step):
@@ -398,7 +434,11 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
         cands.append((theme, tk, found))
         for s in found:
             ck = f"{th}:{story_key(s)}"
-            if ck in cache:
+            rule = rule_verdict(theme, _material(s), s.headline.title,
+                                artist_rank(s, READER["artists"]) is not None)
+            if rule is not None:   # the rules win over a verdict cached before they existed
+                s.fits[tk] = rule
+            elif ck in cache:
                 cache[ck]["t"] = now
                 s.fits[tk] = cache[ck]["f"]
             else:
@@ -412,7 +452,8 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
                 continue
             n = 1 if mode == "single" else BATCH
             part, todo[:] = todo[:n], todo[n:]
-            got = ask_many(provider, client, model, theme, [(ck, _material(s)) for ck, s in part], mode)
+            got = ask_many(provider, client, model, theme, [(ck, _material(s)) for ck, s in part], mode,
+                           use_rules=False)   # judged above, with the story's lead and artists
             for ck, s in part:
                 if ck in got:
                     cache[ck] = {"f": got[ck], "t": now}

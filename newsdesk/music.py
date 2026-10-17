@@ -21,17 +21,17 @@ RELEASE_WORDS = ["lanzamiento", "lanzamientos", "lanza", "nuevo album", "nuevo d
                  "album", "single"]
 
 
-def _tokens(text: str) -> str:
+def tokens(text: str) -> str:
     """Lowercase words only, so a whole-word match is a plain substring match on ' ' + text + ' '."""
     return " " + " ".join(w for w in re.split(r"[^a-z0-9]+", normalize(text or "")) if w) + " "
 
 
-def _has(text: str, words: list[str]) -> bool:
-    return any(" " + _tokens(w).strip() + " " in text for w in words)
+def has(text: str, words: list[str]) -> bool:
+    return any(" " + tokens(w).strip() + " " in text for w in words)
 
 
 def _headlines(story: Story) -> str:
-    return _tokens(" . ".join(a.title for a in story.articles))
+    return tokens(" . ".join(a.title for a in story.articles))
 
 
 LEAD_WORDS = 3   # an artist among the first words of a headline is its subject (6 let "X dijo que escuchó Radiohead" through)
@@ -41,7 +41,7 @@ ACT_WORDS = ["lanza", "presenta", "anuncia", "gira", "show", "shows", "album", "
 
 
 def _is_subject(headline: str, name: str) -> bool:
-    text, key = _tokens(headline), _tokens(name)
+    text, key = tokens(headline), tokens(name)
     at = text.find(key)
     if at < 0:
         return False
@@ -64,18 +64,18 @@ def music_tier(story: Story, rank: int | None) -> int:
     if rank is not None:
         return 0
     text = _headlines(story)
-    if _has(text, SHOW_WORDS + VENUE_WORDS):   # a place alone ("álbum en Argentina") is not a show
+    if has(text, SHOW_WORDS + VENUE_WORDS):   # a place alone ("álbum en Argentina") is not a show
         return 1
-    if _has(text, DATE_WORDS) and _has(text, DATE_CONTEXT):
+    if has(text, DATE_WORDS) and has(text, DATE_CONTEXT):
         return 1
-    if _has(text, RELEASE_WORDS):
+    if has(text, RELEASE_WORDS):
         return 2
     return 3
 
 
 def min_outlets(label: str) -> int:
     """Outlets that confirm a story in this theme: 2 for music and AI themes, 3 for the rest."""
-    key = _tokens(label)
+    key = tokens(label)
     if any(w in key for w in (" musica ", " music ", " ia ", " ai ", " inteligencia artificial ")):
         return 2
     return 3
