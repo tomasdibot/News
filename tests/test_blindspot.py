@@ -82,3 +82,12 @@ def test_build_logs_blindspot_summary(articles, cfg, caplog):
         build_edition(cfg, articles=articles, now=NOW)
     line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("blindspot: "))
     assert "flagged (left_ignores=" in line and "local multi-outlet stories" in line
+
+
+def test_build_logs_multi_outlet_sample(caplog):
+    import logging
+    from newsdesk.edition import log_multi_outlet_sample
+    s = make_story([("A", "center"), ("B", "center-right"), ("C", "")])
+    with caplog.at_level(logging.INFO):
+        log_multi_outlet_sample([s])
+    assert "multi-outlet sample: t0 | A(center), B(center-right), C(?)" in caplog.text

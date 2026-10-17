@@ -79,6 +79,13 @@ def blindspot(s: Story) -> str | None:
     return None
 
 
+def log_multi_outlet_sample(multi: list[Story], n: int = 8) -> None:
+    """Log a few multi-outlet headlines (public) so wrong merges can be judged from the run log."""
+    for s in sorted(multi, key=lambda s: len(ar_leans(s)), reverse=True)[:n]:
+        who = ", ".join(f"{o}({lean or '?'})" for o, lean in ar_leans(s).items())
+        log.info("multi-outlet sample: %s | %s", s.headline.title, who)
+
+
 def story_dict(s: Story, ui_lang: str) -> dict:
     h = s.headline
     summary = h.summary or next((a.summary for a in s.articles if a.summary and a.source.lang == h.source.lang), "")
@@ -146,6 +153,7 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     flags = [blindspot(s) for s in multi]
     log.info("blindspot: %d flagged (left_ignores=%d, right_ignores=%d) of %d local multi-outlet stories",
              sum(1 for f in flags if f), flags.count("left"), flags.count("right"), len(multi))
+    log_multi_outlet_sample(multi)
 
     tz = ZoneInfo(cfg["notification"]["timezone"])
     return {

@@ -115,3 +115,4 @@ Options: A) number- and entity-aware score + overlap term (14/15, 7/10 measured)
 Decision: B (guards against merging different INDEC releases); C only if the build shows it is needed.
 Prediction: fixture same ≥14/15, wrong ≤5/10 (and INDEC Sept vs Aug, riesgo país 648 vs 720, blue 1555 vs oficial 1535 never merge); build per-theme multi_outlet +30–50% (Economía ~7 → ~10); blindspot m 1 → 3–6 (if m stays ≤2, the limit is feed overlap, not scoring).
 Measurement: pytest fixture test; next newsdesk.yml per-theme and blindspot lines; investigator samples 10 multi-outlet stories for wrong merges if a debug log exists.
+Review round 2: overlap term and name bonus only for titles with ≥4 tokens ("Boca ganó"/"Boca perdió" no longer merge); figures within 1% match (2% merged blue vs oficial). Known limit: outlets quoting different counts (120 vs 135 muertos) split into two stories. Fixture after: 14/15 same, 4/10 wrong.

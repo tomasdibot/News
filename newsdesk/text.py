@@ -67,9 +67,37 @@ def stem(word: str) -> str:
     return word[:5] if len(word) > 5 else word
 
 
+FIGURE_RE = re.compile(r"\d+(?:[.,]\d+)*")
+_THOUSANDS_RE = re.compile(r"\d{1,3}(?:[.,]\d{3})+")
+_THOUSANDS_DEC_RE = re.compile(r"(\d{1,3}(?:[.,]\d{3})+)[.,](\d+)")
+
+
+def norm_figure(raw: str) -> str | None:
+    """"1,9" / "1.9" -> "1.9"; "1.555" / "1555" -> "1555". None for single digits."""
+    m = _THOUSANDS_DEC_RE.fullmatch(raw)
+    if m:
+        fig = re.sub(r"[.,]", "", m.group(1)) + "." + m.group(2)
+    elif _THOUSANDS_RE.fullmatch(raw):
+        fig = re.sub(r"[.,]", "", raw)
+    else:
+        fig = raw.replace(",", ".")
+    return fig if "." in fig or len(fig) >= 2 else None
+
+
+def figures(s: str) -> set[str]:
+    """Normalised numbers in a headline (decimals or 2+ digits)."""
+    return {f for f in map(norm_figure, FIGURE_RE.findall(s)) if f}
+
+
+def significant(fig: str) -> bool:
+    """A figure that identifies a release: a decimal or 3+ digits (small ones like "20" are too common)."""
+    return "." in fig or len(fig) >= 3
+
+
 def tokens(s: str) -> set[str]:
-    words = WORD_RE.findall(normalize(s))
-    return {stem(w) for w in words if w not in STOPWORDS and len(w) > 2}
+    norm = normalize(s)
+    words = WORD_RE.findall(FIGURE_RE.sub(" ", norm))
+    return {stem(w) for w in words if w not in STOPWORDS and len(w) > 2} | {"#" + f for f in figures(norm)}
 
 
 ENTITY_STOP = set("""
@@ -91,15 +119,19 @@ KNOWN_PROPER: set[str] = set()
 
 
 def _num(key: str) -> str:
-    # "1,1%" (es) and "1.1%" (en) are the same figure.
-    return key.replace(",", ".") if key[:1].isdigit() else key
+    # "1,1%" (es) and "1.1%" (en) are the same figure; "1.555" and "1555" too.
+    if not key[:1].isdigit():
+        return key
+    m = FIGURE_RE.match(key)
+    return (norm_figure(m.group()) or m.group()) if m else key
 
 
-def entities(title: str, context: str = "") -> set[str]:
+def entities(title: str, context: str | None = "") -> set[str]:
     """Proper nouns / figures in a headline, normalized and aliased across languages.
 
     `context` (e.g. the summary) helps decide whether the headline's first word,
-    which is capitalised anyway, is really a name.
+    which is capitalised anyway, is really a name. `None` means there is no
+    summary at all (e.g. Google News items): then the first word counts as a name.
     """
     if not KNOWN_PROPER:
         KNOWN_PROPER.update(_known_proper())
@@ -113,9 +145,9 @@ def entities(title: str, context: str = "") -> set[str]:
         key = _num(normalize(w).strip(".,:;'-"))
         if not key or key in STOPWORDS or key in ENTITY_STOP or len(key) < 2:
             continue
-        if w == first and not w.isupper() and key not in KNOWN_PROPER and not re.search(rf"(?<!^)(?<![.!?] )\b{re.escape(w)}\b", context):
+        if w == first and context is not None and not w.isupper() and key not in KNOWN_PROPER and not re.search(rf"(?<!^)(?<![.!?] )\b{re.escape(w)}\b", context):
             continue
-        if key.replace(".", "").replace("%", "").isdigit() and len(key) < 3:
+        if key.replace(".", "").isdigit() and len(key) < 3:
             continue  # small numbers are too common to identify a story
         found.add(ALIASES.get(key, key))
     return found

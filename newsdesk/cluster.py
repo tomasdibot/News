@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from .fetch import Article
-from .text import entities, tokens
+from .text import entities, figures, significant, tokens
 
 SAME_LANG_THRESHOLD = 0.42
 CROSS_LANG_THRESHOLD = 0.5
@@ -21,17 +21,19 @@ class _Features:
     all_tokens: set[str]
     title_ents: set[str]
     all_ents: set[str]
+    figures: frozenset[str]  # significant numbers in the title
 
 
 def features(a: Article) -> _Features:
     summary = a.summary[:300]
-    title_ents = entities(a.title, summary)
+    title_ents = entities(a.title, summary or None)
     return _Features(
         lang=a.source.lang,
         title_tokens=tokens(a.title),
         all_tokens=tokens(a.title + " " + summary),
         title_ents=title_ents,
         all_ents=title_ents | entities(summary),
+        figures=frozenset(f for f in figures(a.title) if significant(f)),
     )
 
 
@@ -41,12 +43,27 @@ def jaccard(a: set, b: set) -> float:
     return len(a & b) / len(a | b)
 
 
+def overlap(a: set, b: set) -> float:
+    if not a or not b:
+        return 0.0
+    return len(a & b) / min(len(a), len(b))
+
+
+def figures_match(a: frozenset, b: frozenset, tol: float = 0.01) -> bool:
+    """Any figure equal, or within `tol` of one in the other title ($1.555 vs $1.560)."""
+    return any(abs(float(x) - float(y)) <= tol * max(float(x), float(y)) for x in a for y in b)
+
+
 def similarity(a: _Features, b: _Features) -> float:
     if a.lang == b.lang:
+        if a.figures and b.figures and not figures_match(a.figures, b.figures):
+            return 0.0  # different release (e.g. September vs August inflation)
         shared = len(a.title_ents & b.title_ents)
+        # Overlap and shared names would inflate very short headlines ("Boca ganó" / "Boca perdió").
+        short = min(len(a.title_tokens), len(b.title_tokens)) < 4
         return (0.7 * jaccard(a.title_tokens, b.title_tokens)
-                + 0.3 * jaccard(a.all_tokens, b.all_tokens)
-                + 0.12 * min(shared, 3))
+                + 0.3 * (jaccard if short else overlap)(a.title_tokens, b.title_tokens)
+                + (0 if short else 0.12 * min(shared, 3)))
     # Across languages the words differ, so rely on names, places and figures:
     # several must be shared, and at least one of them must be in a headline.
     shared = a.all_ents & b.all_ents
