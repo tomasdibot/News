@@ -134,3 +134,11 @@ Verdict & lesson: kept → L13, L14. D9 stays parked until flagged titles are lo
 - D9: log flagged blindspot titles + ignoring side; sample 5; show tab only if ≥4/5 real.
 - Música/IA: more outlets (Argentine music/espectáculos; owner's artists list is still empty).
 - Build time ~16 min when caches are cold: keep an eye on it (neutral titles fill their budget).
+
+### D11 — Música: your artists first, shows, and the confirmed-story rule (2026-10-17) — status: open
+Goal: owner decisions (grilling): your artists first in Música, then shows in Argentina + big tours, then big releases; confirmed = 3+ outlets or official (2+ in Música and IA), filled with 2-outlet stories, then single-outlet stories marked "1 medio" only if a section has < 4; your-artist stories always shown; "most played" = Spotify top artists, medium_term (~6 months).
+Evidence: Spotify list today = typed + top + followed, cut at 40 (index.html:923-926; judge.py:140) while search cuts at 20 (artists.py:26) — order only right by accident. No artist flag on stories; artist stories get no boost and single-outlet ones are cut by confirmed() (index.html:476). artists.py searches no shows/tours. multi_outlet log counts ≥2 only.
+Options: A) strict 3+/2-fill, no single-source; B) A + marked single-source fill below 4; C) B + your-artist bypass.
+Decision: C (owner chose marked fill + artist bypass). Shows via fixed Google News queries (unverified, L8 — checked by check-feeds). Threshold computed in Python per theme (testable), not in JS.
+Prediction: Música accepted 5 → ≥8 and multi_outlet 1 → ≥3 once show queries run; log `music order: artist=a shows=b releases=c` (artist=0 until Spotify is connected); check-feeds shows the show queries OK; build ≤ 16 min.
+Measurement: newsdesk.yml log (theme Música line with new confirmed= count, music order line, samples); audit check-feeds; pytest.
