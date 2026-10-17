@@ -13,6 +13,7 @@ orchestrator adds an entry for each decision and fills in the outcome after meas
 - L6: Known-answer tests alone hide problems; always score today's real stories too (audit section 2).
 - L8 (D6): Feed URLs guessed offline are often dead (4 of 9). Verify every new feed from the CI runner (sandbox has no network) before predicting outlet counts.
 - L9 (D6): Neutral titles fill a fixed time budget, so more sources lengthen the build up to that budget; predict build time from the budget, not from fetch cost.
+- L10 (D7): Google News `site:` feeds revive outlets with dead RSS (Página/12 98 items, Cronista 100); `check-feeds` in the audit run proves feeds in 15 s. No images from them.
 - L7: The owner does not trust Green API; never propose it. Paid options (Claude API) only as opt-in.
 
 ## Entry template
@@ -72,7 +73,7 @@ Measurement: newsdesk.yml run log (fetch line, warnings, new per-theme line, dur
 Result: run 39002794246 — 3539 articles from 44 sources (was 3201/35). New feeds OK: elDiarioAR, Infobae/La Nación/Clarín economy, Clarín espectáculos, Chequeado. Dead: all 3 Página/12 URLs (404), El Cronista (404); Rolling Stone ES still 403. Working AR outlets 7 (predicted ≥8, missed); AR economy feeds 4 (≥3, met); per-theme line works: Economía 40/25 accepted/7 multi-outlet, Mundo 40/26/4, Música 14/4/1, IA 32/5/2. Job 14 min (+4.5; neutral titles now hit their time budget) — build-time prediction missed. — partly
 Verdict & lesson: adjusted by D7 → L8, L9.
 
-### D7 — Dead feeds via Google News site search + feed check in CI (2026-10-17) — status: open
+### D7 — Dead feeds via Google News site search + feed check in CI (2026-10-17) — status: kept (build time pending)
 Goal: restore Página/12 (centre-left) and El Cronista, so AR outlets reach ≥8, and make feed checks possible from CI.
 Evidence: D6 run — Página/12 /rss/secciones/... redirects to a 404; Cronista 404; sandbox cannot reach the sites to find the real URLs. `artists.py` already reads Google News search RSS with the outlet name.
 Options: A) guess new URLs again (L8 says no); B) Google News `site:` search feeds for outlets without working RSS; C) drop them.
@@ -80,3 +81,13 @@ Decision: B, plus a feed-status step in CI so future URLs are verified (L8).
 Prediction: no 404 for Página/12 / Cronista; working AR outlets 7 → ≥9 (incl. Chequeado); job time ≤ 15 min.
 Measurement: next newsdesk.yml log (warnings, fetch line, per-theme lines); feed-check output.
 Known limit: gnews links are news.google.com, so opinion detection by URL and og:image/excerpts do not work for those items; check Página/12 opinion leaks in the next run.
+Result: audit run 39004075921 — check-feeds 42/42 working; Página/12 98, Cronista 100, Rolling Stone ES 64 items; 3809 articles from 42 sources; AR outlets 9 (+Rolling Stone) — met. Judge v7 known answers 39/41; real rows scored: Economía ~22/25, Música ~15/19 (Charly García now in; no Spanish shows/tours content). No Página/12 opinion leak seen. Build time: run 39004074270 not finished at measurement. — yes
+Verdict & lesson: kept → L10. D6 audit part closed.
+
+### D8 — Economía official-data card (2026-10-17) — status: open
+Goal: "Economía Argentina, datos insesgados": show the key official numbers above the Economía stories, with source and date (Tangle/Semafor fact-first idea).
+Evidence: owner theme asks for unbiased data; stories carry outlet framing; investigator ranked Blindspot (cheap) first and this second, but the data card serves the owner's explicit wording and has no lean-label subjectivity. Candidate free APIs (unverified, L8): datos.gob.ar series API (INDEC CPI), BCRA API, dolarapi.com (official/blue), argentinadatos.com (riesgo país, inflation).
+Options: A) data card with fail-safe fetch + endpoint check in CI; B) Blindspot tab; C) music shows.
+Decision: A now (B next). Card hides any value that fails; endpoints are checked by `check-feeds` so the next audit run verifies them (L8).
+Prediction: ≥3 of 4 values (monthly inflation, official dollar, blue dollar, riesgo país) shown with source + date; build time +<30 s; 0 crashes when an API fails.
+Measurement: audit run check-feeds output for the data endpoints; newsdesk log line `econ data: n/4`; pytest.
