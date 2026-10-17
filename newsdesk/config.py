@@ -56,6 +56,7 @@ class Source:
     topics: list[str] = field(default_factory=list)
     lean: str = ""   # left | center-left | center | center-right | right; empty = unknown
     gnews: str = ""   # outlets without working RSS: site domain, read through a Google News search
+    max_age_hours: float | None = None   # own age limit (artist and show searches); None = site.max_age_hours
 
 
 def deep_merge(base: dict, override: dict) -> dict:

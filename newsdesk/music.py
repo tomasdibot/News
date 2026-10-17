@@ -11,6 +11,8 @@ MAX_ARTISTS = 20   # your artists: searched, saved and ordered with the same cap
 
 SHOW_WORDS = ["gira", "giras", "tour", "tours", "show", "shows", "recital", "recitales", "concierto", "conciertos",
               "estadio"]
+VENUE_WORDS = ["en el teatro", "teatro opera", "teatro coliseo", "teatro colon", "gran rex", "vorterix",
+               "niceto", "luna park", "movistar arena", "hipodromo"]   # named venues count on their own; a bare "teatro" is often a play
 RELEASE_WORDS = ["lanzamiento", "lanzamientos", "lanza", "nuevo album", "nuevo disco", "nuevo single", "estrena",
                  "album", "single"]
 
@@ -42,7 +44,7 @@ def music_tier(story: Story, rank: int | None) -> int:
     if rank is not None:
         return 0
     text = _headlines(story)
-    if _has(text, SHOW_WORDS):   # a place alone ("álbum en Argentina") is not a show
+    if _has(text, SHOW_WORDS + VENUE_WORDS):   # a place alone ("álbum en Argentina") is not a show
         return 1
     if _has(text, RELEASE_WORDS):
         return 2

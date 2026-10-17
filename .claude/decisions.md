@@ -19,6 +19,7 @@ orchestrator adds an entry for each decision and fills in the outcome after meas
 - L13 (D10): Number- and entity-aware grouping raised multi-outlet stories +62% (Economía 8→12, Mundo 5→11) with 0/8 wrong merges sampled; Música and IA did not move — they need more outlets, not looser matching.
 - L14 (D6–D10): Build an offline fixture and count wrong merges/false flags next to hits; log samples (titles + outlets) so real-run quality can be judged, since the page is encrypted.
 - L15 (D11): Ranking/threshold rules add no volume; Música stays at 1–2 multi-outlet stories until there are more music outlets. Predict from source counts, not rules. Show queries returned 13 articles but only 1 became a show.
+- L16 (D12): A global filter downstream (36 h max age in rank.py) can silently cancel an upstream change (search windows). Trace an item end to end before predicting.
 - L7: The owner does not trust Green API; never propose it. Paid options (Claude API) only as opt-in.
 
 ## Entry template
@@ -151,3 +152,4 @@ Goal: Música accepted 6 → ≥10 and multi_outlet 2 → ≥4 (L13, L15: needs 
 Decision: add Argentine music/espectáculos outlets via `gnews:` site search (L10; verified by check-feeds, L8): Indie Hoy, Rolling Stone Argentina/La Nación espectáculos, Infobae Teleshow/música, Página/12 espectáculos section, Billboard Argentina; widen SHOW_QUERIES (festival, tour, "entradas a la venta", Córdoba/Rosario) with a 14-day window; add theatre/venue show words (teatro, Teatro Ópera, Gran Rex, Vorterix, Niceto) to music_tier.
 Prediction: check-feeds OK for the new feeds; Música candidates 16 → ≥25, accepted ≥10, multi_outlet ≥4; shows tier ≥3; job ≤ 16 min.
 Measurement: audit check-feeds; newsdesk theme Música + music order lines.
+Review round 1 (blocking): rank.py dropped stories older than site.max_age_hours (36 h), so the 7-day artist and 14-day show windows were dead. Fixed: Source.max_age_hours per artist/show source; score_stories keeps a story within the longest limit of its sources. Bare "teatro" no longer a show word.

@@ -54,6 +54,10 @@
 - { id: npr-music,     outlet: NPR,        lang: en, region: global, tier: public, url: "https://feeds.npr.org/1039/rss.xml", topics: [culture], lean: center }
 - { id: billboard,     outlet: Billboard,  lang: en, region: global, tier: specialist, url: "https://www.billboard.com/feed/", topics: [culture] }
 - { id: rollingstone-es, outlet: Rolling Stone en Español, lang: es, region: global, tier: specialist, gnews: "es.rollingstone.com", topics: [culture] }
+- { id: indiehoy,      outlet: Indie Hoy,  lang: es, region: AR, tier: specialist, gnews: "indiehoy.com", topics: [culture] }
+- { id: billboard-ar,  outlet: Billboard Argentina, lang: es, region: AR, tier: specialist, gnews: "billboard.ar", topics: [culture] }
+- { id: rockcomar,     outlet: Rock.com.ar, lang: es, region: AR, tier: specialist, gnews: "rock.com.ar", topics: [culture] }
+- { id: infobae-teleshow, outlet: Infobae, lang: es, region: AR, tier: commercial, gnews: "infobae.com/teleshow", topics: [culture], lean: center }
 
 # --- Global, Spanish -------------------------------------------------------
 - { id: bbc-mundo,     outlet: BBC,        lang: es, region: global, tier: public, url: "https://feeds.bbci.co.uk/mundo/rss.xml", lean: center }

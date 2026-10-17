@@ -44,7 +44,14 @@ def test_artist_rank_ignores_case_and_accents_but_needs_whole_words():
     ("Lanzamiento del disco más esperado", 2),
     ("Premios y homenajes a un cantante", 3),
     ("Dua Lipa lanza su nuevo álbum en Argentina", 2),     # a place alone is not a show
-    ("Se presenta en Luna Park y River el sábado", 3),
+    ("Se presenta en Luna Park y River el sábado", 1),     # named music venues count on their own
+    ("Palito Ortega se presenta en el Teatro Ópera", 1),
+    ("Abel Pintos llena el Gran Rex", 1),
+    ("Fiesta en Niceto y Vorterix este finde", 1),
+    ("Ciclo en el Movistar Arena", 1),
+    ("Estreno de una obra de teatro con Dady Brieva", 3),   # plays are not shows
+    ("Milei en Buenos Aires", 3),                          # a city alone is not a show
+    ("Festival en el Hipódromo de Palermo", 1),
     ("Tour por Argentina de una banda", 1),
 ])
 def test_music_tier_shows_before_releases_before_the_rest(title, tier):
@@ -120,6 +127,50 @@ def test_show_queries_keep_the_publisher_and_need_a_music_word_in_the_headline()
 
 
 def test_show_queries_use_the_argentine_edition_and_last_week():
-    assert len(SHOW_QUERIES) >= 4
+    assert len(SHOW_QUERIES) >= 9
+    for q in ["festival música Argentina", "entradas a la venta show", "gira 2026 Argentina",
+              "show en Córdoba", "show en Rosario"]:
+        assert q in SHOW_QUERIES
     url = show_search_url(SHOW_QUERIES[0])
-    assert "gl=AR" in url and "when:7d" in url and "gira" in url
+    assert "gl=AR" in url and "when:14d" in url and "gira" in url
+
+
+def test_show_queries_keep_articles_up_to_two_weeks_old_but_artist_news_stays_at_one():
+    from newsdesk.artists import parse_search
+    rss = RSS.replace(b"Mon, 12 Oct 2026", b"Wed, 07 Oct 2026")   # 8 days before "now"
+    now = datetime(2026, 10, 15, tzinfo=timezone.utc)
+    assert len(parse_shows(rss, now)) == 2
+    assert parse_search(rss, "Coldplay", "es", now) == []
+
+
+def test_real_sources_yaml_has_argentine_music_outlets_and_teleshow_counts_as_infobae(cfg):
+    from newsdesk.config import load_sources
+    from newsdesk.fetch import feed_url
+    by_id = {s.id: s for s in load_sources({"profile": {"languages": ["es", "en"], "country": "AR"}})}
+    for id_ in ("indiehoy", "billboard-ar", "rockcomar"):
+        s = by_id[id_]
+        assert s.region == "AR" and s.lang == "es" and s.topics == ["culture"] and s.gnews
+    tele = by_id["infobae-teleshow"]
+    assert tele.outlet == by_id["infobae"].outlet == "Infobae" and tele.lean == by_id["infobae"].lean
+    assert "site:infobae.com/teleshow" in feed_url(tele)
+
+
+def test_show_and_artist_articles_outlive_the_normal_age_limit_but_normal_ones_do_not(cfg):
+    from datetime import timedelta
+    from newsdesk.artists import parse_search
+    from newsdesk.cluster import cluster
+    from newsdesk.judge import candidates
+    from newsdesk.rank import score_stories
+    five_days = NOW - timedelta(days=5)
+    rss = RSS.replace(b"Mon, 12 Oct 2026 10:00:00", b"Fri, 03 Oct 2026 12:00:00")
+    shows = parse_shows(rss, NOW)
+    lali = parse_search(b"""<rss><channel><item><title>Lali anuncia recital - Clarin</title><link>https://n/9</link>
+      <pubDate>Fri, 03 Oct 2026 12:00:00 GMT</pubDate><source url="https://clarin.com">Clarin</source></item></channel></rss>""",
+                        "Lali", "es", NOW)
+    assert shows and lali
+    old_normal = Article(SOURCES["infobae"], "Nuevo recital de Lali en el Luna Park", "https://x/old", "", five_days)
+    kept = score_stories(cluster(shows + lali + [old_normal]), cfg, NOW)
+    titles = {a.title for s in kept for a in s.articles}
+    assert "Coldplay confirma recital en Buenos Aires" in titles and "Lali anuncia recital" in titles
+    assert old_normal.title not in titles
+    assert any("Coldplay" in s.headline.title for s in candidates("Música: shows", kept))

@@ -77,7 +77,8 @@ def score_stories(stories: list[Story], cfg: dict, now: datetime) -> list[Story]
 
     kept = []
     for s in stories:
-        if now - s.latest > max_age:
+        limit = max([a.source.max_age_hours for a in s.articles if a.source.max_age_hours] or [0])
+        if now - s.latest > max(max_age, timedelta(hours=limit)):   # artist and show searches reach further back
             continue
 
         titles = normalize(" ".join(a.title for a in s.articles))

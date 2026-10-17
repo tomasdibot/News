@@ -26,7 +26,10 @@ log = logging.getLogger(__name__)
 EDITIONS = [("es", "hl=es-419&gl=AR&ceid=AR:es-419"), ("en", "hl=en-US&gl=US&ceid=US:en")]
 PER_FEED = 8
 SHOW_EDITION = EDITIONS[0][1]
-SHOW_QUERIES = ["gira Argentina", "show en Buenos Aires", "recital Argentina", "concierto Buenos Aires"]
+SHOW_QUERIES = ["gira Argentina", "show en Buenos Aires", "recital Argentina", "concierto Buenos Aires",
+                "festival música Argentina", "entradas a la venta show", "gira 2026 Argentina",
+                "show en Córdoba", "show en Rosario"]
+SHOW_DAYS = 14   # shows are announced weeks ahead; artist searches stay at 7 days
 MUSIC_WORDS = ["shows", "tour", "tours", "recital", "recitales", "concierto", "conciertos", "festival",
                "cantante", "musico", "musica", "album", "disco", "single", "rock", "pop",
                "trap", "cumbia"]
@@ -37,7 +40,7 @@ def search_url(artist: str, edition: str) -> str:
 
 
 def show_search_url(query: str) -> str:
-    return f"https://news.google.com/rss/search?q={quote(query)}+when:7d&{SHOW_EDITION}"
+    return f"https://news.google.com/rss/search?q={quote(query)}+when:{SHOW_DAYS}d&{SHOW_EDITION}"
 
 
 def parse_search(content: bytes, artist: str, lang: str, now: datetime) -> list[Article]:
@@ -50,10 +53,10 @@ def parse_shows(content: bytes, now: datetime) -> list[Article]:
     def music(title: str) -> bool:
         words = set(re.split(r"[^a-z0-9]+", normalize(title)))
         return bool(words & set(MUSIC_WORDS))
-    return _parse(content, "es", now, music)
+    return _parse(content, "es", now, music, SHOW_DAYS)
 
 
-def _parse(content: bytes, lang: str, now: datetime, keep) -> list[Article]:
+def _parse(content: bytes, lang: str, now: datetime, keep, days: int = 7) -> list[Article]:
     out = []
     for e in feedparser.parse(content).entries[:PER_FEED]:
         outlet = clean_html((e.get("source") or {}).get("title", "")) or "Google News"
@@ -63,10 +66,11 @@ def _parse(content: bytes, lang: str, now: datetime, keep) -> list[Article]:
         if not title or not SAFE_LINK.match(link) or not keep(title):
             continue
         published = _published(e) or now
-        if now - published > timedelta(days=7):
+        if now - published > timedelta(days=days):
             continue
         src = Source(id="gn-" + re.sub(r"[^a-z0-9]+", "-", normalize(outlet)), outlet=outlet, url="",
-                     lang=lang, region="global", tier="commercial", topics=["culture"])
+                     lang=lang, region="global", tier="commercial", topics=["culture"],
+                     max_age_hours=days * 24)
         out.append(Article(source=src, title=title, link=link, summary="", published=min(published, now)))
     return out
 
@@ -82,7 +86,7 @@ def fetch_show_news(now: datetime | None = None) -> list[Article]:
             log.warning("show news for %r failed: %s", q, exc)
             return []
 
-    with cf.ThreadPoolExecutor(4) as pool:
+    with cf.ThreadPoolExecutor(5) as pool:
         found = [a for batch in pool.map(one, SHOW_QUERIES) for a in batch]
     seen, out = set(), []
     for a in found:
