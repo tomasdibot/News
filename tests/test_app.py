@@ -547,24 +547,134 @@ def test_tap_targets_are_at_least_44px(app):
     assert [x for x in sizes if x[1] < 44 or x[2] < 44] == []
 
 
-def test_no_text_on_the_front_page_is_smaller_than_11px(app):
-    def smallest():
-        return app.evaluate("""() => { const out = [];
-            document.querySelectorAll('body *').forEach(e => {
-              if (!e.offsetParent && e.tagName !== 'BODY') return;
-              if (!/^(SCRIPT|STYLE)$/.test(e.tagName) && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) {
-                const f = parseFloat(getComputedStyle(e).fontSize); if (f < 11) out.push([e.className || e.tagName, f]); } });
-            return out; }""")
-    assert smallest() == []
-    app.click("#panel-0 .card.brief .row")                            # an open story has its own small print
-    assert smallest() == []
+SMALLEST = """(root) => { const out = [];
+    (root ? document.querySelector(root) : document.body).querySelectorAll('*').forEach(e => {
+      if (!e.offsetParent && e.tagName !== 'BODY') return;
+      if (!/^(SCRIPT|STYLE|OPTION|OPTGROUP|DATALIST)$/.test(e.tagName) && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) {
+        const f = parseFloat(getComputedStyle(e).fontSize); if (f < %s) out.push([e.className || e.tagName, f]); } });
+    return out; }"""
 
 
-def test_the_header_is_slim_and_four_cards_fit_the_first_screen(big_site, browser):
+def test_no_text_on_the_front_page_or_in_an_open_story_is_smaller_than_12px(app):
+    assert app.evaluate(SMALLEST % 12, None) == []
+    app.click("#panel-0 .card.brief .row")
+    assert app.evaluate(SMALLEST % 12, None) == []
+
+
+def test_reading_text_has_room_and_one_modern_family(app):
+    app.click("#panel-0 .card.brief .row")
+    m = app.evaluate("""() => { const f = (s, p) => parseFloat(getComputedStyle(document.querySelector(s))[p]);
+        const cs = s => getComputedStyle(document.querySelector(s));
+        return { lede: f('.card.brief .lede', 'fontSize'), ledeLh: f('.card.brief .lede', 'lineHeight'),
+                 h3: f('.card.brief h3', 'fontSize'), h3w: cs('.card.brief h3').fontWeight,
+                 p: f('.card.open .more p', 'fontSize'), pLh: f('.card.open .more p', 'lineHeight'),
+                 pMb: f('.card.open .more p', 'marginBottom'), meta: f('.card.brief .kick', 'fontSize'),
+                 fams: [...new Set([...document.querySelectorAll('body *')].filter(e => e.offsetParent && e.textContent.trim())
+                         .map(e => getComputedStyle(e).fontFamily))] }; }""")
+    assert m["lede"] >= 16 and m["ledeLh"] / m["lede"] >= 1.45
+    assert m["h3"] >= 20 and int(m["h3w"]) >= 700
+    assert m["p"] >= 17 and m["pLh"] / m["p"] >= 1.5 and m["pMb"] >= 12
+    assert m["meta"] >= 13
+    assert len(m["fams"]) == 1                          # one family for everything
+
+
+def test_at_most_two_all_caps_styles_and_no_letter_spaced_kickers(app):
+    app.click("#panel-0 .card.brief .row")
+    app.click("#panel-0 .tells summary")
+    caps = app.evaluate("""() => [...document.querySelectorAll('body *')].filter(e => e.offsetParent && e.textContent.trim()
+        && getComputedStyle(e).textTransform === 'uppercase').map(e => [e.className, parseFloat(getComputedStyle(e).fontSize), e.textContent.trim().length])""")
+    assert len({c[0] for c in caps}) <= 2 and all(c[1] <= 12 and c[2] <= 20 for c in caps)
+    assert app.evaluate("getComputedStyle(document.querySelector('.kick')).letterSpacing") == "normal"
+
+
+def test_an_open_story_reads_summary_then_lean_bar_then_each_outlet(app):
+    card = app.locator("#panel-0 .card").first
+    card.locator(".row").click()
+    card.locator(".tells summary").click()
+    ys = card.evaluate("""c => ['.more p', '.lean', '.leanl', '.tells summary', '.tells a'].map(s => c.querySelector(s).getBoundingClientRect().top)""")
+    assert ys == sorted(ys) and len(set(ys)) == 5
+    gap = card.evaluate("c => c.querySelector('.lean').getBoundingClientRect().top - c.querySelector('.more p').getBoundingClientRect().bottom")
+    assert gap <= 24                                    # no big empty gap before the lean bar
+    row = card.evaluate("""c => { const a = c.querySelector('.tells a'), o = a.querySelector('.o'), h = a.querySelector('.h');
+        return { oy: o.getBoundingClientRect().top, hy: h.getBoundingClientRect().top, ow: getComputedStyle(o).fontWeight,
+                 hw: getComputedStyle(h).fontWeight, oc: getComputedStyle(o).color, ink: getComputedStyle(c.querySelector('.tells a')).color,
+                 fs: parseFloat(getComputedStyle(h).fontSize), h: a.getBoundingClientRect().height }; }""")
+    assert row["hy"] > row["oy"]                        # headline below the outlet name
+    assert int(row["ow"]) >= 600 and int(row["hw"]) <= 500 and row["oc"] == row["ink"]
+    assert row["fs"] >= 15 and row["h"] >= 44
+
+
+def test_settings_have_readable_text_and_big_targets(app):
+    app.click("#gear")
+    app.click("#tlist .ed-btn")                         # the per-theme editor is part of the settings
+    assert app.evaluate(SMALLEST % 14, "dialog") == []
+    labels = app.evaluate("""() => [...document.querySelectorAll('dialog .picklabel, dialog .switch span, dialog li.ed label')]
+        .filter(e => e.offsetParent).map(e => parseFloat(getComputedStyle(e).fontSize))""")
+    assert len(labels) >= 5 and min(labels) >= 16
+    small = app.evaluate("""() => [...document.querySelectorAll('dialog button, dialog select, dialog input:not([type=checkbox]), dialog .switch, dialog .tlist label, dialog a')]
+        .filter(e => e.offsetParent).map(e => { const r = e.getBoundingClientRect(); return [e.id || e.className || e.tagName, Math.round(r.height), Math.round(r.width)]; })
+        .filter(x => x[1] < 44 || (x[0].includes('mv') && x[2] < 44))""")
+    assert small == []
+
+
+def test_text_size_select_has_three_options_scales_the_root_and_persists(site, browser):
+    page = open_app(browser, site, THEMES)
+    root = lambda: page.evaluate("parseFloat(getComputedStyle(document.documentElement).fontSize)")
+    assert root() == 16
+    page.click("#gear")
+    assert page.eval_on_selector_all("#size option", "els => els.map(e => e.textContent)") == ["Normal", "Grande", "Muy grande"]
+    page.select_option("#size", "3")
+    page.click("#setsave")
+    assert root() == 20
+    page.reload()
+    page.wait_for_selector(".tab")
+    assert root() == 20                                  # saved with the other preferences
+    assert json.loads(page.evaluate("localStorage.getItem('newsdesk-prefs-v2')"))["size"] == "3"
+    page.click("#gear")
+    assert page.input_value("#size") == "3"
+    page.select_option("#size", "2")
+    page.click("#setsave")
+    assert round(root(), 1) == 17.9
+
+
+def test_text_size_is_applied_before_first_paint(site, browser):
+    ctx = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True)
+    ctx.add_init_script(f"localStorage.setItem('newsdesk-prefs-v2', {json.dumps(json.dumps(dict(THEMES, size='3')))})")
+    page = ctx.new_page()
+    page.add_init_script("document.addEventListener('readystatechange', () => { if (document.body && !window.__s) window.__s = parseFloat(getComputedStyle(document.documentElement).fontSize); })")
+    page.goto(site)
+    assert page.evaluate("window.__s") == 20             # already large when the body first exists
+
+
+@pytest.mark.parametrize("econ_items", [ECON], indirect=True)
+def test_no_horizontal_overflow_at_extra_large_text(site, browser):
+    page = open_app(browser, site, dict(THEMES, size="3"))
+    for i in range(len(page.query_selector_all(".tab"))):
+        page.click(f'.tab[data-i="{i}"]')
+        page.wait_for_timeout(300)
+        page.click(f"#panel-{i} .card.brief .row")
+        assert page.evaluate("document.documentElement.scrollWidth - innerWidth") <= 0, i
+        panel_over = page.evaluate(f"document.querySelector('#panel-{i}').scrollWidth - document.querySelector('#panel-{i}').clientWidth")
+        assert panel_over <= 0, (i, panel_over)
+    page.click("#gear")
+    assert page.evaluate("document.querySelector('dialog').scrollWidth - document.querySelector('dialog').clientWidth") <= 0
+    assert page.evaluate("document.documentElement.scrollWidth - innerWidth") <= 0
+
+
+def test_the_header_is_slim_and_three_cards_fit_the_first_screen(big_site, browser):
     page = open_app(browser, big_site, THEMES)
     top = page.evaluate("document.querySelector('#panel-0 .card').getBoundingClientRect().top")
-    assert top <= 100                                    # masthead + tabs, no motto, folio or section flag
+    assert top <= 130                                    # masthead (dateline may wrap) + tabs, no motto, folio or section flag
     assert page.query_selector(".folio") is None and page.query_selector(".motto") is None
     fit = page.evaluate("""() => [...document.querySelectorAll('#panel-0 .card.brief:not(.extra)')]
         .filter(c => c.getBoundingClientRect().bottom <= innerHeight).length""")
-    assert fit >= 4
+    assert fit >= 3                                      # roomier cards, still three on the first screen
+
+
+@pytest.mark.parametrize("size", ["1", "3"])
+def test_the_updated_time_in_the_dateline_is_fully_visible(site, browser, size):
+    page = open_app(browser, site, dict(THEMES, size=size))
+    ok = page.evaluate("""() => { const d = document.querySelector('.dateline'), t = d.querySelector('time');
+        const r = t.getBoundingClientRect(), b = d.getBoundingClientRect();
+        return d.scrollWidth <= d.clientWidth && d.scrollHeight <= d.clientHeight + 1 && r.right <= innerWidth && r.width > 0 && b.bottom > r.bottom - 1; }""")
+    assert ok and "Actualizado" in page.inner_text(".dateline")

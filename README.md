@@ -84,7 +84,8 @@ How the app works:
   *inteligencia artificial*, *Fórmula 1*, *Medio Oriente*...) or tap a suggestion. Each theme
   becomes a tab. Each one shows how many stories match it right now. Change them any time with
   the sliders button ⚙ next to ↻ (add, ↑ ↓ to reorder, ✕ to remove). The order also decides what
-  comes first in *Most important now*. Themes are saved on that device.
+  comes first in *Most important now*. Themes are saved on that device. ⚙ also has *Apariencia*
+  and *Tamaño de texto* (Normal / Grande / Muy grande).
 - **How themes are understood:** common themes are recognised in either language (*IA* = *AI* =
   *inteligencia artificial*) with the words and newspaper sections that belong to them.
   Combinations narrow things down: *economía argentina* means Economy **and** Argentina.
