@@ -91,3 +91,4 @@ Options: A) data card with fail-safe fetch + endpoint check in CI; B) Blindspot 
 Decision: A now (B next). Card hides any value that fails; endpoints are checked by `check-feeds` so the next audit run verifies them (L8).
 Prediction: ≥3 of 4 values (monthly inflation, official dollar, blue dollar, riesgo país) shown with source + date; build time +<30 s; 0 crashes when an API fails.
 Measurement: audit run check-feeds output for the data endpoints; newsdesk log line `econ data: n/4`; pytest.
+Review notes (optional, not done): card also shows for a non-Argentine economy theme; requests timeout is per read, so a slow API could add ~16 s per value when APIs are down.

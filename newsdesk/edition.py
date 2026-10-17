@@ -19,6 +19,7 @@ from .fetch import fetch_all, fetch_og_image
 from .lexicon import COUNTRY_NAMES, LOCK_UI, UI
 from .lock import encrypt, password_from_env, site_salt
 from .artists import fetch_artist_news
+from .econdata import fetch_econ
 from .judge import candidates, configured_artists, configured_themes, judge_themes, set_reader
 from .neutral import neutralize
 from .push import public_key_b64
@@ -105,6 +106,11 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     if articles and cfg.get("_fetch_images", True):
         fill_missing_images(pool, limit=90)
 
+    econ = []
+    if cfg["profile"]["country"] == "AR":
+        econ = fetch_econ(now)
+        log.info("econ data: %d/4", len(econ))
+
     tz = ZoneInfo(cfg["notification"]["timezone"])
     return {
         "generated_at": now.isoformat(),
@@ -115,6 +121,7 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
         "local": [story_dict(s, ui_lang) for s in sections["local"]],
         "stories": [story_dict(s, ui_lang) for s in pool],
         "themes": theme_dictionary(cfg),
+        "econ": econ,       # official numbers for Argentina (econdata.py)
         "judged": judged,   # themes the AI filter knows (NEWSDESK_THEMES)
     }
 

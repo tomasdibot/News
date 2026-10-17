@@ -19,6 +19,7 @@ RSS feeds (sources.yaml) ─► group the same event across outlets & languages
 |---|---|
 | One outlet's slant | A story is only "important" when several **independent** outlets cover it. Feeds from one newsroom (BBC World + BBC Mundo) count as one voice. For your country, outlets from different editorial lines are included on purpose, so no single line dominates. |
 | Not seeing the whole picture | Each story with 2+ outlets shows a small bar (Izq · Centro · Der · s/d) and "Cómo lo cuenta cada medio" with every outlet's own headline. Leans are approximate (studies, Media Bias/Fact Check); edit the `lean` of each outlet in `sources.yaml`. |
+| Framing of the economy | With country AR, economy themes start with a card of official numbers (monthly inflation from INDEC, official and blue dollar, riesgo país), each with date and source, from free APIs (dolarapi.com, argentinadatos.com). A value that fails to load is simply not shown; the audit run's `check-feeds` prints whether each endpoint works. |
 | Opinion presented as news | Opinion, editorial and column pieces are dropped (by URL and headline). |
 | Hype and trends | Loaded words ("IMPACTANTE", "slams", "viral", "!"…) lower a story's score, and a hyped story from a single outlet never fills the top section. Of all the headlines for a story, the most neutral one is shown. |
 | Not seeing other framings | Every card links to **each** outlet that covered the story, so you can compare. Stories from one outlet only are labelled *single source*. |

@@ -51,6 +51,12 @@ def cmd_check_feeds(cfg, args) -> int:
         bad += not arts
         print(f"{status} {s.id:18} {len(arts):4} articles  {with_img:4} with images  {feed_url(s)}")
     print(f"\n{len(sources) - bad}/{len(sources)} feeds working")
+    if cfg["profile"]["country"] == "AR":
+        from .econdata import check
+
+        print()
+        for key, url, ok, text in check():
+            print(f"{'OK  ' if ok else 'FAIL'} {key:10} {text:28} {url}")
     return 0
 
 

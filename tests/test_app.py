@@ -13,10 +13,27 @@ from newsdesk.edition import build_edition, render
 THEMES = {"v": 2, "themes": ["Economía argentina", "Mundo", "Ciencia"], "local": True}
 
 
+ECON = [
+    {"key": "inflation", "label_key": "econ_inflation", "value": 2.1, "unit": "%", "date": "2026-09-30",
+     "source": "INDEC · argentinadatos.com", "url": "https://www.indec.gob.ar/"},
+    {"key": "official", "label_key": "econ_official", "value": 1430.5, "unit": "ARS", "date": "2026-10-16",
+     "source": "BCRA · dolarapi.com", "url": "https://dolarapi.com/"},
+    {"key": "risk", "label_key": "econ_risk", "value": 612, "unit": "pts", "date": "2026-10-16",
+     "source": "JP Morgan EMBI · argentinadatos.com", "url": "https://argentinadatos.com/"},
+]
+
+
 @pytest.fixture
-def site(articles, cfg, tmp_path, monkeypatch):
+def econ_items(request):
+    return getattr(request, "param", [])
+
+
+@pytest.fixture
+def site(articles, cfg, tmp_path, monkeypatch, econ_items):
     monkeypatch.delenv("NEWSDESK_PASSWORD", raising=False)
-    render(build_edition(cfg, articles=articles, now=NOW), cfg, out_dir=tmp_path / "site", data_path=tmp_path / "e.json")
+    edition = build_edition(cfg, articles=articles, now=NOW)
+    edition["econ"] = econ_items
+    render(edition, cfg, out_dir=tmp_path / "site", data_path=tmp_path / "e.json")
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path / "site"))
     handler.log_message = lambda *a: None
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
@@ -337,3 +354,19 @@ def test_same_event_twice_shows_once_and_light_is_default(articles, cfg, tmp_pat
         assert not page.errors, page.errors
     finally:
         server.shutdown()
+
+
+@pytest.mark.parametrize("econ_items", [ECON], indirect=True)
+def test_official_numbers_card_sits_above_the_economy_stories(app):
+    card = app.locator("#panel-2 .econ")
+    text = card.inner_text()
+    for part in ["Inflación mensual", "2,1", "Dólar oficial", "1430,5", "Riesgo país", "612", "INDEC", "BCRA", "2026"]:
+        assert part in text
+    assert "Dólar blue" not in text                      # a value that failed is simply not shown
+    assert app.evaluate("document.querySelector('#panel-2 .econ').nextElementSibling.className") == "briefs"
+    assert app.locator(".econ").count() == 1             # not in Mundo, Ciencia or the front page
+
+
+@pytest.mark.parametrize("econ_items", [[]], indirect=True)
+def test_no_official_numbers_no_card(app):
+    assert app.locator(".econ").count() == 0

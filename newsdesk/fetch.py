@@ -40,8 +40,8 @@ class Article:
         return self.source.outlet
 
 
-def _get(url: str) -> requests.Response:
-    resp = requests.get(url, timeout=TIMEOUT, headers={"User-Agent": USER_AGENT})
+def _get(url: str, timeout: float = TIMEOUT) -> requests.Response:
+    resp = requests.get(url, timeout=timeout, headers={"User-Agent": USER_AGENT})
     resp.raise_for_status()
     return resp
 

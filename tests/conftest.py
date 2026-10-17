@@ -51,3 +51,10 @@ def no_real_ai_calls(monkeypatch):
     monkeypatch.delenv("NEWSDESK_THEME_MODEL", raising=False)
     monkeypatch.delenv("NEWSDESK_ARTISTS", raising=False)
     monkeypatch.delenv("NEWSDESK_THEMES", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def no_real_econ_calls(monkeypatch):
+    def offline(url, **kw):
+        raise OSError("offline in tests")
+    monkeypatch.setattr("newsdesk.econdata._get", offline)

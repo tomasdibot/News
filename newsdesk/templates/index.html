@@ -135,6 +135,12 @@ img { filter: saturate(.9) contrast(1.03); }
 .lean { display: flex; height: 6px; margin: 6px 0 2px; gap: 1px; }
 .lean i { display: block; background: var(--accent); }
 .lean .b0 { opacity: 1; } .lean .b1 { opacity: .55; } .lean .b2 { opacity: .3; } .lean .b3 { background: var(--line); }
+.econ { margin: 4px 0 12px; padding: 8px 10px; background: var(--card); border: 1px solid var(--line); }
+.econ h3 { margin: 0 0 4px; font: 600 10.5px/1.4 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.econ ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.econ li { font: 400 12px/1.3 var(--sans); color: var(--muted); }
+.econ li b { display: block; font: 700 17px/1.2 var(--head); color: var(--ink); }
+.econ a { color: inherit; text-decoration: none; }
 .leanl { font: 600 11px/1.4 var(--sans); color: var(--muted); margin-bottom: 6px; }
 .tells { margin: 4px 0 8px; font: 400 14px/1.4 var(--sans); }
 .tells summary { cursor: pointer; min-height: 32px; font-weight: 600; color: var(--ink2); }
@@ -322,8 +328,8 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
 </dialog>
 
 <script type="application/json" id="nd-data">{{ {
-  "stories": e.stories, "themes": e.themes, "judged": e.judged or [], "repo": repo, "ref": ref, "labels": ui.topics, "country": country_name, "lang": lang,
-  "t": {"top": ui.top, "local": ui.local, "empty": ui.empty_theme, "read": ui.read_full, "covered": ui.covered_by, "lL": ui.lean_left, "lC": ui.lean_center, "lR": ui.lean_right, "lU": ui.lean_unknown, "each": ui.each_tells,
+  "stories": e.stories, "themes": e.themes, "judged": e.judged or [], "econ": e.econ or [], "repo": repo, "ref": ref, "labels": ui.topics, "country": country_name, "lang": lang,
+  "t": {"etitle": ui.econ_title, "elabels": {"econ_inflation": ui.econ_inflation, "econ_official": ui.econ_official, "econ_blue": ui.econ_blue, "econ_risk": ui.econ_risk}, "top": ui.top, "local": ui.local, "empty": ui.empty_theme, "read": ui.read_full, "covered": ui.covered_by, "lL": ui.lean_left, "lC": ui.lean_center, "lR": ui.lean_right, "lU": ui.lean_unknown, "each": ui.each_tells,
         "one": ui.sources_one, "many": ui.sources_many, "single": ui.single_source, "count": ui.theme_count, "count1": ui.theme_count_one,
         "remove": ui.remove, "showmore": ui.show_more, "showless": ui.show_less, "refine": ui.refine, "mustl": ui.must_label, "notl": ui.not_label,
         "mustph": ui.must_ph, "notph": ui.not_ph, "addword": ui.add_word, "ai": ui.ai_note, "pickone": ui.pick_one, "popular": ui.popular, "alltopics": ui.all_topics, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn,
@@ -573,6 +579,19 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       + '<a class="read" href="' + esc(s.link) + '" target="_blank" rel="noopener">' + esc(T.read) + " →</a></div>"
       + "</article>";
   }
+  // Official numbers (econdata.py) above the stories of an economy theme.
+  function econCard() {
+    if (!D.econ.length) return "";
+    var nf = new Intl.NumberFormat(D.lang, { maximumFractionDigits: 2 });
+    var rows = D.econ.map(function (x) {
+      var d = new Date(x.date + "T12:00:00"), when = isNaN(d) ? "" :
+        new Intl.DateTimeFormat(D.lang, x.key === "inflation" ? { month: "short", year: "numeric" } : { day: "numeric", month: "short" }).format(d);
+      var val = x.unit === "ARS" ? "$ " + nf.format(x.value) : nf.format(x.value) + " " + x.unit;
+      return '<li><a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(T.elabels[x.label_key] || x.key)
+        + "<b>" + esc(val) + "</b>" + esc([when, x.source].filter(Boolean).join(" · ")) + "</a></li>";
+    }).join("");
+    return '<div class="econ"><h3>' + esc(T.etitle) + "</h3><ul>" + rows + "</ul></div>";
+  }
   function render() {
     scoreCache = {}; compileCache = {};
     tabs = buildTabs();
@@ -587,6 +606,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
         + '<div class="folio">' + esc(T.folio.replace("{i}", i + 1).replace("{n}", tabs.length)) + "</div>"
         + (t.prompt ? '<div class="pick"><p>' + esc(T.pick) + '</p><button type="button" class="read pickbtn">'
                       + esc(T.pickbtn) + "</button></div>" : "")
+        + (t.id === "th" && /\beconom/.test(themeKey(t.label)) ? econCard() : "")
         + (t.items.length
             ? '<div class="briefs">' + t.items.map(function (s, j) { return card(s, j >= SHOWN); }).join("") + "</div>"
               + (t.items.length > SHOWN ? '<button type="button" class="moreall" aria-expanded="false" data-n="'

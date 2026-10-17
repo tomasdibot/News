@@ -34,6 +34,7 @@ daily phone notification (Web Push) from the installed app. See README.md for de
   Theme tabs show multi-outlet (or official) stories first; titles and theme filter use qwen2.5:7b.
   `NEWSDESK_PROFILE`, `VAPID_PRIVATE_KEY`, and WhatsApp provider secrets.
 - Sources: `sources.yaml` has an optional `lean` per outlet (left … right, approximate, owner-editable); the app shows a lean bar and each outlet's headline per story. Outlets without working RSS use `gnews: <domain>` (Google News site search; outlet name kept). The build logs `theme <name>: candidates=… accepted=… multi_outlet=…` per theme.
+- Official numbers (AR only): `econdata.py` reads dolarapi.com and argentinadatos.com (no keys; each item fails alone, hidden if missing) into `edition["econ"]`; the card shows above economy theme tabs; `check-feeds` prints the 4 endpoints. Log line `econ data: n/4`.
 - UI preference: suggestions/choices are always shown as a dropdown list (native `<select>`,
   plus `<datalist>` autocomplete on text boxes), never as chips/buttons.
 - The owner prefers free options; Claude API is an opt-in paid upgrade.
