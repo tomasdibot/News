@@ -110,4 +110,8 @@ Verdict & lesson: parked (field kept, no UI) → L12. Root issue → D10.
 ### D10 — Why Argentine stories rarely cluster across outlets (2026-10-17) — status: open
 Goal: more stories covered by several outlets (owner request: "news should be covered by more than one source"); prerequisite for blindspots.
 Evidence: D9 m=1; per-theme multi_outlet only 1–8 of accepted.
-Next: investigator (diagnosing-bugs) on cluster.py with real AR headlines.
+Investigation (offline fixture, 15 same-event + 10 hard different-event AR headline pairs): baseline merges 10/15 same, 6/10 wrong. Causes: figures ("1,9%", "1.555") dropped from title tokens; capitalised first words not entities when there is no summary (all gnews items); paraphrases. Lowering the threshold alone trades misses for wrong merges (0.35: 11/15, 8/10).
+Options: A) number- and entity-aware score + overlap term (14/15, 7/10 measured); B) A + figure-conflict veto on decimals/≥3-digit numbers (14/15, ~4–5/10); C) B + synonym list (+1).
+Decision: B (guards against merging different INDEC releases); C only if the build shows it is needed.
+Prediction: fixture same ≥14/15, wrong ≤5/10 (and INDEC Sept vs Aug, riesgo país 648 vs 720, blue 1555 vs oficial 1535 never merge); build per-theme multi_outlet +30–50% (Economía ~7 → ~10); blindspot m 1 → 3–6 (if m stays ≤2, the limit is feed overlap, not scoring).
+Measurement: pytest fixture test; next newsdesk.yml per-theme and blindspot lines; investigator samples 10 multi-outlet stories for wrong merges if a debug log exists.
