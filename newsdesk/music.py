@@ -10,7 +10,11 @@ from .text import normalize
 MAX_ARTISTS = 20   # your artists: searched, saved and ordered with the same cap everywhere
 
 SHOW_WORDS = ["gira", "giras", "tour", "tours", "show", "shows", "recital", "recitales", "concierto", "conciertos",
-              "estadio"]
+              "estadio", "festival", "festivales", "line up", "lineup", "grilla", "lollapalooza", "cosquin rock",
+              "primavera sound", "entradas"]
+DATE_WORDS = ["fecha", "fechas"]   # "fecha de cobro" is not a show: a date counts only with a music context
+DATE_CONTEXT = ["cantante", "artista", "cantautor", "rapero", "dj", "preventa", "sold out", "en obras",
+                "en river", "en velez", "en el campo de polo"]
 VENUE_WORDS = ["en el teatro", "teatro opera", "teatro coliseo", "teatro colon", "gran rex", "vorterix",
                "niceto", "luna park", "movistar arena", "hipodromo"]   # named venues count on their own; a bare "teatro" is often a play
 RELEASE_WORDS = ["lanzamiento", "lanzamientos", "lanza", "nuevo album", "nuevo disco", "nuevo single", "estrena",
@@ -45,6 +49,8 @@ def music_tier(story: Story, rank: int | None) -> int:
         return 0
     text = _headlines(story)
     if _has(text, SHOW_WORDS + VENUE_WORDS):   # a place alone ("álbum en Argentina") is not a show
+        return 1
+    if _has(text, DATE_WORDS) and _has(text, DATE_CONTEXT):
         return 1
     if _has(text, RELEASE_WORDS):
         return 2

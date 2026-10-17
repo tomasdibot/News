@@ -35,6 +35,9 @@ CASES = {
         ("Demanda contra OpenAI por derechos de autor avanza en un tribunal", "Un juez rechazó desestimar el caso.", False),
         ("Teachers worry about pupils using ChatGPT for homework", "Parents and schools debate new rules.", False),
         ("El Banco Central sube la tasa de interés", "La medida busca contener la inflación.", False),
+        ("Elorian's first AI model wants to reason with images, not just about them", "The startup showed its first model today.", True),
+        ("Replit is no longer working with Anthropic, CEO says", "The CEO spoke about the end of the partnership.", False),
+        ("How Itaú is building generative AI for its entire customer base", "The bank describes its rollout to customers.", False),
     ]),
     "economy": (["economia argentina", "economia del pais", "economia local"], [
         ("El INDEC informó que la inflación de septiembre fue de 2,1%", "El índice acumula 25% en el año.", True),

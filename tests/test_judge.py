@@ -4,6 +4,7 @@ from conftest import NOW, SOURCES
 
 from newsdesk import judge
 from newsdesk.cluster import cluster
+from newsdesk.config import Source
 from newsdesk.fetch import Article
 from newsdesk.rank import score_stories
 
@@ -180,3 +181,91 @@ def test_music_theme_logs_confirmed_by_two_and_the_order_with_samples(monkeypatc
     assert any(l.startswith("theme Música: Lanzamientos:") and "accepted=3" in l and "confirmed=2" in l for l in lines)
     assert "music order: artist=1 shows=0 releases=1" in lines
     assert "music artist: Lali anuncia show en Buenos Aires" in lines
+
+
+MUSIC = "Música: Lanzamientos"
+INDIE = Source(id="indiehoy", outlet="Indie Hoy", url="", lang="es", region="AR", tier="specialist",
+               topics=["culture"], gnews="indiehoy.com")
+DIARIO = Source(id="diario", outlet="Diario", url="x", lang="es", region="AR", tier="commercial")
+
+
+def titled(cfg, src, *titles):
+    arts = [Article(src, t, f"https://x/{src.id}{i}", "", NOW - timedelta(hours=1)) for i, t in enumerate(titles)]
+    return score_stories(cluster(arts), cfg, NOW)
+
+
+def test_music_candidates_admit_culture_specialist_outlets_whatever_the_words(cfg):
+    ts = ["Divididos vuelve al Movistar Arena con dos fechas en diciembre",
+          "Primavera Sound Buenos Aires: Charli XCX y Bad Bunny confirmados",
+          "Turf anuncia fecha en Obras"]
+    got = {s.headline.title for s in judge.candidates(MUSIC, titled(cfg, INDIE, *ts))}
+    assert got == set(ts)
+
+
+def test_music_candidates_widen_the_words_for_any_outlet(cfg):
+    ts = ["Wos presenta 'Ojo de Pez', su nuevo EP", "Entradas agotadas para Dua Lipa en River",
+          "Lollapalooza: la grilla completa del festival"]
+    got = {s.headline.title for s in judge.candidates(MUSIC, titled(cfg, DIARIO, *ts))}
+    assert got == set(ts)
+
+
+def test_music_candidates_still_leave_out_politics_and_other_outlets_stay_narrow(cfg):
+    politics = titled(cfg, DIARIO, "El Senado debate el presupuesto 2027")
+    assert judge.candidates(MUSIC, politics) == []
+    assert judge.candidates(MUSIC, titled(cfg, DIARIO, "Wos presenta su nuevo EP")) != []
+    # the extra music words are for music themes only
+    assert judge.candidates("Economía", titled(cfg, DIARIO, "Entradas agotadas para Dua Lipa en River")) == []
+    assert judge.candidates(THEME, titled(cfg, INDIE, "Turf anuncia fecha en Obras")) == []
+
+
+def test_music_themes_read_up_to_60_candidates_others_40(monkeypatch, cfg, tmp_path, caplog):
+    ss = titled(cfg, INDIE, "Wos presenta su nuevo EP")
+    monkeypatch.setattr(judge, "candidates", lambda theme, stories: ss * 70)
+    monkeypatch.setenv("NEWSDESK_THEMES", MUSIC + "\n" + "Economía")
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    monkeypatch.setattr(judge, "_ask_one", lambda *a: True)
+    with caplog.at_level("INFO", logger="newsdesk.judge"):
+        judge.judge_themes(ss, cfg, cache_path=tmp_path / "c.json")
+    lines = [r.getMessage() for r in caplog.records]
+    assert any(l.startswith(f"theme {MUSIC}: candidates=60 ") for l in lines)
+    assert any(l.startswith("theme Economía: candidates=40 ") for l in lines)
+
+
+def test_music_and_ai_themes_log_candidates_and_accepted_per_outlet(monkeypatch, cfg, tmp_path, caplog):
+    arts = [Article(INDIE, "Wos presenta su nuevo EP", "https://x/a", "", NOW - timedelta(hours=1)),
+            Article(DIARIO, "Wos presenta su nuevo EP", "https://x/b", "", NOW - timedelta(hours=1)),
+            Article(INDIE, "Turf anuncia fecha en Obras", "https://x/c", "", NOW - timedelta(hours=1)),
+            Article(Source(id="gn-clarin", outlet="Clarín", url="", lang="es", tier="commercial", topics=["culture"]),
+                    "Gira de una banda por el país", "https://x/d", "", NOW - timedelta(hours=1))]
+    monkeypatch.setenv("NEWSDESK_THEMES", MUSIC)
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    monkeypatch.setattr(judge, "_ask_one", lambda p, c, m, t, material: "Wos" in material["headlines"][0])
+    with caplog.at_level("INFO", logger="newsdesk.judge"):
+        judge.judge_themes(score_stories(cluster(arts), cfg, NOW), cfg, cache_path=tmp_path / "c.json")
+    line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("sources "))
+    assert line.startswith(f"sources {MUSIC}: ")
+    assert "Indie Hoy 2/1" in line and "Diario 1/1" in line and "Clarín 1/0" in line
+
+
+def test_ia_launch_rule_has_the_new_examples_and_music_does_not():
+    ia = judge.one_system("IA: lanzamientos")
+    for e in ("Paper in Science: AI model maps new antibiotics", "Lab presents a new open-weights language model",
+              "Developer builds an AI agent to plan his meals", "Retailer says AI helps it cut delivery times"):
+        assert e in ia
+    assert "antibiotics" not in judge.one_system("Música: Lanzamientos")
+    assert judge.VERSION == 8
+
+
+def test_official_ai_blogs_read_through_google_news_mark_their_stories_official(cfg):
+    from newsdesk.config import load_sources
+    from newsdesk.edition import story_dict
+    from newsdesk.fetch import feed_url
+
+    by_id = {s.id: s for s in load_sources({"profile": {"languages": ["es", "en"], "country": "AR"}})}
+    for id_, site in (("anthropic-news", "anthropic.com/news"), ("meta-ai", "ai.meta.com/blog"),
+                      ("microsoft-ai", "blogs.microsoft.com/ai"), ("mistral-news", "mistral.ai/news")):
+        s = by_id[id_]
+        assert s.tier == "official" and s.region == "global" and s.lang == "en" and s.topics == ["technology"]
+        assert f"site:{site}" in feed_url(s)
+    ss = titled(cfg, by_id["anthropic-news"], "Introducing a new Claude model")
+    assert story_dict(ss[0], cfg)["official"] is True

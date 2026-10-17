@@ -32,8 +32,12 @@ log = logging.getLogger(__name__)
 
 CACHE_PATH = ROOT / "build" / "theme-cache.json"
 BATCH = 10
-VERSION = 7      # bump when the way stories are judged changes: old verdicts are then ignored
+VERSION = 8      # bump when the way stories are judged changes: old verdicts are then ignored
 PER_THEME = 40   # a tab shows at most 15 stories: only the best candidates need reading
+PER_MUSIC_THEME = 60   # music headlines rarely say "música": more candidates are needed
+# Extra words that make a story a music candidate (kept here: the app's keyword fallback uses the shorter lexicon list).
+MUSIC_CANDIDATE_WORDS = ["ep", "disco", "single", "cancion", "gira", "show", "shows", "festival", "festivales",
+                         "line up", "lineup", "grilla", "entradas", "recital", "banda", "tour"]
 
 SYSTEM = """You filter news for one reader. The reader described a theme in their own words. For each story, decide if it fits the theme EXACTLY.
 
@@ -63,7 +67,11 @@ Examples:
 Section "IA: lanzamientos" / story "Google presenta Gemini 4, su nuevo modelo" -> true
 Section "IA: lanzamientos" / story "NVIDIA opens its new chip architecture to partners" -> true
 Section "IA: lanzamientos" / story "Startup raises $40M for its AI chat app" -> false
-Section "IA: lanzamientos" / story "Judge orders OpenAI to hand over records" -> false"""),
+Section "IA: lanzamientos" / story "Judge orders OpenAI to hand over records" -> false
+Section "IA: lanzamientos" / story "Paper in Science: AI model maps new antibiotics" -> true
+Section "IA: lanzamientos" / story "Lab presents a new open-weights language model" -> true
+Section "IA: lanzamientos" / story "Developer builds an AI agent to plan his meals" -> false
+Section "IA: lanzamientos" / story "Retailer says AI helps it cut delivery times" -> false"""),
     (("mundo", "world", "internacional", "international", "global"), """
 - A world section accepts EVERY story mainly about other countries or international affairs: politics, conflicts, diplomacy, disasters, elections, awards, crime, science abroad, including domestic news of other countries. Stories mainly about the reader's own country do not fit.
 Examples:
@@ -152,6 +160,20 @@ def log_music_order(stories: list[Story], artists: list[str]) -> None:
             log.info("music %s: %s", name, s.headline.title)
 
 
+def source_counts(found: list[Story], tk: str) -> str:
+    """Per outlet: stories read / accepted (a story counts once per outlet; show searches by their gn- id)."""
+    counts: dict[str, list[int]] = {}
+    for s in found:
+        names = {}
+        for a in s.articles:
+            names.setdefault("show search" if a.source.id.startswith("gn-") and a.source.max_age_hours else a.outlet, a)
+        for n in names:
+            c = counts.setdefault(n, [0, 0])
+            c[0] += 1
+            c[1] += bool(s.fits.get(tk))
+    return ", ".join(f"{n} {c}/{a}" for n, (c, a) in sorted(counts.items(), key=lambda x: -x[1][0]))
+
+
 def configured_themes(cfg: dict) -> list[str]:
     raw = os.environ.get("NEWSDESK_THEMES", "")
     themes = [t.strip(" -•\t") for t in raw.replace(";", "\n").splitlines()]
@@ -179,6 +201,10 @@ def _kw_re(k: str) -> re.Pattern:
     return re.compile(r"(^|[^a-z0-9])" + re.escape(k) + r"($|[^a-z0-9])")
 
 
+def per_theme(theme: str) -> int:
+    return PER_MUSIC_THEME if re.search(r"\b(musica|music)\b", theme_key(theme)) else PER_THEME
+
+
 def candidates(theme: str, stories: list[Story]) -> list[Story]:
     """Cheap first pass so the model only reads stories that could fit, most relevant first:
     the theme's words in the headline, official/specialist sources and wider coverage come first
@@ -192,7 +218,9 @@ def candidates(theme: str, stories: list[Story]) -> list[Story]:
             kws.update(normalize(k) for k in kw)
             if tp and kw is TOPIC_KEYWORDS.get(tp):
                 topics.add(tp)
-            music = music or name in ("musica", "music")
+            if name in ("musica", "music"):
+                music = True
+                kws.update(MUSIC_CANDIDATE_WORDS)
             t = t.replace(f" {name} ", " ")
     if music:   # your favourite artists (NEWSDESK_ARTISTS / Spotify) count as music words
         kws.update(normalize(a) for a in READER["artists"] if len(a) > 2)
@@ -203,9 +231,10 @@ def candidates(theme: str, stories: list[Story]) -> list[Story]:
         titles = normalize(" ".join([s.headline.title] + [a.title for a in s.articles[:5]]
                                     + ([s.neutral["title"]] if s.neutral else [])))
         text = titles + " " + normalize(s.headline.summary or "")
+        culture = music and any(a.source.tier == "specialist" and "culture" in a.source.topics for a in s.articles)
         if kws or topics:
             in_title = sum(1 for r in res if r.search(titles))
-            hit = in_title or any(s.topic_scores.get(tp, 0) >= 0.3 for tp in topics) or any(r.search(text) for r in res)
+            hit = in_title or any(s.topic_scores.get(tp, 0) >= 0.3 for tp in topics) or any(r.search(text) for r in res) or culture
         else:
             in_title = len(stems & {w[:5] for w in words(titles)})
             hit = in_title or bool(stems & {w[:5] for w in words(text)})
@@ -340,7 +369,7 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
         th = hashlib.sha1(f"{VERSION}:{tk}".encode()).hexdigest()[:8]
         keys.append(tk)
         todo = []
-        found = candidates(theme, stories)[:PER_THEME]
+        found = candidates(theme, stories)[:per_theme(theme)]
         cands.append((theme, tk, found))
         for s in found:
             ck = f"{th}:{story_key(s)}"
@@ -376,6 +405,8 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
                  sum(1 for s in ok if len(s.outlets) >= need or any(a.source.tier == "official" for a in s.articles)))
         if re.search(r"\b(musica|music)\b", theme_key(theme)):
             log_music_order(ok, configured_artists(cfg))
+        if re.search(r"\b(musica|music|ia|ai)\b", theme_key(theme)):
+            log.info("sources %s: %s", theme, source_counts(found, tk))
     cutoff = now - 3 * 86400
     cache = {k: v for k, v in cache.items() if v.get("t", 0) >= cutoff}
     cache_path.parent.mkdir(parents=True, exist_ok=True)

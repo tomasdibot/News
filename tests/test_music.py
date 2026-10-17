@@ -53,6 +53,15 @@ def test_artist_rank_ignores_case_and_accents_but_needs_whole_words():
     ("Milei en Buenos Aires", 3),                          # a city alone is not a show
     ("Festival en el Hipódromo de Palermo", 1),
     ("Tour por Argentina de una banda", 1),
+    ("Lollapalooza 2027 confirmó su line up", 1),
+    ("Cosquín Rock: la grilla completa", 1),
+    ("Primavera Sound llega a Buenos Aires", 1),
+    ("Entradas agotadas para Dua Lipa", 1),
+    ("Turf anuncia fecha en Obras", 1),
+    ("Fecha confirmada para el recital de Divididos", 1),
+    ("Anses confirmó la fecha de cobro de jubilaciones", 3),
+    ("Nueva fecha del Mundial de Clubes", 3),
+    ("Banda narco: fecha de juicio", 3),
 ])
 def test_music_tier_shows_before_releases_before_the_rest(title, tier):
     assert music_tier(story(title), None) == tier
