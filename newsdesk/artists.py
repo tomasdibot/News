@@ -18,28 +18,49 @@ import feedparser
 
 from .config import Source
 from .fetch import SAFE_LINK, Article, _get, _published
+from .music import MAX_ARTISTS
 from .text import clean_html, normalize
 
 log = logging.getLogger(__name__)
 
 EDITIONS = [("es", "hl=es-419&gl=AR&ceid=AR:es-419"), ("en", "hl=en-US&gl=US&ceid=US:en")]
-MAX_ARTISTS = 20
 PER_FEED = 8
+SHOW_EDITION = EDITIONS[0][1]
+SHOW_QUERIES = ["gira Argentina", "show en Buenos Aires", "recital Argentina", "concierto Buenos Aires"]
+MUSIC_WORDS = ["shows", "tour", "tours", "recital", "recitales", "concierto", "conciertos", "festival",
+               "cantante", "musico", "musica", "album", "disco", "single", "rock", "pop",
+               "trap", "cumbia"]
 
 
 def search_url(artist: str, edition: str) -> str:
     return f"https://news.google.com/rss/search?q={quote(chr(34) + artist + chr(34))}+when:7d&{edition}"
 
 
+def show_search_url(query: str) -> str:
+    return f"https://news.google.com/rss/search?q={quote(query)}+when:7d&{SHOW_EDITION}"
+
+
 def parse_search(content: bytes, artist: str, lang: str, now: datetime) -> list[Article]:
-    out = []
     want = normalize(artist)
+    return _parse(content, lang, now, lambda title: want in normalize(title))   # the artist must be in the headline
+
+
+def parse_shows(content: bytes, now: datetime) -> list[Article]:
+    """Results of a shows query: only headlines with a music or show word (a "gira" can be political)."""
+    def music(title: str) -> bool:
+        words = set(re.split(r"[^a-z0-9]+", normalize(title)))
+        return bool(words & set(MUSIC_WORDS))
+    return _parse(content, "es", now, music)
+
+
+def _parse(content: bytes, lang: str, now: datetime, keep) -> list[Article]:
+    out = []
     for e in feedparser.parse(content).entries[:PER_FEED]:
         outlet = clean_html((e.get("source") or {}).get("title", "")) or "Google News"
         title = clean_html(e.get("title", ""))
         title = re.sub(r"\s+-\s+" + re.escape(outlet) + r"\s*$", "", title)   # "Headline - Outlet"
         link = e.get("link", "")
-        if not title or not SAFE_LINK.match(link) or want not in normalize(title):   # the artist must be in the headline
+        if not title or not SAFE_LINK.match(link) or not keep(title):
             continue
         published = _published(e) or now
         if now - published > timedelta(days=7):
@@ -47,6 +68,42 @@ def parse_search(content: bytes, artist: str, lang: str, now: datetime) -> list[
         src = Source(id="gn-" + re.sub(r"[^a-z0-9]+", "-", normalize(outlet)), outlet=outlet, url="",
                      lang=lang, region="global", tier="commercial", topics=["culture"])
         out.append(Article(source=src, title=title, link=link, summary="", published=min(published, now)))
+    return out
+
+
+def fetch_show_news(now: datetime | None = None) -> list[Article]:
+    """Shows in Argentina and big tours, from fixed Google News searches (check-feeds shows their status)."""
+    now = now or datetime.now(timezone.utc)
+
+    def one(q):
+        try:
+            return parse_shows(_get(show_search_url(q)).content, now)
+        except Exception as exc:   # one failed search must never break the edition
+            log.warning("show news for %r failed: %s", q, exc)
+            return []
+
+    with cf.ThreadPoolExecutor(4) as pool:
+        found = [a for batch in pool.map(one, SHOW_QUERIES) for a in batch]
+    seen, out = set(), []
+    for a in found:
+        if a.link not in seen:
+            seen.add(a.link)
+            out.append(a)
+    log.info("show news: %d articles from %d queries", len(out), len(SHOW_QUERIES))
+    return out
+
+
+def check_shows() -> list[tuple[str, str, bool, str]]:
+    """For `check-feeds`: (query, url, ok, text) per show query."""
+    now = datetime.now(timezone.utc)
+    out = []
+    for q in SHOW_QUERIES:
+        url = show_search_url(q)
+        try:
+            n = len(parse_shows(_get(url).content, now))
+            out.append((q, url, n > 0, f"{n} items"))
+        except Exception as exc:
+            out.append((q, url, False, str(exc)[:40]))
     return out
 
 

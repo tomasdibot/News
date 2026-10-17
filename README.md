@@ -148,6 +148,12 @@ In ⚙ → *Tus artistas*, type the artists you like (comma-separated) and tap *
 hour the job searches news about them and a music theme (e.g. *Música: lanzamientos, shows*)
 shows their releases, tours and concerts. Needs *Automatic themes* (above) to be connected.
 
+Music themes list **your artists first**, then shows in Argentina and big tours (also searched
+hourly in Google News), then releases. Up to 20 artists: Spotify's most played first, then
+followed, then the ones you typed. A story needs **3+ outlets** to count as confirmed (2+ in
+Música and IA); a tab with fewer than 4 fills with 2-outlet stories, then single-outlet ones
+marked "1 medio". Stories about your artists always show. `check-feeds` prints the show searches.
+
 #### Spotify (optional: read your artists automatically)
 
 1. Open https://developer.spotify.com/dashboard, log in with Spotify, tap **Create app**.
@@ -158,7 +164,7 @@ shows their releases, tours and concerts. Needs *Automatic themes* (above) to be
 4. In the app: ⚙ → paste it in *Client ID de Spotify* → **Leer de Spotify** → log in on
    Spotify's page → **Agree**. Back in the app it says how many artists it read; tap **Guardar**.
 
-Your top and followed artists are added to *Tus artistas*. Repeat step 4 any time to refresh.
+Your top (last ~6 months) and followed artists come before the ones you typed. Repeat step 4 any time to refresh.
 
 ### Keyword fine-tuning
 

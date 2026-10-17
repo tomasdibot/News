@@ -99,6 +99,7 @@ header h1 { grid-column: 2; font: 400 36px/1.1 var(--mast); margin: 0; letter-sp
 .kick .t { color: var(--accent); }
 .kick .loc { color: var(--local); }
 .kick .single { color: var(--accent); }
+.kick .thin { color: var(--muted); font-weight: 400; }
 .row h3 { font: 700 16.5px/1.22 var(--head); margin: 0; display: -webkit-box; -webkit-line-clamp: 2;
           -webkit-box-orient: vertical; overflow: hidden; }
 .card.open .row h3 { -webkit-line-clamp: unset; }
@@ -471,12 +472,25 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     return kept;
   }
 
-  // Stories reported by two or more outlets (or announced officially) go first; single-source
-  // ones only fill a section that would otherwise have fewer than 4 stories.
-  function confirmed(list) {
-    var many = list.filter(function (s) { return s.outlets.length >= 2 || s.official; });
-    if (many.length >= SHOWN) return many;
-    return many.concat(list.filter(function (s) { return many.indexOf(s) < 0; }).slice(0, SHOWN - many.length));
+  // Confirmed stories (enough outlets for the theme, or official; in Música also your artists) go
+  // first. A tab with fewer than 4 fills with 2-outlet stories, then single-outlet ones (marked).
+  function minOutlets(th) {   // themes not synced yet use the same whole-word rule as music.py
+    var k = themeKey(th.label);
+    return TH.min_outlets[k] || (/(^| )(musica|music|ia|ai|inteligencia artificial)( |$)/.test(k) ? 2 : 3);
+  }
+  function isMusic(th) { return /(^| )(musica|music)( |$)/.test(themeKey(th.label)); }
+  function confirmed(list, th) {
+    var need = minOutlets(th), music = isMusic(th);
+    var out = list.filter(function (s) { return s.outlets.length >= need || s.official || (music && s.artist != null); });
+    if (out.length >= SHOWN) return out;
+    [function (s) { return s.outlets.length >= 2; }, function () { return true; }].forEach(function (ok) {
+      out = out.concat(list.filter(function (s) { return out.indexOf(s) < 0 && ok(s); }).slice(0, SHOWN - out.length));
+    });
+    return out;
+  }
+  // Música: your artists, then shows and big tours, then releases, then the rest (each keeps its order).
+  function musicFirst(list) {
+    return list.slice().sort(function (a, b) { return (a.mtier == null ? 3 : a.mtier) - (b.mtier == null ? 3 : b.mtier); });
   }
 
   // ---------- which stories go in each tab ----------
@@ -494,7 +508,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     var ranked = dedupe(pool.slice().sort(function (a, b) { return score(b) - score(a); }));
     var top = [], perTopic = {};
     ranked.forEach(function (s) {
-      if (top.length >= 10 || s.outlets.length < 2) return;
+      if (top.length >= 10 || (s.outlets.length < 3 && !s.official)) return;
       var k = s.topic || "-";
       if ((perTopic[k] || 0) >= 3) return;
       perTopic[k] = (perTopic[k] || 0) + 1; top.push(s);
@@ -508,7 +522,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       loc = dedupe(loc).slice(0, 12);
       if (loc.length) out.push({ id: "local", label: T.local, items: loc });
     }
-    prefs.themes.forEach(function (th) { out.push({ id: "th", label: th.label, short: shortName(th), items: confirmed(dedupe(matches(th))).slice(0, 15) }); });
+    prefs.themes.forEach(function (th) { out.push({ id: "th", label: th.label, short: shortName(th), items: confirmed(dedupe(isMusic(th) ? musicFirst(matches(th)) : matches(th)), th).slice(0, 15), theme: true }); });
     return out;
   }
 
@@ -556,12 +570,13 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     return '<div class="lean" role="img" aria-label="' + esc(leg) + '">' + bar + '</div><div class="leanl">' + esc(leg) + "</div>"
       + '<details class="tells"><summary>' + esc(T.each) + "</summary>" + list + "</details>";
   }
-  function card(s, extra) {   // extra: hidden until "Ver más"
+  function card(s, extra, inTheme) {   // extra: hidden until "Ver más"; inTheme: a theme tab
     var n = s.outlets.length;
     var kick = (s.topic ? '<span class="t">' + esc(label(s.topic)) + "</span>" : "")
       + (s.local ? '<span class="loc" title="' + esc(D.country) + '" aria-label="' + esc(D.country) + '">📍</span>' : "")
       + '<time class="rel" datetime="' + esc(s.published) + '"></time>'
-      + (n > 1 ? "<span>" + esc(T.many.replace("{n}", n)) + "</span>" : '<span class="single">' + esc(T.single) + "</span>");
+      + (n > 1 ? "<span>" + esc(T.many.replace("{n}", n)) + "</span>"
+         : inTheme && !s.official ? '<span class="thin">' + esc(T.one) + "</span>" : '<span class="single">' + esc(T.single) + "</span>");
     var srcs = s.sources.map(function (x) {
       return '<a href="' + esc(x.link) + '" target="_blank" rel="noopener" title="' + esc(x.title) + '">'
         + esc(x.outlet) + (x.lang !== D.lang ? " (" + esc(x.lang) + ")" : "") + "</a>";
@@ -608,7 +623,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
                       + esc(T.pickbtn) + "</button></div>" : "")
         + (t.id === "th" && /\beconom/.test(themeKey(t.label)) ? econCard() : "")
         + (t.items.length
-            ? '<div class="briefs">' + t.items.map(function (s, j) { return card(s, j >= SHOWN); }).join("") + "</div>"
+            ? '<div class="briefs">' + t.items.map(function (s, j) { return card(s, j >= SHOWN, t.theme); }).join("") + "</div>"
               + (t.items.length > SHOWN ? '<button type="button" class="moreall" aria-expanded="false" data-n="'
                  + (t.items.length - SHOWN) + '">' + esc(T.showmore.replace("{n}", t.items.length - SHOWN)) + "</button>" : "")
             : '<p class="empty">' + esc(T.empty) + "</p>")
@@ -808,7 +823,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     }
     var look = document.getElementById("look").value;
     prefs = { v: 2, themes: draft.themes, local: document.getElementById("showlocal").checked, look: look,
-              artists: splitWords(document.getElementById("artists").value) };
+              artists: splitWords(document.getElementById("artists").value), spotify: prefs.spotify || [] };
     document.documentElement.classList.toggle("dark", look === "dark" || (look === "auto" && matchMedia("(prefers-color-scheme: dark)").matches));
     save(prefs); dlg.close(); current = 0; render(); go(0, false);
     aiMsg = ""; sendThemes(ls(GH_KEY)).catch(function (code) { aiMsg = T.aifail.replace("{code}", code); });   // keep the AI filter's themes in sync
@@ -846,8 +861,17 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
       }
     });
   }
+  // Your artists: Spotify's top (its order), then followed, then typed names; no repeats, capped.
+  function yourArtists() {
+    var seen = {}, out = [];
+    (prefs.spotify || []).concat(prefs.artists || []).forEach(function (n) {
+      var k = norm(n).trim();
+      if (k && !seen[k]) { seen[k] = 1; out.push(n); }
+    });
+    return out.slice(0, TH.max_artists);
+  }
   function sendThemes(token, force) {
-    var text = themesText(prefs.themes), artists = (prefs.artists || []).join("\n");
+    var text = themesText(prefs.themes), artists = yourArtists().join("\n");
     var sent = text + "\u0000" + artists;
     if (!token || !text || (!force && ls(GH_SENT) === sent)) return Promise.resolve(true);
     return setVar(token, "NEWSDESK_THEMES", text).then(function () {
@@ -921,9 +945,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
                           spGet(tok.access_token, "me/following?type=artist&limit=50")]);
     }).then(function (res) {
       var names = (res[0].items || []).concat((res[1].artists || {}).items || []).map(function (a) { return a.name; });
-      var all = (prefs.artists || []).slice();
-      names.forEach(function (n) { if (all.indexOf(n) < 0) all.push(n); });
-      prefs.artists = all.slice(0, 40); save(prefs);
+      prefs.spotify = names; save(prefs);
       sendThemes(ls(GH_KEY)).catch(function () {});
       done(T.spok.replace("{n}", names.length));
     }).catch(function (e) { done(T.spfail.replace("{code}", e)); });

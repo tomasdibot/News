@@ -162,3 +162,21 @@ def test_each_theme_logs_candidates_accepted_and_multi_outlet(monkeypatch, cfg, 
     line = next(r.getMessage() for r in caplog.records if r.getMessage().startswith("theme "))
     assert line.startswith(f"theme {THEME}: candidates=")
     assert "accepted=" in line and "multi_outlet=" in line
+    assert "confirmed=" in line
+
+
+def test_music_theme_logs_confirmed_by_two_and_the_order_with_samples(monkeypatch, cfg, tmp_path, caplog):
+    arts = [Article(SOURCES[src], title, f"https://x/m{i}{src}", "", NOW - timedelta(hours=1))
+            for i, title in enumerate(["Lali anuncia show en Buenos Aires", "Coldplay lanza nuevo álbum"])
+            for src in ("bbc", "dw")] + [
+        Article(SOURCES["bbc"], "Un cantante gana un premio de música", "https://x/m9", "", NOW - timedelta(hours=1))]
+    monkeypatch.setenv("NEWSDESK_THEMES", "Música: Lanzamientos")
+    monkeypatch.setenv("NEWSDESK_ARTISTS", "Lali")
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    monkeypatch.setattr(judge, "_ask_one", lambda *a: True)
+    with caplog.at_level("INFO", logger="newsdesk.judge"):
+        judge.judge_themes(score_stories(cluster(arts), cfg, NOW), cfg, cache_path=tmp_path / "c.json")
+    lines = [r.getMessage() for r in caplog.records]
+    assert any(l.startswith("theme Música: Lanzamientos:") and "accepted=3" in l and "confirmed=2" in l for l in lines)
+    assert "music order: artist=1 shows=0 releases=1" in lines
+    assert "music artist: Lali anuncia show en Buenos Aires" in lines

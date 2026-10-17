@@ -24,6 +24,7 @@ import requests
 from .cluster import Story
 from .config import ROOT
 from .lexicon import CONCEPTS, TOPIC_ALIASES, TOPIC_KEYWORDS
+from .music import MAX_ARTISTS, artist_rank, min_outlets, music_tier
 from .neutral import OLLAMA_URL, _parse_json, _provider, story_key
 from .text import normalize, truncate
 
@@ -137,7 +138,18 @@ def configured_artists(cfg: dict) -> list[str]:
         if a and normalize(a) not in seen:
             seen.add(normalize(a))
             out.append(a)
-    return out[:40]
+    return out[:MAX_ARTISTS]
+
+
+def log_music_order(stories: list[Story], artists: list[str]) -> None:
+    """How a music theme is ordered (your artists, shows, releases), with a few headlines per tier."""
+    tiers: dict[int, list[Story]] = {0: [], 1: [], 2: [], 3: []}
+    for s in stories:
+        tiers[music_tier(s, artist_rank(s, artists))].append(s)
+    log.info("music order: artist=%d shows=%d releases=%d", len(tiers[0]), len(tiers[1]), len(tiers[2]))
+    for t, name in ((0, "artist"), (1, "shows"), (2, "releases")):
+        for s in tiers[t][:5]:
+            log.info("music %s: %s", name, s.headline.title)
 
 
 def configured_themes(cfg: dict) -> list[str]:
@@ -358,8 +370,12 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
                  "; time budget used, the rest waits for the next run" if time.time() > deadline else "")
     for theme, tk, found in cands:   # how well each theme is served
         ok = [s for s in found if s.fits.get(tk)]
-        log.info("theme %s: candidates=%d accepted=%d multi_outlet=%d", theme, len(found), len(ok),
-                 sum(1 for s in ok if len(s.outlets) >= 2))
+        need = min_outlets(theme)
+        log.info("theme %s: candidates=%d accepted=%d multi_outlet=%d confirmed=%d", theme, len(found), len(ok),
+                 sum(1 for s in ok if len(s.outlets) >= 2),
+                 sum(1 for s in ok if len(s.outlets) >= need or any(a.source.tier == "official" for a in s.articles)))
+        if re.search(r"\b(musica|music)\b", theme_key(theme)):
+            log_music_order(ok, configured_artists(cfg))
     cutoff = now - 3 * 86400
     cache = {k: v for k, v in cache.items() if v.get("t", 0) >= cutoff}
     cache_path.parent.mkdir(parents=True, exist_ok=True)

@@ -18,9 +18,10 @@ from .config import ROOT, load_sources
 from .fetch import fetch_all, fetch_og_image
 from .lexicon import COUNTRY_NAMES, LOCK_UI, UI
 from .lock import encrypt, password_from_env, site_salt
-from .artists import fetch_artist_news
+from .artists import fetch_artist_news, fetch_show_news
+from .music import MAX_ARTISTS, artist_rank, min_outlets, music_tier
 from .econdata import fetch_econ
-from .judge import candidates, configured_artists, configured_themes, judge_themes, set_reader
+from .judge import candidates, configured_artists, configured_themes, judge_themes, set_reader, theme_key
 from .neutral import neutralize
 from .push import public_key_b64
 from .lexicon import CONCEPTS, COUNTRY_KEYWORDS, SUGGESTED_THEMES, TOPIC_ALIASES, TOPIC_KEYWORDS
@@ -86,8 +87,9 @@ def log_multi_outlet_sample(multi: list[Story], n: int = 8) -> None:
         log.info("multi-outlet sample: %s | %s", s.headline.title, who)
 
 
-def story_dict(s: Story, ui_lang: str) -> dict:
+def story_dict(s: Story, ui_lang: str, artists: list[str] | None = None) -> dict:
     h = s.headline
+    rank = artist_rank(s, artists or [])
     summary = h.summary or next((a.summary for a in s.articles if a.summary and a.source.lang == h.source.lang), "")
     if s.neutral:
         summary = s.neutral["summary"]
@@ -102,6 +104,8 @@ def story_dict(s: Story, ui_lang: str) -> dict:
         "outlets": s.outlets,
         "local": s.local,
         "blind": blindspot(s),
+        "artist": rank,                    # position in your artists, None if none is named
+        "mtier": music_tier(s, rank),      # 0 your artist, 1 show/tour, 2 release, 3 other
         "topics": {k: round(v, 2) for k, v in s.topic_scores.items() if v >= 0.2},
         "base": round(s.base, 4),
         "fixed": round(s.fixed, 3),
@@ -120,11 +124,12 @@ def story_dict(s: Story, ui_lang: str) -> dict:
 def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
     ui_lang = cfg["site"]["ui_language"]
+    artists = configured_artists(cfg)
     if articles is None:
         articles = fetch_all(load_sources(cfg), country=cfg["profile"]["country"])
-        artists = configured_artists(cfg)
         if artists:
             articles += fetch_artist_news(artists, now)
+        articles += fetch_show_news(now)
     stories = score_stories(cluster(articles), cfg, now)
     sections = select_sections(stories, cfg)  # what the morning notification uses
     pool = select_pool(stories, cfg)            # what the app shows and re-ranks
@@ -161,9 +166,9 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
         "generated_local": now.astimezone(tz).strftime("%Y-%m-%d %H:%M"),
         "article_count": len(articles),
         "outlet_count": len({a.outlet for a in articles}),
-        "top": [story_dict(s, ui_lang) for s in sections["top"]],
-        "local": [story_dict(s, ui_lang) for s in sections["local"]],
-        "stories": [story_dict(s, ui_lang) for s in pool],
+        "top": [story_dict(s, ui_lang, artists) for s in sections["top"]],
+        "local": [story_dict(s, ui_lang, artists) for s in sections["local"]],
+        "stories": [story_dict(s, ui_lang, artists) for s in pool],
         "themes": theme_dictionary(cfg),
         "econ": econ,       # official numbers for Argentina (econdata.py)
         "judged": judged,   # themes the AI filter knows (NEWSDESK_THEMES)
@@ -191,9 +196,13 @@ def theme_dictionary(cfg: dict) -> dict:
                          "names": c["names"], "keywords": c["keywords"], "must": c.get("must", []),
                          "not": c.get("not", []), "strict": c.get("strict", False)})
     by_id = {c["id"]: c["label"] for c in concepts}
+    # Outlets that confirm a story, per theme (built-in labels and your own): 2 for music and AI, else 3.
+    need = {theme_key(l): min_outlets(l) for l in list(by_id.values()) + configured_themes(cfg)}
     country = cfg["profile"]["country"]
     return {
         "concepts": concepts,
+        "min_outlets": need,
+        "max_artists": MAX_ARTISTS,
         "suggested": [by_id[i] for i in SUGGESTED_THEMES if i in by_id],
         "all": sorted(set(by_id.values()), key=lambda l: normalize(l)),
         # Typing your country as (part of) a theme means "news about it".

@@ -217,9 +217,12 @@ def big_site(articles, cfg, tmp_path, monkeypatch):
     topics = ["parliament budget vote", "central bank interest rates", "telescope discovers planet",
               "hospital vaccine campaign", "wildfire forces evacuation", "chipmaker unveils processor",
               "summit on trade tariffs", "court rules on election law"]
-    extra = [Article(SOURCES[src], f"Officials report {t} in region {i}", f"https://x/big{i}{src}",
+    from newsdesk.config import Source
+
+    sources = [SOURCES["bbc"], SOURCES["dw"], Source(id="ap", outlet="AP", url="x", lang="en", region="global", tier="public")]
+    extra = [Article(src, f"Officials report {t} in region {i}", f"https://x/big{i}{src.id}",
                      f"Details on {t}.", NOW - timedelta(hours=i + 1))
-             for i, t in enumerate(topics) for src in ("bbc", "dw")]   # each story: two outlets
+             for i, t in enumerate(topics) for src in sources]   # each story: three outlets (the Top tab needs 3+)
     monkeypatch.delenv("NEWSDESK_PASSWORD", raising=False)
     render(build_edition(cfg, articles=articles + extra, now=NOW), cfg, out_dir=tmp_path / "s3", data_path=tmp_path / "e3.json")
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path / "s3"))
@@ -370,3 +373,118 @@ def test_official_numbers_card_sits_above_the_economy_stories(app):
 @pytest.mark.parametrize("econ_items", [[]], indirect=True)
 def test_no_official_numbers_no_card(app):
     assert app.locator(".econ").count() == 0
+
+
+def story_site(articles, cfg, tmp_path, monkeypatch, specs, judged):
+    """An edition whose stories are exactly `specs`: (title, outlets, base, extra fields). Each story fits `judged`."""
+    import copy
+
+    monkeypatch.delenv("NEWSDESK_PASSWORD", raising=False)
+    ed = build_edition(cfg, articles=articles, now=NOW)
+    proto = ed["stories"][0]
+    ed["stories"] = []
+    for i, (title, n, base, extra) in enumerate(specs):
+        s = copy.deepcopy(proto)
+        s.update(title=title, summary="", link=f"https://x/{i}", image=None, topic=None, topics={}, base=base, fixed=0,
+                 hype=False, official=False, local=False, outlets=[f"Outlet{k}" for k in range(n)],
+                 sources=[dict(proto["sources"][0], outlet=f"Outlet{k}", title=title, link=f"https://x/{i}-{k}") for k in range(n)],
+                 fits={k: 1 for k in judged}, artist=None, mtier=3)
+        s.update(extra)
+        ed["stories"].append(s)
+    ed["judged"] = judged
+    render(ed, cfg, out_dir=tmp_path / "s6", data_path=tmp_path / "e6.json")
+    handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(tmp_path / "s6"))
+    handler.log_message = lambda *a: None
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, f"http://localhost:{server.server_address[1]}/"
+
+
+def card_titles(page, tab=1):
+    return page.eval_on_selector_all(f"#panel-{tab} .card h3", "els => els.map(e => e.textContent)")
+
+
+def test_a_theme_shows_stories_confirmed_by_three_outlets_and_ignores_thinner_ones(articles, cfg, tmp_path, monkeypatch, browser):
+    specs = [("Alpha ministers meet", 3, 1.0, {}), ("Bravo floods hit coast", 2, 0.9, {}), ("Charlie single report", 1, 0.8, {}),
+             ("Delta treaty signed", 4, 0.7, {"mtier": 0}), ("Echo agency data", 1, 0.6, {"official": True}),
+             ("Foxtrot election results", 3, 0.5, {"mtier": 1})]
+    server, url = story_site(articles, cfg, tmp_path, monkeypatch, specs, ["mundo"])
+    try:
+        page = open_app(browser, url, {"v": 2, "themes": ["Mundo"], "local": False})
+        assert card_titles(page) == ["Alpha ministers meet", "Delta treaty signed", "Echo agency data", "Foxtrot election results"]
+        assert not page.errors, page.errors
+    finally:
+        server.shutdown()
+
+
+def test_a_thin_theme_fills_with_two_outlet_stories_then_single_ones_marked_1_medio(articles, cfg, tmp_path, monkeypatch, browser):
+    specs = [("Alpha ministers meet", 3, 1.0, {}), ("Bravo floods hit coast", 2, 0.9, {}), ("Charlie treaty signed", 2, 0.8, {}),
+             ("Delta single report", 1, 0.7, {}), ("Echo second single", 1, 0.6, {})]
+    server, url = story_site(articles, cfg, tmp_path, monkeypatch, specs, ["mundo"])
+    try:
+        page = open_app(browser, url, {"v": 2, "themes": ["Mundo"], "local": False})
+        assert card_titles(page) == ["Alpha ministers meet", "Bravo floods hit coast", "Charlie treaty signed", "Delta single report"]
+        notes = page.eval_on_selector_all("#panel-1 .card", "els => els.map(e => !!e.querySelector('.thin') && e.querySelector('.thin').textContent)")
+        assert notes == [False, False, False, "1 medio"]
+        assert not page.errors, page.errors
+    finally:
+        server.shutdown()
+
+
+def test_music_puts_your_artists_then_shows_then_releases_and_needs_only_two_outlets(articles, cfg, tmp_path, monkeypatch, browser):
+    specs = [("Premios de la música", 3, 1.0, {"mtier": 3}), ("Nuevo disco de Duki", 2, 0.9, {"mtier": 2}),
+             ("Coldplay en River", 2, 0.8, {"mtier": 1}), ("Lali habla de su vida", 1, 0.1, {"artist": 0, "mtier": 0}),
+             ("Otra gira en Argentina", 2, 0.7, {"mtier": 1}), ("Un cantante solo", 1, 0.95, {"mtier": 3})]
+    server, url = story_site(articles, cfg, tmp_path, monkeypatch, specs, ["musica"])
+    try:
+        page = open_app(browser, url, {"v": 2, "themes": ["Música"], "local": False})
+        # your artist (one outlet, still shown) first; then shows; then releases; then the rest; 1-outlet non-artist left out
+        assert card_titles(page) == ["Lali habla de su vida", "Coldplay en River", "Otra gira en Argentina",
+                                     "Nuevo disco de Duki", "Premios de la música"]
+        notes = page.eval_on_selector_all("#panel-1 .card", "els => els.map(e => !!e.querySelector('.thin'))")
+        assert notes == [True, False, False, False, False]
+        assert not page.errors, page.errors
+    finally:
+        server.shutdown()
+
+
+def spotify_calls(browser, url, prefs):
+    page = open_app(browser, url, prefs)
+    calls = []
+
+    def github(route):
+        req = route.request
+        calls.append(req.post_data_json)
+        route.fulfill(status=204, body="")
+
+    page.route("https://api.github.com/**", github)
+    page.click("#gear")
+    page.fill("#aikey", "github_pat_test")
+    page.click("#aiform button")
+    page.wait_for_function("document.getElementById('aistate').textContent.includes('enviados')")
+    sent = [c for c in calls if c and c.get("name") == "NEWSDESK_ARTISTS"]
+    return page, sent[-1]["value"].split("\n")
+
+
+def test_your_artists_are_spotify_top_then_followed_then_typed_and_capped_at_20(judged_site, browser):
+    top = [f"Top {i}" for i in range(15)]
+    followed = [f"Followed {i}" for i in range(10)]
+    prefs = {"v": 2, "themes": ["Mundo"], "local": False, "spotify": top + followed, "artists": ["Wos", "Top 3"]}
+    page, sent = spotify_calls(browser, judged_site, prefs)
+    assert sent == top + followed[:5]                    # typed names never displace Spotify's
+    assert page.input_value("#artists") == "Wos, Top 3"   # the box shows only what you typed
+    prefs = {"v": 2, "themes": ["Mundo"], "local": False, "spotify": top[:3] + followed[:2], "artists": ["Wos", "Top 1"]}
+    _, sent = spotify_calls(browser, judged_site, prefs)
+    assert sent == top[:3] + followed[:2] + ["Wos"]
+
+
+def test_a_music_theme_not_yet_synced_still_needs_only_two_outlets(articles, cfg, tmp_path, monkeypatch, browser):
+    specs = [(t, 2, 1 - i / 10, {}) for i, t in enumerate(["Coldplay vuelve en marzo", "Duki agota entradas", "Lali anuncia festival",
+                                                     "Wos presenta disco", "Charly toca en Rosario"])]
+    server, url = story_site(articles, cfg, tmp_path, monkeypatch, specs, ["musica giras"])
+    try:
+        page = open_app(browser, url, {"v": 2, "themes": ["Música: Giras"], "local": False})
+        assert len(card_titles(page)) == 5          # all confirmed at 2 outlets, not just the 4 that fill
+        assert not page.errors, page.errors
+    finally:
+        server.shutdown()
