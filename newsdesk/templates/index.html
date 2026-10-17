@@ -7,8 +7,10 @@
 <title>{{ cfg.site.title }}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Playfair+Display:wght@700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Libre+Franklin:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Libre+Franklin:wght@500;600;700&display=swap" rel="stylesheet">
 <script>
+try { if (!navigator.webdriver && !sessionStorage.getItem("nd-intro") && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+  document.documentElement.classList.add("turn"); sessionStorage.setItem("nd-intro", "1"); } catch (e) {}
 try { (function (p) {
   var look = (p && p.look) || "light";
   if (look === "dark" || (look === "auto" && matchMedia("(prefers-color-scheme: dark)").matches))
@@ -20,7 +22,6 @@ try { (function (p) {
 :root {
   --bg: #f6f2e9; --card: #fcfaf5; --ink: #141210; --ink2: #34302a; --muted: #5c564c; --line: #d3cab9; --rule: #141210;
   --accent: #8a1c1c; --chip: #ebe4d6; --local: #1d4e72;
-  --mast: "UnifrakturMaguntia", "Old English Text MT", Georgia, serif;
   --head: "Playfair Display", Georgia, "Times New Roman", serif;
   --serif: "Source Serif 4", Georgia, serif;
   --sans: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
@@ -41,34 +42,30 @@ button { font: inherit; color: inherit; }
 /* App shell: masthead + section bar fixed, the paper fills the rest and swipes sideways. */
 .app { height: 100vh; height: 100dvh; max-width: 820px; margin: 0 auto; display: flex; flex-direction: column;
        padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
-header { padding: 4px 16px 0; flex: none; }
-.masthead { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 6px; }
-header h1 { grid-column: 2; font: 400 36px/1.1 var(--mast); margin: 0; letter-spacing: .3px; text-align: center;
-            white-space: nowrap; }
-.motto { text-align: center; font: italic 11.5px/1.2 var(--serif); color: var(--muted); margin: -1px 0 3px; }
-.actions { display: flex; gap: 2px; justify-self: end; grid-column: 3; }
-.actions.left { justify-self: start; grid-column: 1; grid-row: 1; }
-.refresh { width: 38px; height: 38px; border: 0; border-radius: 50%; background: none; color: var(--ink);
-           font-size: 19px; cursor: pointer; display: grid; place-items: center; padding: 0; }
+header { padding: 0 16px; flex: none; }
+.masthead { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 44px; }
+.brand { min-width: 0; }
+header h1 { font: 800 26px/1 var(--head); margin: 0; letter-spacing: -.02em; white-space: nowrap; }
+.actions { display: flex; gap: 0; flex: none; margin-right: -10px; }
+.refresh { width: 44px; height: 44px; border: 0; border-radius: 50%; background: none; color: var(--ink);
+           font-size: 20px; cursor: pointer; display: grid; place-items: center; padding: 0; }
 .refresh[hidden] { display: none; }
 .refresh.spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .bell.on { background: var(--ink); color: var(--bg); }
 .bell.on path { fill: currentColor; }
-.dateline { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0 4px;
-            border-top: 2px solid var(--rule); border-bottom: 1px solid var(--rule);
-            font: 600 10px/1.3 var(--sans); letter-spacing: .08em; white-space: nowrap; text-transform: uppercase; color: var(--ink); }
-.dateline time { font-weight: 500; }
+.dateline { margin-top: 3px; font: 500 11px/1.2 var(--sans); color: var(--muted); white-space: nowrap; overflow: hidden;
+            text-overflow: ellipsis; }
 
 .tabs { flex: none; display: flex; overflow-x: auto; scrollbar-width: none; margin: 0 16px; scroll-behavior: smooth;
-        border-bottom: 3px double var(--rule); -webkit-overflow-scrolling: touch; }
+        border-bottom: 1px solid var(--rule); -webkit-overflow-scrolling: touch; }
 .tabs::-webkit-scrollbar { display: none; }
-.tab { flex: none; border: 0; background: none; padding: 12px 12px 9px; min-height: 42px; font: 700 11.5px/1 var(--sans);
+.tab { flex: none; border: 0; background: none; padding: 0 12px; min-height: 44px; font: 700 11.5px/1 var(--sans);
        letter-spacing: .1em; text-transform: uppercase; color: var(--muted); position: relative; cursor: pointer; white-space: nowrap; }
 .tab:first-child { padding-left: 2px; }
-.tab + .tab::before { content: ""; position: absolute; left: 0; top: 13px; bottom: 11px; border-left: 1px solid var(--line); }
+.tab + .tab::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; border-left: 1px solid var(--line); }
 .tab[aria-selected="true"] { color: var(--accent); }
-.tab[aria-selected="true"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 3px; height: 2px; background: var(--accent); }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; left: 12px; right: 12px; bottom: 0; height: 2px; background: var(--accent); }
 .tab:first-child[aria-selected="true"]::after { left: 2px; }
 
 .pager { flex: 1; min-height: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory;
@@ -77,15 +74,10 @@ header h1 { grid-column: 2; font: 400 36px/1.1 var(--mast); margin: 0; letter-sp
 .panel { flex: 0 0 100%; width: 100%; scroll-snap-align: start; scroll-snap-stop: always; overflow-y: auto;
          overscroll-behavior-y: contain; padding: 0 16px calc(24px + env(safe-area-inset-bottom)); }
 
-/* Section flag at the top of each page, and "next section" at the bottom. */
-.flag { display: flex; align-items: center; gap: 10px; padding: 12px 0 2px; }
-.flag::before, .flag::after { content: ""; flex: 1; border-top: 1px solid var(--rule); }
-.flag h2 { margin: 0; font: 700 italic 20px/1 var(--head); letter-spacing: .2px; white-space: nowrap; }
-.folio { text-align: center; font: 600 9.5px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
-         margin: 6px 0 2px; }
+/* "Next section" at the bottom of each page. */
 .nextsec { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 52px; margin-top: 18px;
            background: none; border: 0; border-top: 2px solid var(--rule); cursor: pointer; padding: 6px 0; text-align: left; }
-.nextsec small { display: block; font: 600 9.5px/1.4 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.nextsec small { display: block; font: 600 11px/1.4 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .nextsec b { font: 700 17px/1.2 var(--head); }
 .nextsec span:last-child { font-size: 20px; }
 
@@ -93,12 +85,13 @@ header h1 { grid-column: 2; font: 400 36px/1.1 var(--mast); margin: 0; letter-sp
 .card { overflow: hidden; }
 .row { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 0; cursor: pointer; }
 .kick { font: 600 11px/1.35 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted);
-        display: flex; flex-wrap: wrap; gap: 0 6px; white-space: nowrap; }
+        display: flex; gap: 0 6px; white-space: nowrap; overflow: hidden; }
 .kick > * { flex: none; }
+.kick > .t, .kick > .loc { flex: 0 1 auto; max-width: 45%; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .kick > * + *::before { content: "·"; margin-right: 6px; color: var(--muted); }
 .kick .t { color: var(--accent); }
 .kick .loc { color: var(--local); }
-.kick .single { color: var(--accent); }
+.kick .single { color: var(--muted); }
 .kick .thin { color: var(--muted); font-weight: 400; }
 .row h3 { font: 700 16.5px/1.22 var(--head); margin: 0; display: -webkit-box; -webkit-line-clamp: 2;
           -webkit-box-orient: vertical; overflow: hidden; }
@@ -107,14 +100,15 @@ img { filter: saturate(.9) contrast(1.03); }
 
 /* The 4 most important stories, all with the same weight; hairline rules between them. */
 .briefs { display: grid; grid-template-columns: 1fr; }
-.card.brief { border-bottom: 1px solid var(--line); padding: 16px 0; }
-.card.brief .row { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 14px; align-items: start; }
+.card.brief { border-bottom: 1px solid var(--line); padding: 12px 0; }
+.card.brief .row { display: grid; grid-template-columns: minmax(0, 1fr) 88px; gap: 12px; align-items: start; }
+.card.brief .row.nothumb { grid-template-columns: minmax(0, 1fr); }
 .card.brief .kick { margin-bottom: 4px; }
-.card.brief .row h3 { font: 700 20.5px/1.24 var(--head); -webkit-line-clamp: 4; letter-spacing: -.1px; }
-.card.brief .lede { margin: 7px 0 0; font: 400 15.5px/1.45 var(--serif); color: var(--ink2);
+.card.brief .row h3 { font: 700 19px/1.22 var(--head); -webkit-line-clamp: 3; letter-spacing: -.1px; }
+.card.brief .lede { margin: 5px 0 0; font: 400 14.5px/1.4 var(--serif); color: var(--ink2);
                     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .card.brief.open .lede { display: none; }
-.thumb { width: 96px; height: 96px; background: var(--chip); overflow: hidden; position: relative;
+.thumb { width: 88px; height: 88px; background: var(--chip); overflow: hidden; position: relative;
          outline: 1px solid var(--line); outline-offset: -1px; }
 .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 @media (min-width: 640px) {
@@ -132,24 +126,29 @@ img { filter: saturate(.9) contrast(1.03); }
 .more { display: none; padding: 8px 0 4px; }
 .card.open .more { display: block; }
 .more p { margin: 0 0 8px; font: 400 16.5px/1.6 var(--serif); color: var(--ink2); }
-.more p::first-letter { float: left; font: 700 42px/.82 var(--head); margin: 4px 6px 0 0; }
-.lean { display: flex; height: 6px; margin: 6px 0 2px; gap: 1px; }
+.lean { display: flex; height: 10px; margin: 8px 0 4px; gap: 1px; }
 .lean i { display: block; background: var(--accent); }
 .lean .b0 { opacity: 1; } .lean .b1 { opacity: .55; } .lean .b2 { opacity: .3; } .lean .b3 { background: var(--line); }
-.econ { margin: 4px 0 12px; padding: 8px 10px; background: var(--card); border: 1px solid var(--line); }
-.econ h3 { margin: 0 0 4px; font: 600 10.5px/1.4 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
-.econ ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
-.econ li { font: 400 12px/1.3 var(--sans); color: var(--muted); }
-.econ li b { display: block; font: 700 17px/1.2 var(--head); color: var(--ink); }
-.econ a { color: inherit; text-decoration: none; }
-.leanl { font: 600 11px/1.4 var(--sans); color: var(--muted); margin-bottom: 6px; }
+.econ { margin: 8px 0 4px; padding: 10px; background: var(--card); border: 1px solid var(--line); }
+.econ h3 { margin: 0 0 6px; font: 600 11px/1.4 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.econ ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
+.econ ul.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.econ li { min-width: 0; font: 400 12px/1.3 var(--sans); color: var(--muted); }
+.econ li b { display: block; font: 700 20px/1.2 var(--head); color: var(--ink); letter-spacing: -.02em; white-space: nowrap; }
+.econ .src { display: block; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.econ a { color: inherit; text-decoration: none; display: block; min-width: 0; }
+.leanl { font: 600 12px/1.4 var(--sans); color: var(--ink2); margin-bottom: 2px; }
 .tells { margin: 4px 0 8px; font: 400 14px/1.4 var(--sans); }
-.tells summary { cursor: pointer; min-height: 32px; font-weight: 600; color: var(--ink2); }
-.tells b { display: block; margin-top: 6px; font: 600 10.5px/1.4 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.tells summary { cursor: pointer; min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+                 font-weight: 600; color: var(--ink); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); list-style: none; }
+.tells summary::-webkit-details-marker { display: none; }
+.tells summary::after { content: "▾"; color: var(--muted); font-size: 16px; }
+.tells[open] summary::after { content: "▴"; }
+.tells b { display: block; margin-top: 8px; font: 600 11px/1.4 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
 .tells a { display: block; color: var(--ink); text-decoration: none; padding: 2px 0; }
 .tells a span { color: var(--muted); }
 .ai { font: italic 12.5px/1.3 var(--serif); color: var(--muted); margin-bottom: 6px; }
-.cov { font: 600 10.5px/1.3 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.cov { font: 600 11px/1.3 var(--sans); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
 .srcs { display: flex; flex-wrap: wrap; gap: 0 4px; margin-bottom: 10px; font: 14px/1.9 var(--serif); }
 .srcs a { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; padding: 4px 0; }
 .srcs a + a::before { content: "· "; color: var(--muted); }
@@ -224,72 +223,43 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
 .pickbtn { width: 100%; border: 0; cursor: pointer; }
 .tlist li.ed input.short { margin-bottom: 4px; }
 
-/* Opening: the app icon, its sheet grows into the front page, and the page turns to reveal today's edition. */
-#intro { position: fixed; inset: 0; z-index: 60; pointer-events: none; perspective: 1500px; overflow: hidden;
-         background-color: var(--bg); animation: intro-bg 1.8s forwards; }
-#intro * { pointer-events: none; }
-#intro .tile { position: absolute; left: 50%; top: 50%; width: 104px; height: 104px; margin: -52px 0 0 -52px;
-               border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.25); animation: intro-tile 1.8s forwards; }
-#intro .tile img { width: 100%; height: 100%; display: block; filter: none; }
-#intro .sheet { position: absolute; inset: 0; transform-origin: left center; backface-visibility: hidden;
-                box-shadow: 0 0 40px rgba(0,0,0,.35); animation: intro-sheet 1.8s cubic-bezier(.55,.05,.35,1) forwards; }
-#intro .sheet::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0), rgba(0,0,0,.35));
-                       opacity: 0; animation: intro-shade 1.8s forwards; }
-#intro .s-in { max-width: 820px; margin: 0 auto; padding: calc(10px + env(safe-area-inset-top)) 16px 0; }
-#intro .s-mast { font: 400 36px/1.1 var(--mast); text-align: center; }
-#intro .s-rule { border-top: 2px solid var(--rule); border-bottom: 1px solid var(--rule); height: 5px; margin: 8px 0 14px; }
-#intro .s-cols { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
-#intro .s-cols i { display: block; height: 9px; margin-bottom: 9px; background: var(--line); }
-#intro .s-cols i.h { height: 20px; background: var(--ink); opacity: .85; margin-bottom: 12px; }
-#intro .s-cols i.p { height: 120px; background: var(--chip); }
-@keyframes intro-bg { 0%, 54% { background-color: var(--bg); } 55%, 100% { background-color: transparent; } }
-@keyframes intro-tile { 0% { transform: scale(.7); opacity: 0; } 14%, 30% { transform: scale(1); opacity: 1; }
-                        44%, 100% { transform: scale(1.8); opacity: 0; } }
-@keyframes intro-sheet {
-  0%, 28% { clip-path: inset(calc(50% - 31px) calc(50% - 32px) calc(50% - 31px) calc(50% - 32px)); opacity: 0; transform: rotateY(0); }
-  31% { opacity: 1; }
-  52%, 58% { clip-path: inset(0 0 0 0); opacity: 1; transform: rotateY(0); }
-  100% { clip-path: inset(0 0 0 0); opacity: 1; transform: rotateY(-100deg); } }
-@keyframes intro-shade { 0%, 58% { opacity: 0; } 100% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { #intro { display: none; } }
+/* Opening: on a cold open the front page turns in (0.4 s) over the real content; any tap or scroll skips it. */
+.turn .app { transform-origin: left center; animation: pageturn .4s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes pageturn { from { transform: perspective(1400px) rotateY(-14deg) translateX(-10px); opacity: .6; }
+                      to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .turn .app { animation: none; } }
 </style>
 </head>
 <body class="paper">
 <div class="app">
   <header>
     <div class="masthead">
-      <div class="actions left">
+      <div class="brand">
+        <h1>{{ cfg.site.title }}</h1>
+        <div class="dateline"><span id="today"></span> · {{ ui.updated }} <time class="rel" datetime="{{ e.generated_at }}">{{ e.generated_local }}</time></div>
+      </div>
+      <div class="actions">
         {% if push_key %}<button class="refresh bell" id="bell" type="button" aria-label="{{ ui.bell_off }}" title="{{ ui.bell_off }}" hidden>
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
         </button>{% endif %}
-      </div>
-      <h1>{{ cfg.site.title }}</h1>
-      <div class="actions">
         <button class="refresh" id="gear" type="button" aria-label="{{ ui.settings }}" title="{{ ui.settings }}">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="7" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="10" cy="17" r="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
         </button>
         <button class="refresh" id="refresh" type="button" aria-label="{{ ui.refresh }}" title="{{ ui.refresh }}">↻</button>
       </div>
     </div>
-    <p class="motto">{{ ui.motto }}</p>
-    <div class="dateline"><span id="today"></span><span>{{ ui.updated }} <time class="rel" datetime="{{ e.generated_at }}">{{ e.generated_local }}</time></span></div>
   </header>
   <nav class="tabs" id="tabs" role="tablist"></nav>
   <main class="pager" id="pager"></main>
 </div>
-<div id="intro" aria-hidden="true">
-  <div class="sheet paper"><div class="s-in"><div class="s-mast">{{ cfg.site.title }}</div><div class="s-rule"></div>
-    <div class="s-cols"><div><i class="h"></i><i class="h" style="width:70%"></i><i class="p"></i><i></i><i></i><i style="width:60%"></i></div>
-    <div><i class="p" style="height:70px"></i><i></i><i></i><i></i><i style="width:50%"></i></div></div></div></div>
-  <div class="tile"><img src="icon-192.png" alt=""></div>
-</div>
 <script>
-// The opening animation plays once per visit (not on every refresh).
+// Any tap, key or scroll skips the page-turn.
 (function () {
-  var el = document.getElementById("intro"), seen = false;
-  try { seen = sessionStorage.getItem("nd-intro"); sessionStorage.setItem("nd-intro", "1"); } catch (e) {}
-  if (seen || navigator.webdriver) { el.remove(); return; }
-  setTimeout(function () { el.remove(); }, 1900);
+  var root = document.documentElement;
+  if (!root.classList.contains("turn")) return;
+  function end() { root.classList.remove("turn"); ["pointerdown", "keydown", "wheel", "touchstart", "scroll"].forEach(function (t) { removeEventListener(t, end, true); }); }
+  ["pointerdown", "keydown", "wheel", "touchstart", "scroll"].forEach(function (t) { addEventListener(t, end, { capture: true, passive: true }); });
+  setTimeout(end, 500);
 })();
 </script>
 
@@ -334,7 +304,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
         "one": ui.sources_one, "many": ui.sources_many, "single": ui.single_source, "count": ui.theme_count, "count1": ui.theme_count_one,
         "remove": ui.remove, "showmore": ui.show_more, "showless": ui.show_less, "refine": ui.refine, "mustl": ui.must_label, "notl": ui.not_label,
         "mustph": ui.must_ph, "notph": ui.not_ph, "addword": ui.add_word, "ai": ui.ai_note, "pickone": ui.pick_one, "popular": ui.popular, "alltopics": ui.all_topics, "up": ui.move_up, "down": ui.move_down, "pick": ui.pick_themes, "pickbtn": ui.pick_themes_btn,
-        "shortl": ui.short_label, "folio": ui.folio, "nextsec": ui.next_section, "front": ui.front_page,
+        "shortl": ui.short_label, "nextsec": ui.next_section, "front": ui.front_page,
         "sphint": ui.spotify_hint, "spok": ui.spotify_ok, "spfail": ui.spotify_fail,
         "aion": ui.ai_on, "aioff": ui.ai_off, "aisent": ui.ai_sent, "aisending": ui.ai_sending, "aifail": ui.ai_fail}
 }|tojson }}</script>
@@ -553,7 +523,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   // ---------- rendering ----------
   function label(name) { return D.labels[name] || name; }
   function img(src) {
-    return src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : "";
+    return src ? '<img src="' + esc(src) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="var t=this.closest(\'.thumb\');if(t){t.parentNode.classList.add(\'nothumb\');t.remove()}else this.remove()">' : "";
   }
   function bucket(l) { return l === "left" || l === "center-left" ? 0 : l === "center" ? 1 : l === "center-right" || l === "right" ? 2 : 3; }
   function leanBlock(s) {   // coverage by lean + each outlet's own headline (2+ outlets)
@@ -573,7 +543,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   function card(s, extra, inTheme) {   // extra: hidden until "Ver más"; inTheme: a theme tab
     var n = s.outlets.length;
     var kick = (s.topic ? '<span class="t">' + esc(label(s.topic)) + "</span>" : "")
-      + (s.local ? '<span class="loc" title="' + esc(D.country) + '" aria-label="' + esc(D.country) + '">📍</span>' : "")
+      + (s.local ? '<span class="loc">' + esc(D.country) + "</span>" : "")
       + '<time class="rel" datetime="' + esc(s.published) + '"></time>'
       + (n > 1 ? "<span>" + esc(T.many.replace("{n}", n)) + "</span>"
          : inTheme && !s.official ? '<span class="thin">' + esc(T.one) + "</span>" : '<span class="single">' + esc(T.single) + "</span>");
@@ -584,7 +554,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     var head = '<div class="kick">' + kick + "</div><h3>" + esc(s.title) + "</h3>"
       + (s.summary ? '<p class="lede">' + esc(s.summary) + "</p>" : "");
     return '<article class="card brief' + (extra ? " extra" : "") + '">'
-      + '<button class="row" type="button" aria-expanded="false"><div>' + head + "</div>"
+      + '<button class="row' + (s.image ? "" : " nothumb") + '" type="button" aria-expanded="false"><div>' + head + "</div>"
       + (s.image ? '<div class="thumb">' + img(s.image) + "</div>" : "") + "</button>"
       + '<div class="more">' + (s.summary ? "<p>" + esc(s.summary) + "</p>" : "")
       + (s.ai ? '<div class="ai">✎ ' + esc(T.ai) + "</div>" : "")
@@ -603,9 +573,9 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
         new Intl.DateTimeFormat(D.lang, x.key === "inflation" ? { month: "short", year: "numeric" } : { day: "numeric", month: "short" }).format(d);
       var val = x.unit === "ARS" ? "$ " + nf.format(x.value) : nf.format(x.value) + " " + x.unit;
       return '<li><a href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(T.elabels[x.label_key] || x.key)
-        + "<b>" + esc(val) + "</b>" + esc([when, x.source].filter(Boolean).join(" · ")) + "</a></li>";
+        + "<b>" + esc(val) + '</b><span class="src" title="' + esc([when, x.source].filter(Boolean).join(" · ")) + '">' + esc([when, String(x.source || "").split(" · ")[0]].filter(Boolean).join(" · ")) + "</span></a></li>";
     }).join("");
-    return '<div class="econ"><h3>' + esc(T.etitle) + "</h3><ul>" + rows + "</ul></div>";
+    return '<div class="econ"><h3>' + esc(T.etitle) + "</h3><ul" + (D.econ.length === 3 ? ' class="c3"' : "") + ">" + rows + "</ul></div>";
   }
   function render() {
     scoreCache = {}; compileCache = {};
@@ -617,8 +587,6 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
     pager.innerHTML = tabs.map(function (t, i) {
       var next = tabs[i + 1];
       return '<section class="panel" role="tabpanel" id="panel-' + i + '" aria-labelledby="tab-' + i + '">'
-        + '<div class="flag"><h2>' + esc(t.short || t.label) + "</h2></div>"
-        + '<div class="folio">' + esc(T.folio.replace("{i}", i + 1).replace("{n}", tabs.length)) + "</div>"
         + (t.prompt ? '<div class="pick"><p>' + esc(T.pick) + '</p><button type="button" class="read pickbtn">'
                       + esc(T.pickbtn) + "</button></div>" : "")
         + (t.id === "th" && /\beconom/.test(themeKey(t.label)) ? econCard() : "")
@@ -952,7 +920,7 @@ dialog .row > .primary { background: var(--ink); color: var(--bg); border-color:
   })();
 
   render();
-  if (firstRun) setTimeout(openSettings, document.getElementById("intro") ? 1800 : 0);   // after the opening
+  if (firstRun) setTimeout(openSettings, 400);   // just after the page-turn
 })();
 </script>
 {% include "_push.html" %}

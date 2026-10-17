@@ -55,7 +55,7 @@ ITEMS = [
     ("blue", "econ_blue", "ARS", DOLAR + "blue", _dollar,
      "Mercado · dolarapi.com", "https://dolarapi.com/"),
     ("risk", "econ_risk", "pts", ARGDATA + "riesgo-pais/ultimo", _risk,
-     "JP Morgan EMBI · argentinadatos.com", "https://argentinadatos.com/"),
+     "JP Morgan · argentinadatos.com", "https://argentinadatos.com/"),
 ]
 
 

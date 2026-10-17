@@ -19,7 +19,7 @@ ECON = [
     {"key": "official", "label_key": "econ_official", "value": 1430.5, "unit": "ARS", "date": "2026-10-16",
      "source": "BCRA · dolarapi.com", "url": "https://dolarapi.com/"},
     {"key": "risk", "label_key": "econ_risk", "value": 612, "unit": "pts", "date": "2026-10-16",
-     "source": "JP Morgan EMBI · argentinadatos.com", "url": "https://argentinadatos.com/"},
+     "source": "JP Morgan · argentinadatos.com", "url": "https://argentinadatos.com/"},
 ]
 
 
@@ -86,7 +86,7 @@ def panel_text(page, name):
 
 def test_first_run_asks_for_themes_and_builds_tabs(site, browser):
     page = open_app(browser, site)
-    assert page.is_visible("#setdlg")               # asked straight away
+    page.wait_for_selector("#setdlg", state="visible")   # asked right after the opening
     assert tab_names(page) == ["Lo más importante", "Tu país"]
     page.fill("#newtheme", "economía argentina")
     page.press("#newtheme", "Enter")
@@ -319,7 +319,6 @@ def test_long_themes_get_short_tab_names_and_sections_chain(ai_site, browser):
     texts = page.eval_on_selector_all(".tab", "els => els.map(e => e.textContent)")
     assert texts[1] == "IA"                          # a known concept: its short name
     assert texts[2] == "Vehículos"
-    assert page.text_content("#panel-1 .flag h2") == "IA"
     page.click("#panel-0 .nextsec")                  # "Sección siguiente" at the bottom of each page
     page.wait_for_function("document.querySelector('.tab[aria-selected=\"true\"]').dataset.i === '1'")
     # The tab name can be changed in ⚙ → ✎.
@@ -363,8 +362,13 @@ def test_same_event_twice_shows_once_and_light_is_default(articles, cfg, tmp_pat
 def test_official_numbers_card_sits_above_the_economy_stories(app):
     card = app.locator("#panel-2 .econ")
     text = card.inner_text()
-    for part in ["Inflación mensual", "2,1", "Dólar oficial", "1430,5", "Riesgo país", "612", "INDEC", "BCRA", "2026"]:
+    for part in ["Inflación mensual", "2,1", "Dólar oficial", "1430,5", "Riesgo país", "612", "INDEC", "BCRA"]:
         assert part in text
+    srcs = card.locator(".src").all_inner_texts()
+    assert srcs == ["sept 2026 · INDEC", "16 oct · BCRA", "16 oct · JP Morgan"]   # date and publisher stay visible
+    assert "argentinadatos.com" in card.locator(".src").first.get_attribute("title")   # the host is in the tooltip
+    assert "argentinadatos.com" not in text and "dolarapi.com" not in text
+    assert card.locator(".src").evaluate_all("els => els.every(e => e.scrollWidth <= e.clientWidth)")   # one line, not cut
     assert "Dólar blue" not in text                      # a value that failed is simply not shown
     assert app.evaluate("document.querySelector('#panel-2 .econ').nextElementSibling.className") == "briefs"
     assert app.locator(".econ").count() == 1             # not in Mundo, Ciencia or the front page
@@ -488,3 +492,79 @@ def test_a_music_theme_not_yet_synced_still_needs_only_two_outlets(articles, cfg
         assert not page.errors, page.errors
     finally:
         server.shutdown()
+
+
+# ---- D14: quick opening, tidy layout ----
+
+def open_cold(browser, url, reduced=False):
+    """A real person's first visit this session (the page-turn only plays when not automated)."""
+    ctx = browser.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True,
+                              reduced_motion="reduce" if reduced else "no-preference")
+    ctx.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => false});"
+                        f"localStorage.setItem('newsdesk-prefs-v2', {json.dumps(json.dumps(THEMES))})")
+    page = ctx.new_page()
+    page.goto(url)
+    return page
+
+
+def test_opening_never_blocks_the_headlines(site, browser):
+    page = open_cold(browser, site)
+    page.wait_for_selector(".card h3", state="visible")
+    assert page.query_selector("#intro") is None                       # no overlay at all
+    assert page.evaluate("document.documentElement.classList.contains('turn')")   # the quick page-turn is on
+    hit = page.evaluate("""() => { const r = document.querySelector('.card h3').getBoundingClientRect();
+        const e = document.elementFromPoint(r.left + 20, r.top + r.height / 2); return !!(e && e.closest('.card')); }""")
+    assert hit                                                          # the headline is what you touch
+    page.mouse.click(5, 300)
+    assert not page.evaluate("document.documentElement.classList.contains('turn')")   # any tap skips it
+    assert page.evaluate("getComputedStyle(document.querySelector('.app')).animationName") == "none"
+
+
+def test_opening_has_no_animation_with_reduced_motion(site, browser):
+    page = open_cold(browser, site, reduced=True)
+    page.wait_for_selector(".card h3")
+    assert page.evaluate("getComputedStyle(document.querySelector('.app')).animationName") == "none"
+
+
+def test_a_story_without_a_photo_has_no_photo_box(app):
+    app.wait_for_selector(".card h3")
+    app.wait_for_timeout(300)    # images that fail to load are dropped with their box
+    boxes = app.eval_on_selector_all(".card .thumb", "els => els.map(e => !!e.querySelector('img'))")
+    assert all(boxes)                                                   # never an empty box
+    rows = app.eval_on_selector_all(".card .row", """els => els.map(e => [!!e.querySelector('.thumb'), e.classList.contains('nothumb'),
+        e.querySelector('h3').getBoundingClientRect().width, e.getBoundingClientRect().width])""")
+    assert any(r[1] for r in rows)                                      # the fixture has stories without a photo
+    for thumb, nothumb, h3w, roww in rows:
+        assert thumb != nothumb                                         # a box, or the no-photo layout, never both/neither
+        if nothumb:
+            assert h3w >= roww - 1                                      # headline takes the full width
+
+
+def test_tap_targets_are_at_least_44px(app):
+    sizes = app.evaluate("""() => [...document.querySelectorAll('#gear, #refresh, .tab')].map(e => {
+        const r = e.getBoundingClientRect(); return [e.id || e.className, Math.round(r.width), Math.round(r.height)]; })""")
+    assert len(sizes) >= 5
+    assert [x for x in sizes if x[1] < 44 or x[2] < 44] == []
+
+
+def test_no_text_on_the_front_page_is_smaller_than_11px(app):
+    def smallest():
+        return app.evaluate("""() => { const out = [];
+            document.querySelectorAll('body *').forEach(e => {
+              if (!e.offsetParent && e.tagName !== 'BODY') return;
+              if (!/^(SCRIPT|STYLE)$/.test(e.tagName) && [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) {
+                const f = parseFloat(getComputedStyle(e).fontSize); if (f < 11) out.push([e.className || e.tagName, f]); } });
+            return out; }""")
+    assert smallest() == []
+    app.click("#panel-0 .card.brief .row")                            # an open story has its own small print
+    assert smallest() == []
+
+
+def test_the_header_is_slim_and_four_cards_fit_the_first_screen(big_site, browser):
+    page = open_app(browser, big_site, THEMES)
+    top = page.evaluate("document.querySelector('#panel-0 .card').getBoundingClientRect().top")
+    assert top <= 100                                    # masthead + tabs, no motto, folio or section flag
+    assert page.query_selector(".folio") is None and page.query_selector(".motto") is None
+    fit = page.evaluate("""() => [...document.querySelectorAll('#panel-0 .card.brief:not(.extra)')]
+        .filter(c => c.getBoundingClientRect().bottom <= innerHeight).length""")
+    assert fit >= 4
