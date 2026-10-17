@@ -15,6 +15,7 @@ orchestrator adds an entry for each decision and fills in the outcome after meas
 - L9 (D6): Neutral titles fill a fixed time budget, so more sources lengthen the build up to that budget; predict build time from the budget, not from fetch cost.
 - L10 (D7): Google News `site:` feeds revive outlets with dead RSS (Página/12 98 items, Cronista 100); `check-feeds` in the audit run proves feeds in 15 s. No images from them.
 - L11 (D8): Free no-key AR APIs (dolarapi.com, argentinadatos.com) work from CI; build time depends mostly on cache warmth — compare runs with similar cache state.
+- L12 (D9): Only ~1 local story per build reaches ≥3 Argentine outlets in one cluster, so lean-based features (blindspots) have no data until AR stories cluster across outlets. Check the denominator before building on a metric; log feed outages next to lean-based flags.
 - L7: The owner does not trust Green API; never propose it. Paid options (Claude API) only as opt-in.
 
 ## Entry template
@@ -96,10 +97,17 @@ Review notes (optional, not done): card also shows for a non-Argentine economy t
 Result: audit 39005508121 check-feeds — inflation 1.9% (2026-09-30), official 1535, blue 1555, riesgo país 648 (2026-10-16), all OK; build 39005506740 `econ data: 4/4`, no warnings, job 8m12s (warm cache), econ fetch ≤ a few s. — yes
 Verdict & lesson: kept → L11. Untested: API-down timing, card on non-AR economy themes.
 
-### D9 — Blindspot detection, measured before shown (2026-10-17) — status: open
+### D9 — Blindspot detection, measured before shown (2026-10-17) — status: parked
 Goal: Ground News-style "blindspots": AR stories one side of the lean bar does not cover.
 Evidence: leans: 23 centre, 2 centre-left (Página/12, elDiarioAR), 3 centre-right feeds (La Nación ×2, El Cronista), no left/right; ~14 sources unlabelled. Estimate 5–15 flagged/day, ~80% "left ignores" because only 2 left outlets; feed windows (Google News ~100 items) mean absence in feeds ≠ absence of coverage.
 Options: A) full tab now; B) compute + log + `blind` field, no UI until a quality check passes; C) skip.
 Decision: B — the investigator's risks (L6 spirit: check real data first) make a visible tab risky; measure first.
 Prediction: log `blindspot: n flagged (left_ignores=a, right_ignores=b) of m local multi-outlet stories` with 3 ≤ n ≤ 15 and a/n ≥ 0.6; build time ±0; then ≥4/5 sampled flags are real (the ignoring side truly has no article).
 Measurement: newsdesk log line; manual sample of 5 flagged stories via Google News search of the ignoring outlets.
+Result: run 39006995957 — `blindspot: 1 flagged (left_ignores=1, right_ignores=0) of 1 local multi-outlet stories` (m counts all scored stories, edition.py:145); 3 gnews feeds had a transient 503; job 6m00s. Predicted 3–15 flags — missed: almost no AR story reaches ≥3 AR outlets in one cluster. — no
+Verdict & lesson: parked (field kept, no UI) → L12. Root issue → D10.
+
+### D10 — Why Argentine stories rarely cluster across outlets (2026-10-17) — status: open
+Goal: more stories covered by several outlets (owner request: "news should be covered by more than one source"); prerequisite for blindspots.
+Evidence: D9 m=1; per-theme multi_outlet only 1–8 of accepted.
+Next: investigator (diagnosing-bugs) on cluster.py with real AR headlines.
