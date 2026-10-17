@@ -18,6 +18,7 @@ orchestrator adds an entry for each decision and fills in the outcome after meas
 - L12 (D9): Only ~1 local story per build reaches ≥3 Argentine outlets in one cluster, so lean-based features (blindspots) have no data until AR stories cluster across outlets. Check the denominator before building on a metric; log feed outages next to lean-based flags.
 - L13 (D10): Number- and entity-aware grouping raised multi-outlet stories +62% (Economía 8→12, Mundo 5→11) with 0/8 wrong merges sampled; Música and IA did not move — they need more outlets, not looser matching.
 - L14 (D6–D10): Build an offline fixture and count wrong merges/false flags next to hits; log samples (titles + outlets) so real-run quality can be judged, since the page is encrypted.
+- L15 (D11): Ranking/threshold rules add no volume; Música stays at 1–2 multi-outlet stories until there are more music outlets. Predict from source counts, not rules. Show queries returned 13 articles but only 1 became a show.
 - L7: The owner does not trust Green API; never propose it. Paid options (Claude API) only as opt-in.
 
 ## Entry template
@@ -135,10 +136,18 @@ Verdict & lesson: kept → L13, L14. D9 stays parked until flagged titles are lo
 - Música/IA: more outlets (Argentine music/espectáculos; owner's artists list is still empty).
 - Build time ~16 min when caches are cold: keep an eye on it (neutral titles fill their budget).
 
-### D11 — Música: your artists first, shows, and the confirmed-story rule (2026-10-17) — status: open
+### D11 — Música: your artists first, shows, and the confirmed-story rule (2026-10-17) — status: adjusted
 Goal: owner decisions (grilling): your artists first in Música, then shows in Argentina + big tours, then big releases; confirmed = 3+ outlets or official (2+ in Música and IA), filled with 2-outlet stories, then single-outlet stories marked "1 medio" only if a section has < 4; your-artist stories always shown; "most played" = Spotify top artists, medium_term (~6 months).
 Evidence: Spotify list today = typed + top + followed, cut at 40 (index.html:923-926; judge.py:140) while search cuts at 20 (artists.py:26) — order only right by accident. No artist flag on stories; artist stories get no boost and single-outlet ones are cut by confirmed() (index.html:476). artists.py searches no shows/tours. multi_outlet log counts ≥2 only.
 Options: A) strict 3+/2-fill, no single-source; B) A + marked single-source fill below 4; C) B + your-artist bypass.
 Decision: C (owner chose marked fill + artist bypass). Shows via fixed Google News queries (unverified, L8 — checked by check-feeds). Threshold computed in Python per theme (testable), not in JS.
 Prediction: Música accepted 5 → ≥8 and multi_outlet 1 → ≥3 once show queries run; log `music order: artist=a shows=b releases=c` (artist=0 until Spotify is connected); check-feeds shows the show queries OK; build ≤ 16 min.
 Measurement: newsdesk.yml log (theme Música line with new confirmed= count, music order line, samples); audit check-feeds; pytest.
+Result: audit 39059023442 — show queries 4/4 OK (23 items), known answers 39/41, Música real rows 12/14. Build 39059020398 (13m11s): show news 13 articles; Música 16/6/2, confirmed=2 (predicted accepted ≥8, multi_outlet ≥3 — missed); music order artist=0 (Spotify not connected) shows=1 releases=2, all samples in the right tier, no non-music leaks; Top still 8 stories; blindspot 6/9 flagged. Palito Ortega at Teatro Ópera not tiered as a show ("teatro" missing). — no (volume), yes (mechanics)
+Verdict & lesson: adjusted by D12 → L15.
+
+### D12 — More Argentine music outlets and wider show search (2026-10-17) — status: open
+Goal: Música accepted 6 → ≥10 and multi_outlet 2 → ≥4 (L13, L15: needs outlets).
+Decision: add Argentine music/espectáculos outlets via `gnews:` site search (L10; verified by check-feeds, L8): Indie Hoy, Rolling Stone Argentina/La Nación espectáculos, Infobae Teleshow/música, Página/12 espectáculos section, Billboard Argentina; widen SHOW_QUERIES (festival, tour, "entradas a la venta", Córdoba/Rosario) with a 14-day window; add theatre/venue show words (teatro, Teatro Ópera, Gran Rex, Vorterix, Niceto) to music_tier.
+Prediction: check-feeds OK for the new feeds; Música candidates 16 → ≥25, accepted ≥10, multi_outlet ≥4; shows tier ≥3; job ≤ 16 min.
+Measurement: audit check-feeds; newsdesk theme Música + music order lines.
