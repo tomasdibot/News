@@ -185,3 +185,11 @@ Decision: drop the 4 dead AI gnews feeds unless `when:7d` returns items (check-f
 Prediction: audit known answers IA ≥13/14 incl. Itaú OUT, Música ≥12/13 with the new rows; build Música accepted ≥15, IA ≥4; no new FP in samples.
 Measurement: audit.yml section 1–2 (+check-feeds), newsdesk theme lines and samples (warm run, L18).
 Review: round 1 CHANGES (case-study regex hit real launches like "How we built GPT-6"; artist rule missed "El regreso de Tool") → fixed: first person/how-to and lab subjects go to the model; ACT_WORDS widened. Round 2 APPROVE. Watch: broad ACT_WORDS (vivo, video, nuevo) in music order samples; 5-day-old official posts outranking fresh stories.
+
+### D16 — Readable everywhere: modern letters, bigger text, more space, text-size choice (2026-10-17) — status: open
+Goal (owner): the whole app easier to read. Owner said everything is hard (text size, letter style, crowding, the opened story); chose all-modern letters and a text-size dropdown in ⚙.
+Evidence (investigator, Playwright 390×844): summaries 14.5 px/1.4 serif; story text 16.5 px with 8 px between paragraphs; 6 ALL-CAPS letter-spaced styles at 11–11.5 px (~340 chars/screen); 38–43 elements under 14 px; three font families mixed in one story; outlet list mixes pale outlet name + dark title at 14 px; settings hints 13 px, move/edit buttons 40 px; headlines 19 px Playfair with 1.22 line-height. Contrast fine (≥6.3).
+Options: A) serif headlines + legible body; B) all-sans; C) text-size dropdown.
+Decision: B + C (owner's picks), plus more spacing.
+Prediction (Normal size): summary ≥16 px/≥1.45, story text 17 px/1.5 with ≥12 px between paragraphs, 45–75 chars/line, 0 text <12 px (≥13 px for anything to read), ≤2 ALL-CAPS styles and no caps run >20 chars, contrast ≥4.5, settings 0 targets <44 px and hints ≥14 px, ≥3 cards on the first screen, headline visible ≤500 ms; Large/Extra large scale all text ×1.12/×1.25 without horizontal overflow; pytest green.
+Measurement: investigator re-runs scratchpad read.py on the new code; pytest.
