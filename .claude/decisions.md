@@ -26,6 +26,7 @@ orchestrator adds an entry for each decision and fills in the outcome after meas
 - L20 (D15): Reworded prompt examples can't flip the 7B model on show/ticket headlines, even as audit CASES; fix such recall gaps with a code rule.
 - L21 (D18): Build rules from real audit rows (fixture first): "<band> announce 2027 tour" has no place, "Festival X en Escobar" no band — predictions on recall must come from running the rule on those rows.
 - L22 (D17): A total Google News outage (503) still publishes a green build with Música cut from ~20 to 4 — compare runs only when artist/show news are non-zero, and keep the last good results as a fallback.
+- L23 (D20): New sources bring new text shapes (version numbers in tech headlines) — any parser on headlines must never raise; a single exception stops the whole hourly edition.
 - L7: The owner does not trust Green API; never propose it. Paid options (Claude API) only as opt-in.
 
 ## Entry template
@@ -234,3 +235,7 @@ Decision: (1) delete generic SHOW_QUERIES; with artists configured, a music-them
 Prediction: 0 non-owner shows in Música; music order artist = number of distinct artists (~5–6); Badu/BTS repeats merged; owner's Tame trio still 3, chain wrong ≤8, D10 same ≥14/15 wrong ≤4/10; IA accepted 1 → ≥4 on a warm run with FP ≤1; build ≤16 min.
 Measurement: pytest; audit (check-feeds + known answers); warm newsdesk run log lines (theme Música/IA, music order, sources IA, second-pass merges).
 Review: APPROVE (round 1); round 2 applied: festival line-up with your artist anywhere is kept; AI Argentina rule denies sports/betting, product names only with context; second-pass guard skips keys shared by >50 stories (merge threshold 0.65 — 0.55/0.6 broke the chain fixture). Owner says repeats are in Música: keep_one_per_artist groups by artist across languages (tested). 213 pass.
+D20 first build (run 39142905446) FAILED after 2 min: a tech headline with a version number ("0.4.0") crashed figures_match (float('0.4.0')) in the new second-pass merge — no new edition published until fixed.
+
+### D20a — Hotfix: version numbers crash grouping (2026-10-18) — status: open
+Fix: norm_figure returns no figure for version-like tokens (0.4.0, 1.2.3); thousands-grouped numbers ("1.500.000", "1,500,000") → "1500000" (was a wrong "1500.000"); figures_match skips non-numbers. Tests added; 215 pass. Small and test-covered → shipped without a separate review round (orchestrator read the diff).

@@ -62,7 +62,14 @@ def overlap(a: set, b: set) -> float:
 
 def figures_match(a: frozenset, b: frozenset, tol: float = 0.01) -> bool:
     """Any figure equal, or within `tol` of one in the other title ($1.555 vs $1.560)."""
-    return any(abs(float(x) - float(y)) <= tol * max(float(x), float(y)) for x in a for y in b)
+    def nums(fs):
+        for f in fs:
+            try:
+                yield float(f)
+            except ValueError:
+                pass
+    bs = list(nums(b))
+    return any(abs(x - y) <= tol * max(x, y) for x in nums(a) for y in bs)
 
 
 def similarity(a: _Features, b: _Features) -> float:

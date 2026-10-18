@@ -75,12 +75,14 @@ _THOUSANDS_DEC_RE = re.compile(r"(\d{1,3}(?:[.,]\d{3})+)[.,](\d+)")
 def norm_figure(raw: str) -> str | None:
     """"1,9" / "1.9" -> "1.9"; "1.555" / "1555" -> "1555". None for single digits."""
     m = _THOUSANDS_DEC_RE.fullmatch(raw)
-    if m:
+    if _THOUSANDS_RE.fullmatch(raw):
+        fig = re.sub(r"[.,]", "", raw)  # "1.500.000" / "1,500,000"
+    elif m:
         fig = re.sub(r"[.,]", "", m.group(1)) + "." + m.group(2)
-    elif _THOUSANDS_RE.fullmatch(raw):
-        fig = re.sub(r"[.,]", "", raw)
     else:
         fig = raw.replace(",", ".")
+    if fig.count(".") > 1:
+        return None  # version-like ("0.4.0"), not a number
     return fig if "." in fig or len(fig) >= 2 else None
 
 

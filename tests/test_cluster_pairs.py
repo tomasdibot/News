@@ -126,3 +126,23 @@ def test_same_meaning_words_share_a_token():
     assert tokens("Acuerdo con el FMI") == tokens("Acuerdo con el Fondo Monetario Internacional")
     assert tokens("Acuerdo con el Fondo Monetario") == tokens("Acuerdo con el FMI")
     assert tokens("El dólar oficial") != tokens("El dólar blue")
+
+
+def test_version_numbers_do_not_crash_clustering():
+    # "v0.4.0" is not a figure: similarity and cluster must not raise on it.
+    a = features(_art("Xataka", "Lanzan la versión v0.4.0 de la herramienta de IA", 0))
+    b = features(_art("Genbeta", "Lanzan la versión v1.2.3 de la herramienta de IA", 1))
+    assert 0.0 <= similarity(a, b) <= 1.0
+    arts = [_art("Xataka", "Lanzan la versión v0.4.0 de la herramienta de IA", 0),
+            _art("Genbeta", "Lanzan la versión v0.4.0 de la herramienta de IA", 1),
+            _art("Hipertextual", "Sale v1.2.3 de la herramienta de IA", 2)]
+    assert cluster(arts)
+
+
+def test_norm_figure_thousands_and_decimals():
+    from newsdesk.text import norm_figure
+    assert norm_figure("1.500.000") == norm_figure("1,500,000") == "1500000"
+    assert norm_figure("1.555") == "1555"
+    assert norm_figure("2,1") == "2.1"
+    assert norm_figure("1.234,5") == "1234.5"
+    assert norm_figure("0.4.0") is None and norm_figure("1.2.3") is None
