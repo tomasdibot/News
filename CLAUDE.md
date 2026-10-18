@@ -13,6 +13,7 @@ daily phone notification (Web Push) from the installed app. See README.md for de
   what changed, and only the steps the owner must do now. The full setup checklist lives
   in README.md — keep it in sync there instead of repeating it in chat.
 - Keep text inside the app short too.
+- When a shipped change goes live (its build deployed to Pages), send the owner a short phone notification (PushNotification, Spanish).
 
 ## Project facts
 
