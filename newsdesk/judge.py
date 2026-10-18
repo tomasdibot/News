@@ -393,6 +393,15 @@ AI_DENY = ["vs", "partido", "partidos", "mundial", "seleccion", "futbol", "predi
            "apuestas", "pronostico"]
 AR_MARKERS = ["argentina", "argentino", "argentinos", "argentinas", "milei", "conicet", "mercado libre",
               "globant", "ypf", "gobierno nacional"]
+AI_COMPANIES = ["openai", "anthropic", "deepmind", "google gemini", "meta ai", "mistral", "xai", "nvidia", "microsoft ai",
+                "perplexity", "hugging face"]   # bare "gemini" counts only next to an AI_CONTEXT word
+BUSINESS_WORDS = ["invierte", "inversion", "ronda", "valuacion", "valuada", "adquiere", "adquisicion", "contrata", "contratar",
+                  "despidos", "financiacion", "funding", "hires", "hiring", "layoffs", "acquires", "valuation", "stake",
+                  "shares", "acciones"]
+MARKET_MOVES = ["caen", "cae", "suben", "sube", "rally", "falls", "fall", "rises", "rise", "jump", "jumps", "drop", "drops", "gains"]
+COMPANY_DENY = ["demanda", "demandas", "detienen", "detenido", "estafa", "horoscopo", "signo", "suicidio", "fiscalia",
+                "juicio", "lawsuit", "sues", "arrest"]
+COMPANY_THEME = re.compile(r"\b(empresas|companias|companies|business)\b")
 
 
 def is_show_news(headline: str, artist: bool | None = None) -> bool:
@@ -432,6 +441,11 @@ def rule_verdict(theme: str, material: dict, lead: str | None = None, artist: bo
         ai = has(text, AI_WORDS) or (has(text, AI_NAMES) and has(text, AI_CONTEXT))
         if ai and has(text, AR_MARKERS) and not has(text, AI_DENY):
             return True
+        if COMPANY_THEME.search(theme_key(theme)) and not has(text, AI_DENY + COMPANY_DENY):
+            named = has(text, AI_COMPANIES) or (has(text, ["gemini"]) and has(text, AI_CONTEXT))
+            words = [w for w in BUSINESS_WORDS if w not in ("shares", "acciones")] if has(text, MARKET_MOVES) else BUSINESS_WORDS
+            if named and has(text, words):
+                return True   # AI-company business news (investment, hiring, deals) in a theme about companies
     return None
 
 

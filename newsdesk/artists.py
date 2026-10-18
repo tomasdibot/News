@@ -19,7 +19,7 @@ import feedparser
 
 from .config import ROOT, Source
 from .fetch import SAFE_LINK, Article, _get, _published
-from .music import MAX_ARTISTS
+from .music import MAX_ARTISTS, has, tokens
 from .text import clean_html, normalize
 
 log = logging.getLogger(__name__)
@@ -35,8 +35,7 @@ def search_url(artist: str, edition: str, days: int = ARTIST_DAYS) -> str:
 
 
 def parse_search(content: bytes, artist: str, lang: str, now: datetime) -> list[Article]:
-    want = normalize(artist)
-    return _parse(content, lang, now, lambda title: want in normalize(title), query=normalize(artist))   # the artist must be in the headline
+    return _parse(content, lang, now, lambda title: has(tokens(title), [artist]), query=normalize(artist))   # the artist must be a whole word in the headline
 
 
 def _parse(content: bytes, lang: str, now: datetime, keep, days: int = ARTIST_DAYS, query: str = "") -> list[Article]:

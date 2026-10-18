@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from conftest import NOW, SOURCES
 
@@ -511,3 +511,56 @@ def test_wide_coverage_passes_the_cap_over_keyword_heavy_single_outlet_stories(m
     with caplog.at_level(logging.INFO):
         judge.judge_themes(ss, cfg, cache_path=tmp_path / "c.json")
     assert any(f"cap cut Economía: {len(cut)} stories (0 with ≥3 outlets)" in r.getMessage() for r in caplog.records)
+
+
+def test_ai_company_business_news_fits_only_in_themes_about_companies():
+    ai = "IA: empresas y lanzamientos"
+    for h in ["Anthropic dejó de contratar juniors", "Anthropic commits 5% of its shares to a public benefit fund",
+              "OpenAI cierra una ronda de financiación récord", "Microsoft AI acquires a startup",
+              "Perplexity cierra una ronda de financiación"]:
+        assert judge.rule_verdict(ai, {"headlines": [h]}) is True, h
+    for h in ["NVIDIA stock prediction for the weekend game bet",          # betting stays with the model
+              "Apuestas: acciones de NVIDIA vs Microsoft AI en el partido",
+              "Anthropic lanza un nuevo modelo",                            # no business word
+              "Toyota adquiere una automotriz rival",                       # not an AI company
+              "Telecom cierra un acuerdo con Personal",
+              "Openaiko invierte en hoteles"]:                              # whole words only
+        assert judge.rule_verdict(ai, {"headlines": [h]}) is None, h
+    assert judge.rule_verdict("IA: lanzamientos", {"headlines": ["Anthropic dejó de contratar juniors"]}) is None
+    assert judge.rule_verdict("Companies and AI", {"headlines": ["Anthropic hires 200 engineers"]}) is True
+    assert judge.rule_verdict("Economía empresas", {"headlines": ["Anthropic hires 200 engineers"]}) is None
+    assert judge.rule_verdict(ai, {"headlines": ["How Itaú is building generative AI with OpenAI deal"]}) is False   # case study first
+
+
+def test_audit_adds_artist_news_like_the_build(monkeypatch, cfg, articles):
+    from newsdesk import audit
+    from newsdesk.artists import parse_search
+
+    from email.utils import format_datetime
+    seen = []
+    now = datetime.now(timezone.utc)
+    lali = parse_search(f"""<rss><channel><item><title>Lali anuncia recital en Buenos Aires - Clarin</title><link>https://n/9</link>
+      <pubDate>{format_datetime(now - timedelta(hours=1))}</pubDate><source url="https://clarin.com">Clarin</source></item></channel></rss>""".encode(),
+                        "Lali", "es", now)
+    monkeypatch.setenv("NEWSDESK_THEMES", "Música: Lanzamientos, Shows")
+    monkeypatch.setenv("NEWSDESK_ARTISTS", "Lali")
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    monkeypatch.setattr(audit, "fetch_all", lambda *a, **k: list(articles))
+    monkeypatch.setattr(audit, "fetch_artist_news", lambda artists, *a: seen.append(artists) or lali)
+    monkeypatch.setattr(audit, "ask_many", lambda p, c, m, t, items, mode="single": {k: True for k, _ in items})
+    monkeypatch.setattr(audit, "importance_lines", lambda *a, **k: [])
+    out = []
+    assert audit.run(cfg, out=out.append) == 0
+    assert seen == [["Lali"]] and "Lali anuncia recital en Buenos Aires" in out[0]
+
+
+def test_ai_company_rule_is_strict_about_lawsuits_horoscopes_markets_and_loose_words():
+    ai = "IA: empresas"
+    for h in ["OpenAI: la madre de la víctima demanda por suicidio, acuerdo judicial",
+              "Detienen a un hombre que usó ChatGPT de OpenAI para estafar; acuerdo con la fiscalía",
+              "Gemini: horóscopo de hoy, acuerdo en el amor", "Fondo musical de OpenAI en el evento",
+              "Elon Musk demanda a OpenAI por acuerdo con Microsoft", "NVIDIA acciones caen 5% en Wall Street",
+              "Gemini hires a new chef", "NVIDIA shares rise 3% on Monday"]:
+        assert judge.rule_verdict(ai, {"headlines": [h]}) is None, h
+    assert judge.rule_verdict(ai, {"headlines": ["Google Gemini team hires 50 researchers"]}) is True
+    assert judge.rule_verdict(ai, {"headlines": ["Gemini app: Google invierte en un nuevo centro"]}) is True

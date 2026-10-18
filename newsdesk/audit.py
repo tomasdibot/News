@@ -14,6 +14,7 @@ import os
 import time
 from datetime import datetime, timezone
 
+from .artists import fetch_artist_news
 from .cluster import cluster
 from .config import load_sources
 from .fetch import fetch_all
@@ -137,6 +138,9 @@ def run(cfg, out=print) -> int:
     lines += ["## 2. Today's news, as each setup sees it", "",
               "Columns: " + " | ".join(f"{m}·{md}" for m, md in setups), ""]
     articles = fetch_all(load_sources(cfg), country=cfg["profile"]["country"])
+    artists = configured_artists(cfg)
+    if artists:   # the build adds your artists' news before clustering, so the audit does too
+        articles += fetch_artist_news(artists, now)
     stories = score_stories(cluster(articles), cfg, now)
     sample = int(os.environ.get("AUDIT_SAMPLE", PER_THEME))
     judged = []
@@ -160,7 +164,7 @@ def run(cfg, out=print) -> int:
     for theme, allc, kept, cands, accepted in judged:
         try:
             lines += importance_lines(theme, stories, allc, kept, cands, accepted, articles, refs,
-                                     artists=configured_artists(cfg)) \
+                                     artists=artists) \
                 or [f"importance {theme}: _(no reference for this subject)_"]
         except Exception as exc:   # the importance check never fails the audit
             lines.append(f"importance {theme}: unavailable ({exc})")

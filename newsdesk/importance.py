@@ -22,12 +22,12 @@ from .config import Source
 from .fetch import SAFE_LINK, Article, _get
 from .judge import MUSIC_CANDIDATE_WORDS, _kw_re, theme_key
 from .lexicon import CONCEPTS, TOPIC_ALIASES, TOPIC_KEYWORDS
-from .music import min_outlets
+from .music import has, min_outlets, tokens
 from .text import clean_html, normalize
 
 log = logging.getLogger(__name__)
 
-PER_THEME_REFS = 10
+PER_THEME_REFS = 20
 MATCH = 0.5   # same language: stricter than joining a story (0.42), so two market reports do not match
 GNEWS = "https://news.google.com/rss/headlines/section/topic/{}?hl=es-419&gl=AR&ceid=AR:es-419"
 TECHMEME = "https://www.techmeme.com/feed.xml"
@@ -41,6 +41,9 @@ REFERENCES = {
 # Reference items that are not news stories (regexes on the accent-free lowercase title)
 JUNK = re.compile(r"-\s?video\b|\((video|audio)\)|^(en vivo|minuto a minuto)\b|\bhoroscopo\b|\bquiniela\b"
                   r"|^el clima (en|hoy)\b|\bpronostico del (tiempo|clima)\b")
+# World and economy references are kept unless they clearly belong elsewhere (the keyword lists are too narrow for them)
+SOFT = re.compile(r"\b(futbol|deportes|goles|espectaculos|famosos|recetas?|horoscopo|quiniela|pronostico del (tiempo|clima)|"
+                  r"boca juniors|river plate|superclasico|liga profesional|club atletico|copa libertadores)\b")
 ARTIST_REF_DAYS = 2
 
 
@@ -93,6 +96,13 @@ def parse_reference(content: bytes, lang: str, now: datetime | None = None) -> l
     return out
 
 
+def fits_reference(title: str, kind: str) -> bool:
+    """AI and music references must match the theme's keywords; the others only must not be clearly off-topic."""
+    if kind in ("ai", "music"):
+        return fits_kind(title, kind)
+    return not SOFT.search(normalize(title))
+
+
 def is_junk(title: str) -> bool:
     return bool(JUNK.search(normalize(title)))
 
@@ -106,9 +116,8 @@ def _artist_references(artists: list[str], get, now: datetime | None) -> list[Ar
         if len(out) >= PER_THEME_REFS:
             break
         try:
-            want = normalize(artist)
             url = search_url(artist, edition, ARTIST_REF_DAYS)
-            found = _parse(get(url, timeout=8).content, lang, now, lambda t: want in normalize(t),
+            found = _parse(get(url, timeout=8).content, lang, now, lambda t: has(tokens(t), [artist]),
                            days=ARTIST_REF_DAYS)
         except Exception as exc:   # one artist failing only lowers the counts
             log.warning("importance reference for %s failed: %s", artist, exc)
@@ -119,9 +128,10 @@ def _artist_references(artists: list[str], get, now: datetime | None) -> list[Ar
 
 
 def _fetch(kind: str, get=None, now: datetime | None = None, artists: list[str] | None = None):
-    """-> (up to PER_THEME_REFS reference stories, label of the feeds that answered, junk items dropped)."""
+    """-> (up to PER_THEME_REFS reference stories, label of the feeds that answered,
+    titles of junk items dropped, titles of off-theme items dropped)."""
     get = get or _get
-    batches, labels, dropped = [], [], 0
+    batches, labels, dropped, off = [], [], [], []
     if kind == "music" and artists:
         arts = _artist_references(artists, get, now)
         if arts:
@@ -134,19 +144,18 @@ def _fetch(kind: str, get=None, now: datetime | None = None, artists: list[str] 
             log.warning("importance reference %s failed: %s", label, exc)
             continue
         kept = [a for a in arts if not is_junk(a.title)]
-        dropped += len(arts) - len(kept)
-        arts = kept
-        if label == "google" and kind == "ai":
-            arts = [a for a in arts if fits_kind(a.title, kind)]
+        dropped += [a.title for a in arts if is_junk(a.title)]
+        arts = [a for a in kept if fits_reference(a.title, kind)]
+        off += [a.title for a in kept if not fits_reference(a.title, kind)]
         if arts:
             batches.append(arts)
             labels.append(label)
     mixed = [a for a in itertools.chain.from_iterable(itertools.zip_longest(*batches)) if a]
-    return mixed[:PER_THEME_REFS], "+".join(labels), dropped
+    return mixed[:PER_THEME_REFS], "+".join(labels), dropped, off
 
 
 def fetch_references(kind: str, get=None, now: datetime | None = None, artists: list[str] | None = None) -> tuple[list[Article], str]:
-    refs, label, _ = _fetch(kind, get, now, artists)
+    refs, label, _, _ = _fetch(kind, get, now, artists)
     return refs, label
 
 
@@ -172,10 +181,9 @@ def rank_accepted(accepted: list[Story], need: int) -> list[Story]:
 
 
 def _hits(rf, stories: list[Story]) -> list[Story]:
-    same = [s for s in stories if any(f.lang == rf.lang and similarity(rf, f) >= MATCH for f in s.feats)]
-    if same:
-        return same
-    return [s for s in stories if any(f.lang != rf.lang and similarity(rf, f) >= CROSS_LANG_THRESHOLD for f in s.feats)]
+    """Every edition story that matches: same language at MATCH, other language at the cross-language threshold."""
+    return [s for s in stories if any(similarity(rf, f) >= (MATCH if f.lang == rf.lang else CROSS_LANG_THRESHOLD)
+                                      for f in s.feats)]
 
 
 def evaluate(refs: list[Article], stories: list[Story], cands: list[Story], capped: list[Story],
@@ -234,7 +242,7 @@ def importance_lines(theme: str, stories: list[Story], cands: list[Story], cappe
             references = {}
         if kind not in references:
             references[kind] = _fetch(kind, get, artists=artists)
-        refs, label, dropped = references[kind]
+        refs, label, dropped, off = references[kind]
         if not refs and kind == "music":
             return [f"importance {theme}: no artist references"]
         if not refs:
@@ -244,7 +252,9 @@ def importance_lines(theme: str, stories: list[Story], cands: list[Story], cappe
         lines = [f"importance {theme}: top4 {top4}/{n} top10 {top10}/{n} (ref: {label}, rank approx.)"]
         outlet_of = {a.title: a.outlet for a in refs if a.outlet not in ("ref", "reference")}
         if dropped:
-            lines.append(f"ref dropped {theme}: {dropped} junk")
+            lines.append(f"ref dropped {theme}: {len(dropped)} junk — " + " | ".join(t[:60] for t in dropped))
+        if off:
+            lines.append(f"ref off-theme {theme}: {len(off)} — " + " | ".join(t[:60] for t in off))
         for reason, title in misses:
             who = f" [{outlet_of[title]}]" if reason == "not fetched" and title in outlet_of else ""
             lines.append(f"  miss: {reason} — {title}{who}")

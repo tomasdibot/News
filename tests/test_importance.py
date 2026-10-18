@@ -161,8 +161,8 @@ def test_junk_reference_items_are_dropped_and_counted():
             "Horóscopo de hoy", "Minuto a minuto del dólar", "El clima en Buenos Aires"]
     good = "El INDEC informo que la inflacion de septiembre fue de 2,1%"
     got = Resp(feed(*[(t, None) for t in junk], (good, "Infobae")))
-    refs, label, dropped = importance._fetch("economy", lambda url: got, NOW)
-    assert [a.title for a in refs] == [good] and dropped == len(junk)
+    refs, label, dropped, _ = importance._fetch("economy", lambda url: got, NOW)
+    assert [a.title for a in refs] == [good] and len(dropped) == len(junk)
 
 
 def test_real_news_with_junk_looking_words_is_kept():
@@ -184,7 +184,7 @@ def test_music_reference_is_the_news_of_your_artists_one_each_from_the_last_two_
         name = "Duki" if "Duki" in url else "Wos"
         return Resp(feed((f"{name} anuncia show en Buenos Aires - Rolling Stone", "Rolling Stone"),
                          (f"{name} lanza disco nuevo - Clarin", "Clarin")))
-    refs, label, _ = importance._fetch("music", get, NOW, artists=["Duki", "Wos"])
+    refs, label, _, _ = importance._fetch("music", get, NOW, artists=["Duki", "Wos"])
     assert [a.title for a in refs] == ["Duki anuncia show en Buenos Aires", "Wos anuncia show en Buenos Aires"]
     assert label == "artists (self-check)"
 
@@ -195,7 +195,7 @@ def test_music_without_artists_is_skipped():
 
 
 def test_every_miss_is_printed_with_reasons_and_the_outlets_google_names():
-    titles = [f"Noticia economica numero {w} sobre {w}{w}{w} del dia" for w in "abcdefg"]
+    titles = [f"La inflacion numero {w} sobre {w}{w}{w} del dia" for w in "abcdefg"]
     got = Resp(feed(*[(f"{t} - {'Ambito' if i < 5 else 'Infobae'}", "Ambito" if i < 5 else "Infobae")
                       for i, t in enumerate(titles)]))
     lines = importance.importance_lines("Economía", [], [], [], [], [], [], get=lambda url: got)
@@ -209,3 +209,58 @@ def test_every_miss_is_printed_with_reasons_and_the_outlets_google_names():
 def test_outlet_comes_from_the_title_suffix_when_there_is_no_source_element():
     refs = importance.parse_reference(feed(("Fuerte caida de las exportaciones - La Nacion", None)), "es", NOW)
     assert refs[0].title == "Fuerte caida de las exportaciones" and refs[0].outlet == "La Nacion"
+
+
+def test_ref_dropped_and_off_theme_lines_list_trimmed_titles():
+    long_junk = "Dólar hoy - Video - " + "x" * 80
+    good = "El INDEC informo que la inflacion de septiembre fue de 2,1%"
+    off = "Receta de pan casero en 30 minutos"
+    got = Resp(feed((long_junk, "Infobae"), (good, "Infobae"), (off, "Clarin")))
+    lines = importance.importance_lines("Economía", [], [], [], [], [], [], get=lambda url: got)
+    dropped = next(l for l in lines if l.startswith("ref dropped"))
+    assert dropped.startswith("ref dropped Economía: 1 junk — Dólar hoy - Video - ") and len(dropped.split(" — ")[1]) <= 60
+    assert "ref off-theme Economía: 1 — Receta de pan casero en 30 minutos" in lines
+    assert "importance Economía: top4 0/1 top10 0/1 (ref: google, rank approx.)" in lines
+
+
+def test_off_theme_reference_items_are_dropped_before_the_cap_and_counted():
+    items = [(f"Receta numero {i} de pan casero", "Clarin") for i in range(25)] + [(INFLATION, "Infobae")]
+    refs, label, dropped, off = importance._fetch("economy", lambda url: Resp(feed(*items)), NOW)
+    assert [a.title for a in refs] == [INFLATION] and len(off) == 25 and dropped == []
+    assert importance.PER_THEME_REFS == 20
+
+
+def test_an_accepted_story_among_several_matches_is_a_hit():
+    title = "Milei firma el decreto de la reforma laboral en Casa Rosada"
+    rejected, accepted = story(title, hours=1), story(title, hours=100)
+    accepted.score = 1
+    assert importance.evaluate([ref(title)], [rejected, accepted], [rejected, accepted], [rejected, accepted],
+                               [accepted], need=3) == (1, 1, [])
+
+
+def test_a_same_language_match_does_not_hide_an_accepted_cross_language_story():
+    en = cluster([art(SOURCES["bbc"], "INDEC reports September inflation of 2.1% in Argentina")])[0]
+    es = story("El INDEC informo inflacion de septiembre en Argentina, 2,1% y baja de tasas")
+    en.score = 1
+    r = ref("El INDEC informó inflación de 2,1% en Argentina en septiembre")
+    top4, top10, _ = importance.evaluate([r], [es, en], [es, en], [es, en], [en], need=3)
+    assert top10 == 1
+
+
+def test_artist_reference_matches_whole_words_only():
+    def get(url, timeout=None):
+        return Resp(feed(("Nuevo stool de diseño llega a Buenos Aires - Clarin", "Clarin"),
+                         ("Toolbox gratis para músicos - Clarin", "Clarin"),
+                         ("Tool anuncia show en Buenos Aires - Rolling Stone", "Rolling Stone")))
+    refs, _, _, _ = importance._fetch("music", get, NOW, artists=["Tool"])
+    assert [a.title for a in refs] == ["Tool anuncia show en Buenos Aires"]
+
+
+def test_world_and_economy_references_are_only_filtered_by_a_small_soft_list():
+    keep = ["Trump y Putin se reúnen en Alaska", "Sismo de magnitud 7 sacude Japón", "Merval cae 3%",
+            "El partido Republicano pierde la Cámara", "Cumbre del clima COP30", "Crecida del River Thames",
+            "Un candidato independiente gana en Chile", "Boca de urna: Kast lidera", "Ganó a Trump en Texas el demócrata"]
+    drop = ["Receta de pan casero", "Boca Juniors le ganó a River Plate"]
+    for kind in ("world", "economy"):
+        assert all(importance.fits_reference(t, kind) for t in keep)
+        assert not any(importance.fits_reference(t, kind) for t in drop)

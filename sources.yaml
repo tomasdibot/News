@@ -93,6 +93,10 @@
 - { id: lanacion-eco,  outlet: La Nación,  lang: es, region: AR, tier: commercial, lean: center-right, url: "https://www.lanacion.com.ar/arc/outboundfeeds/rss/category/economia/?outputType=xml", topics: [economy] }
 - { id: clarin-eco,    outlet: Clarín,     lang: es, region: AR, tier: commercial, lean: center, url: "https://www.clarin.com/rss/economia/", topics: [economy] }
 - { id: clarin-esp,    outlet: Clarín,     lang: es, region: AR, tier: commercial, lean: center, url: "https://www.clarin.com/rss/espectaculos/", topics: [culture] }
+- { id: clarin-eco-gn, outlet: Clarín,     lang: es, region: AR, tier: commercial, lean: center, gnews: "clarin.com/economia", topics: [economy] }
+- { id: clarin-mundo-gn, outlet: Clarín,   lang: es, region: AR, tier: commercial, lean: center, gnews: "clarin.com/mundo", topics: [world] }
+- { id: infobae-america, outlet: Infobae,  lang: es, region: AR, tier: commercial, lean: center, gnews: "infobae.com/america", topics: [world] }
+- { id: iprofesional,  outlet: iProfesional, lang: es, region: AR, tier: commercial, lean: center-right, gnews: "iprofesional.com", topics: [economy] }
 - { id: chequeado,     outlet: Chequeado,  lang: es, region: AR, tier: specialist, lean: center, url: "https://chequeado.com/feed/" }
 
 # --- Spain -----------------------------------------------------------------

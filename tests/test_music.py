@@ -299,3 +299,22 @@ def test_one_per_artist_also_merges_repeats_across_languages(cfg, monkeypatch, t
     assert len(ss) == 2                                                        # the clusterer keeps languages apart
     judge.judge_themes(ss, cfg, cache_path=tmp_path / "c.json")
     assert sum(bool(s.fits[judge.theme_key("Música")]) for s in ss) == 1
+
+
+def test_artist_search_keeps_only_headlines_with_the_artist_as_a_whole_word():
+    from newsdesk.artists import parse_search
+    rss = b"""<rss><channel>
+      <item><title>Nuevo stool de diseno - Clarin</title><link>https://n/1</link><pubDate>Fri, 09 Oct 2026 12:00:00 GMT</pubDate><source url="https://c.com">Clarin</source></item>
+      <item><title>Toolbox gratis para musicos - Clarin</title><link>https://n/2</link><pubDate>Fri, 09 Oct 2026 12:00:00 GMT</pubDate><source url="https://c.com">Clarin</source></item>
+      <item><title>Tool anuncia gira por Sudamerica - Clarin</title><link>https://n/3</link><pubDate>Fri, 09 Oct 2026 12:00:00 GMT</pubDate><source url="https://c.com">Clarin</source></item>
+      </channel></rss>"""
+    assert [a.title for a in parse_search(rss, "Tool", "es", NOW)] == ["Tool anuncia gira por Sudamerica"]
+
+
+def test_artist_search_handles_names_with_symbols_and_accents():
+    from newsdesk.artists import parse_search
+    rss = """<rss><channel>
+      <item><title>AC/DC anuncia gira - Clarin</title><link>https://n/1</link><pubDate>Fri, 09 Oct 2026 12:00:00 GMT</pubDate><source url="https://c.com">Clarin</source></item>
+      <item><title>BabasonÃ­cos vuelven al Luna Park - Clarin</title><link>https://n/2</link><pubDate>Fri, 09 Oct 2026 12:00:00 GMT</pubDate><source url="https://c.com">Clarin</source></item>
+      </channel></rss>""".encode()
+    assert len(parse_search(rss, "AC/DC", "es", NOW)) == 1 and len(parse_search(rss, "Babasónicos", "es", NOW)) == 1
