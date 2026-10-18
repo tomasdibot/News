@@ -155,7 +155,7 @@ def log_music_order(stories: list[Story], artists: list[str]) -> None:
     """How a music theme is ordered (your artists, shows, releases), with a few headlines per tier."""
     tiers: dict[int, list[Story]] = {0: [], 1: [], 2: [], 3: []}
     for s in stories:
-        tiers[music_tier(s, artist_rank(s, artists))].append(s)
+        tiers[music_tier(s, artist_rank(s, artists), bool(artists))].append(s)
     log.info("music order: artist=%d shows=%d releases=%d", len(tiers[0]), len(tiers[1]), len(tiers[2]))
     for t, name in ((0, "artist"), (1, "shows"), (2, "releases")):
         for s in tiers[t][:5]:
@@ -367,7 +367,8 @@ NOT_MUSIC_SUBJECT = re.compile(r"\b(presidente|ministro|ministra|gobernador|gobe
 
 
 # With artists configured, any of these in a lead headline without your artist keeps the story out of Música.
-SHOW_REJECT_WORDS = SHOW_NEWS_WORDS + ["line up", "lineup", "grilla", "lollapalooza", "cosquin rock", "primavera sound"]
+SHOW_REJECT_WORDS = (SHOW_NEWS_WORDS + ["line up", "lineup", "grilla", "lollapalooza", "cosquin rock", "primavera sound",
+                                        "vibrar", "vibro", "teatro", "estadio", "arena"] + VENUE_WORDS)   # live reports too
 LINEUP_WORDS = ["festival", "festivales", "line up", "lineup", "grilla", "lollapalooza", "cosquin rock", "primavera sound"]
 AI_WORDS = ["ia", "inteligencia artificial", "ai", "chatgpt", "llm"]
 AI_NAMES = ["gemini", "claude"]   # also first names: they count only next to a product word

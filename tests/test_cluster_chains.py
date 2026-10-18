@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from newsdesk.cluster import cluster
+from newsdesk.cluster import _merge_repeats, cluster
 from newsdesk.config import Source
 from newsdesk.edition import story_dict
 from newsdesk.fetch import Article
@@ -213,3 +213,15 @@ def test_second_pass_skips_index_keys_shared_by_many_stories(monkeypatch):
     assert calls == []
     c._merge_repeats(stories, {"common": set(range(10))})      # a small group is still compared
     assert len(calls) == 45
+
+
+def test_second_pass_keeps_short_template_titles_apart():
+    stories = [cluster([_later("A", "Finance workflows with ChatGPT Work", 0, 0, "en")])[0],
+               cluster([_later("B", "Operations workflows with ChatGPT Work", 1, 5, "en")])[0]]
+    assert len(_merge_repeats(stories, {"workf": {0, 1}})) == 2
+
+
+def test_second_pass_still_merges_the_f1_rwanda_pair():
+    stories = [cluster([_later("A", "Formula 1: Rwanda to bring sport back to Africa", 0, 0, "en")])[0],
+               cluster([_later("B", "Formula One in Rwanda: Sportswashing claims vs. hopes for African legacy", 1, 5, "en")])[0]]
+    assert len(_merge_repeats(stories, {"rwand": {0, 1}})) == 1

@@ -27,6 +27,7 @@ orchestrator adds an entry for each decision and fills in the outcome after meas
 - L21 (D18): Build rules from real audit rows (fixture first): "<band> announce 2027 tour" has no place, "Festival X en Escobar" no band — predictions on recall must come from running the rule on those rows.
 - L22 (D17): A total Google News outage (503) still publishes a green build with Música cut from ~20 to 4 — compare runs only when artist/show news are non-zero, and keep the last good results as a fallback.
 - L23 (D20): New sources bring new text shapes (version numbers in tech headlines) — any parser on headlines must never raise; a single exception stops the whole hourly edition.
+- L24 (D20b): A "reject shows without your artist" rule needs negative tests with real non-owner live reports that use no show word ("hizo vibrar el Teatro Ópera"); and every merge guard must be checked against the real good merges from the last build log, not only the bad pair.
 - L7: The owner does not trust Green API; never propose it. Paid options (Claude API) only as opt-in.
 
 ## Entry template
@@ -228,7 +229,7 @@ Prediction: D10 same-event 12/15 → ≥14/15 with wrong ≤4/10; chain fixture 
 Measurement: pytest fixtures; next warm newsdesk runs (Economía line, samples), simulated outage test.
 D19 shipped: commit 9e0e151, run 39133966437 (not yet measured).
 
-### D20 — Música only your artists, 1 per artist, merge repeats; more IA (2026-10-18) — status: open
+### D20 — Música only your artists, 1 per artist, merge repeats; more IA (2026-10-18) — status: adjusted (D20b)
 Goal (owner): Música shows only of the owner's artists (no U2/BTS/Palito), at most 1 story per artist, no repeated stories with the same information; more IA stories (more sources incl. Spanish; AI in Argentina fits).
 Evidence (investigator, run 39123508250): generic show search was Música's largest source (37 candidates / 17 accepted); is_show_news and music_tier accept any artist's show; artist=9 with Badu ×2, Tame Impala ×2; same-event pairs (Badu 0.64, BTS 0.88) stay split because D17 joins only against the lead; IA 24 candidates / 1 accepted, all AI feeds English, 8 Spanish general-outlet candidates 0 accepted; "show search" label mislabels gnews AI feeds.
 Decision: (1) delete generic SHOW_QUERIES; with artists configured, a music-theme show headline without your artist is rejected by rule_verdict; music_tier 1 only for your artists' shows; (2) after judging, keep 1 story per artist in music themes (official > outlets > show > newest), log it; (3) second-pass merge in cluster(): same language, within 72 h, best member pair ≥0.55, log merges; (4) add Spanish/English AI sources via gnews (check-feeds keeps only working ones), rule: AI word + Argentina marker in an AI theme → fits; fix source_counts label. Judge VERSION bump only if the prompt changes (prefer rules — L20).
@@ -237,5 +238,11 @@ Measurement: pytest; audit (check-feeds + known answers); warm newsdesk run log 
 Review: APPROVE (round 1); round 2 applied: festival line-up with your artist anywhere is kept; AI Argentina rule denies sports/betting, product names only with context; second-pass guard skips keys shared by >50 stories (merge threshold 0.65 — 0.55/0.6 broke the chain fixture). Owner says repeats are in Música: keep_one_per_artist groups by artist across languages (tested). 213 pass.
 D20 first build (run 39142905446) FAILED after 2 min: a tech headline with a version number ("0.4.0") crashed figures_match (float('0.4.0')) in the new second-pass merge — no new edition published until fixed.
 
-### D20a — Hotfix: version numbers crash grouping (2026-10-18) — status: open
+### D20a — Hotfix: version numbers crash grouping (2026-10-18) — status: kept
 Fix: norm_figure returns no figure for version-like tokens (0.4.0, 1.2.3); thousands-grouped numbers ("1.500.000", "1,500,000") → "1500000" (was a wrong "1500.000"); figures_match skips non-numbers. Tests added; 215 pass. Small and test-covered → shipped without a separate review round (orchestrator read the diff).
+Result (run 39144927251, 8m44s, deployed): crash gone. Música 50/11/3/3 (fewer, expected: generic show search removed); music order artist=6 shows=1 releases=2; `kept 1 per artist (5 dropped)`; Badu once, BTS pair merged. IA 36/5/2/2 (was 24/1/1/1; predicted ≥4 — met). second-pass merges 7, 6 right, 1 wrong (ChatGPT Work Finance/Operations). MISS: 1 non-owner show ("Palito Ortega hizo vibrar el Teatro Ópera") — no show word, so rule returned None and the model accepted it. check-feeds: 10/11 new AI sources work (VentureBeat 0); Spanish sources add candidates but few accepts (Infobae 10/3, The Decoder 8/2). Audit 39142901849 filter step crashed on the D20a bug (no section 2). — kept
+
+### D20b — Close non-owner venue shows; stop template-twin merges; drop VentureBeat (2026-10-18) — status: open
+Decision: venue/live words (vibrar, teatro, estadio, arena, VENUE_WORDS) join SHOW_REJECT_WORDS (music theme, artists configured, no owner artist → out); log_music_order passes the artists flag; second pass skips "template twins" (shorter title ≤5 tokens, exactly one different token each side); remove venturebeat-ai.
+Prediction: next warm run music order shows only owner artists (non-owner shows 0); Música accepted ≥10; second-pass merges keep F1/Malvinas/BTS/papa León, no ChatGPT-type pair; IA accepted ≥4.
+Review: round 1 CHANGES (guard blocked real F1 Rwanda merge) → exactly-one-token rule + F1 test; round 2 APPROVE. 219 pass. Known trade-off: an owner artist not in the headline's subject position at a "teatro/arena" can be rejected; other artists' venue releases also out.

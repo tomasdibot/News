@@ -282,7 +282,7 @@ def test_real_sources_yaml_has_the_extra_ai_outlets_named_like_existing_ones(cfg
     for id_, outlet, lang in [("xataka", "Xataka", "es"), ("hipertextual", "Hipertextual", "es"),
                               ("infobae-tecno", "Infobae", "es"), ("lanacion-tecno", "La Nación", "es"),
                               ("elpais-tecno", "El País", "es"), ("wired-es", "WIRED en español", "es"),
-                              ("venturebeat-ai", "VentureBeat", "en"), ("the-decoder", "The Decoder", "en"),
+                              ("the-decoder", "The Decoder", "en"),
                               ("mit-news", "MIT News", "en"), ("apple-ml", "Apple ML (official)", "en"),
                               ("xai-news", "xAI (official)", "en")]:
         s = by_id[id_]

@@ -186,6 +186,13 @@ def cluster(articles: list[Article]) -> list[Story]:
     return _merge_repeats(stories, index)
 
 
+def _template_twins(a: _Features, b: _Features) -> bool:
+    """Two short titles that each have a word the other lacks ("Finance workflows with ChatGPT Work" / "Operations
+    workflows ...") are one template, not one event."""
+    x, y = a.title_tokens, b.title_tokens
+    return min(len(x), len(y)) <= 5 and len(x - y) == 1 and len(y - x) == 1
+
+
 def _merge_repeats(stories: list[Story], index: dict[str, set[int]]) -> list[Story]:
     """Second pass: the lead-only join leaves the same event split when a later headline matches another
     member better than the lead (or arrives after the 48 h window). Merge two stories of one language
@@ -201,7 +208,7 @@ def _merge_repeats(stories: list[Story], index: dict[str, set[int]]) -> list[Sto
         sa, sb = stories[a], stories[b]
         if sa.feats[0].lang != sb.feats[0].lang or abs(sa.latest - sb.latest) > MERGE_WINDOW:
             continue
-        best = max(similarity(f, g) for f in sa.feats for g in sb.feats)
+        best = max((x for f in sa.feats for g in sb.feats for x in [similarity(f, g)] if not _template_twins(f, g)), default=0)
         if best >= MERGE_THRESHOLD:
             scored.append((best, a, b))
     parent = list(range(len(stories)))

@@ -59,7 +59,6 @@
 - { id: lanacion-tecno, outlet: La Nación, lang: es, region: global, tier: specialist, gnews: "lanacion.com.ar/tecnologia", topics: [technology], lean: center-right }
 - { id: elpais-tecno,  outlet: El País,    lang: es, region: global, tier: specialist, gnews: "elpais.com/tecnologia", topics: [technology] }
 - { id: wired-es,      outlet: WIRED en español, lang: es, region: global, tier: specialist, gnews: "es.wired.com", topics: [technology] }
-- { id: venturebeat-ai, outlet: VentureBeat, lang: en, region: global, tier: specialist, gnews: "venturebeat.com/ai", topics: [technology] }
 - { id: the-decoder,   outlet: The Decoder, lang: en, region: global, tier: specialist, gnews: "the-decoder.com", topics: [technology] }
 - { id: mit-news,      outlet: MIT News,   lang: en, region: global, tier: specialist, gnews: "news.mit.edu", topics: [technology] }
 - { id: apple-ml,      outlet: Apple ML (official), lang: en, region: global, tier: official, gnews: "machinelearning.apple.com", topics: [technology] }

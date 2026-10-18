@@ -466,3 +466,19 @@ def test_festival_with_your_artist_anywhere_in_the_lead_is_not_rejected(cfg, mon
     fits = {s.headline.title[:3]: s.fits[judge.theme_key("Música")] for s in ss}
     assert fits["Lol"] is True and len(asked) == 1      # not rejected by the rule: the model read it
     assert all(s.fits[judge.theme_key("Música")] is False for s in other)   # no artist: rejected in code
+
+
+def test_with_artists_configured_a_live_report_without_your_artist_is_out():
+    palito = {"headlines": ["Palito Ortega hizo vibrar el Teatro Ópera con sus grandes éxitos"]}
+    assert judge.rule_verdict("Música", palito, artists=True) is False
+    assert judge.rule_verdict("Música", palito, artist=True, artists=True) is not False   # your artist: kept
+    assert judge.rule_verdict("Música", palito) is None                                   # no artists configured
+
+
+def test_music_order_log_gives_no_show_tier_to_other_artists(caplog):
+    import logging
+    ss = cluster([Article(SOURCES["bbc"], "Palito Ortega se presenta en el Teatro Ópera", "https://x/9", "", NOW)])
+    ss[0].headline = ss[0].articles[0]
+    with caplog.at_level(logging.INFO):
+        judge.log_music_order(ss, ["Tame Impala"])
+    assert "shows=0" in caplog.text
