@@ -262,9 +262,25 @@ def candidates(theme: str, stories: list[Story]) -> list[Story]:
             special = any(a.source.tier in ("official", "specialist") for a in s.articles)
             # The theme's other words ("modelos", "lanzamientos"…) in the headline count too.
             extra = len(stems & {w[:5] for w in words(titles)}) if (kws or topics) else 0
-            rel = 2 * min(in_title + extra, 3) + special + min(2, len(s.outlets) - 1)
+            rel = 2 * min(in_title + extra, 3) + special + min(4, len(s.outlets) - 1)
             scored.append((-rel, i, s))
     return [s for _, _, s in sorted(scored, key=lambda x: (x[0], x[1]))]
+
+
+def cap_candidates(theme: str, found: list[Story]) -> tuple[list[Story], list[Story]]:
+    """Apply the per-theme cap: stories with 3+ outlets or an official source always pass,
+    the rest fill what is left. Returns (kept, cut), both in relevance order."""
+    cap = per_theme(theme)
+    big = [len(s.outlets) >= 3 or any(a.source.tier == "official" for a in s.articles) for s in found]
+    room = max(0, cap - sum(big))
+    kept, cut = [], []
+    for s, is_big in zip(found, big):
+        if is_big or room > 0:
+            kept.append(s)
+            room -= not is_big
+        else:
+            cut.append(s)
+    return kept, cut
 
 
 def _material(s: Story) -> dict:
@@ -480,7 +496,10 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
         th = hashlib.sha1(f"{VERSION}:{tk}".encode()).hexdigest()[:8]
         keys.append(tk)
         todo = []
-        found = candidates(theme, stories)[:per_theme(theme)]
+        found, cut = cap_candidates(theme, candidates(theme, stories))
+        if cut:
+            log.info("cap cut %s: %d stories (%d with ≥3 outlets)", theme, len(cut),
+                     sum(1 for s in cut if len(s.outlets) >= 3))
         cands.append((theme, tk, found))
         for s in found:
             ck = f"{th}:{story_key(s)}"

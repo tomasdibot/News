@@ -58,3 +58,4 @@ def no_real_econ_calls(monkeypatch):
     def offline(url, **kw):
         raise OSError("offline in tests")
     monkeypatch.setattr("newsdesk.econdata._get", offline)
+    monkeypatch.setattr("newsdesk.importance._get", offline)

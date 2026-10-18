@@ -482,3 +482,32 @@ def test_music_order_log_gives_no_show_tier_to_other_artists(caplog):
     with caplog.at_level(logging.INFO):
         judge.log_music_order(ss, ["Tame Impala"])
     assert "shows=0" in caplog.text
+
+
+def test_wide_coverage_passes_the_cap_over_keyword_heavy_single_outlet_stories(monkeypatch, cfg, tmp_path, caplog):
+    import logging
+
+    monkeypatch.setenv("NEWSDESK_THEMES", "Economía")
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    monkeypatch.setattr(judge, "_ask_one", lambda *a, **k: True)
+    import random
+
+    def title(n):   # distinct made-up words, so the stories stay apart
+        r = random.Random(n)
+        return "Inflación dólar " + " ".join("".join(r.choice("bcdfglmnprstv") + r.choice("aeiou") for _ in range(3)) for _ in range(5))
+
+    heavy = [Article(DIARIO, title(n), f"https://x/h{n}", "", NOW - timedelta(hours=1)) for n in range(42)]
+    assert len({a.title for a in heavy}) == 42
+    wide_title = "Aprobaron el presupuesto 2027 en Diputados tras una larga sesión"
+    outlets = [Source(id=f"o{i}", outlet=f"Diario {i}", url="x", lang="es", region="AR") for i in range(5)]
+    wide = [Article(o, wide_title, f"https://x/w{i}", "", NOW - timedelta(hours=1)) for i, o in enumerate(outlets)]
+    ss = score_stories(cluster(heavy + wide), cfg, NOW)
+    found = judge.candidates("Economía", ss)
+    assert len(found) > 40
+    kept, cut = judge.cap_candidates("Economía", found)
+    assert len(kept) == 40 and len(cut) == len(found) - 40
+    assert any(len(s.outlets) == 5 for s in kept)
+    assert not any(len(s.outlets) >= 3 for s in cut)
+    with caplog.at_level(logging.INFO):
+        judge.judge_themes(ss, cfg, cache_path=tmp_path / "c.json")
+    assert any(f"cap cut Economía: {len(cut)} stories (0 with ≥3 outlets)" in r.getMessage() for r in caplog.records)

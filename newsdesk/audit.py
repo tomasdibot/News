@@ -17,7 +17,8 @@ from datetime import datetime, timezone
 from .cluster import cluster
 from .config import load_sources
 from .fetch import fetch_all
-from .judge import PER_THEME, _material, ask_many, candidates, configured_themes, set_reader, theme_key
+from .importance import importance_lines
+from .judge import PER_THEME, _material, ask_many, candidates, cap_candidates, configured_themes, set_reader, theme_key
 from .neutral import _provider
 from .rank import score_stories
 
@@ -138,8 +139,11 @@ def run(cfg, out=print) -> int:
     articles = fetch_all(load_sources(cfg), country=cfg["profile"]["country"])
     stories = score_stories(cluster(articles), cfg, now)
     sample = int(os.environ.get("AUDIT_SAMPLE", PER_THEME))
+    judged = []
     for theme in themes:
-        cands = candidates(theme, stories)[:sample]
+        allc = candidates(theme, stories)
+        kept = cap_candidates(theme, allc)[0]
+        cands = kept[:sample]
         items = [(str(i), _material(s)) for i, s in enumerate(cands)]
         verdicts = [ask_many(provider, client, model, theme, items, mode) for mode, model in setups]
         lines += [f"### {theme}", f"{len(cands)} candidates", ""]
@@ -147,6 +151,19 @@ def run(cfg, out=print) -> int:
             marks = " ".join("✔" if v.get(str(i)) else "✘" if v.get(str(i)) is False else "·" for v in verdicts)
             lines.append(f"- {marks} — {s.headline.title} — _{', '.join(s.outlets[:2])}_")
         lines.append("")
+        first = verdicts[0] if verdicts else {}
+        judged.append((theme, allc, kept, cands, [s for i, s in enumerate(cands) if first.get(str(i))]))
+
+    # 3. Importance: does each theme hold the day's biggest stories (first setup's verdicts)?
+    lines += ["## 3. Importance against outside news", ""]
+    refs: dict = {}
+    for theme, allc, kept, cands, accepted in judged:
+        try:
+            lines += importance_lines(theme, stories, allc, kept, cands, accepted, articles, refs) \
+                or [f"importance {theme}: _(no reference for this subject)_"]
+        except Exception as exc:   # the importance check never fails the audit
+            lines.append(f"importance {theme}: unavailable ({exc})")
+    lines.append("")
 
     report = "\n".join(lines)
     out(report)

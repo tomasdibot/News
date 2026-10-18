@@ -57,6 +57,11 @@ def cmd_check_feeds(cfg, args) -> int:
         print()
         for key, url, ok, text in check():
             print(f"{'OK  ' if ok else 'FAIL'} {key:10} {text:28} {url}")
+    from .importance import check_references
+
+    print()
+    for key, url, ok, text in check_references():
+        print(f"{'OK  ' if ok else 'FAIL'} {key:16} {text:28} {url}")
     return 0
 
 
