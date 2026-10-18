@@ -18,7 +18,7 @@ from .config import ROOT, load_sources
 from .fetch import fetch_all, fetch_og_image
 from .lexicon import COUNTRY_NAMES, LOCK_UI, UI
 from .lock import encrypt, password_from_env, site_salt
-from .artists import fetch_artist_news, fetch_show_news
+from .artists import fetch_google_news
 from .music import MAX_ARTISTS, artist_rank, min_outlets, music_tier
 from .econdata import fetch_econ
 from .judge import candidates, configured_artists, configured_themes, judge_themes, set_reader, theme_key
@@ -81,8 +81,12 @@ def blindspot(s: Story) -> str | None:
 
 
 def log_multi_outlet_sample(multi: list[Story], n: int = 8) -> None:
-    """Log a few multi-outlet headlines (public) so wrong merges can be judged from the run log."""
-    for s in sorted(multi, key=lambda s: len(ar_leans(s)), reverse=True)[:n]:
+    """Log a few multi-outlet headlines (public) so wrong merges can be judged from the run log:
+    up to `n` local ones, then up to 5 from elsewhere."""
+    local = [s for s in multi if s.local]
+    rest = [s for s in multi if not s.local]
+    picked = sorted(local, key=lambda s: len(ar_leans(s)), reverse=True)[:n] + rest[:5]
+    for s in picked:
         who = "; ".join(f"{a.outlet}({a.source.lean or '?'}): {a.title}" for a in s.sources_for_display())
         log.info("multi-outlet sample: %s | %s", s.headline.title, who)
 
@@ -127,9 +131,7 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     artists = configured_artists(cfg)
     if articles is None:
         articles = fetch_all(load_sources(cfg), country=cfg["profile"]["country"])
-        if artists:
-            articles += fetch_artist_news(artists, now)
-        articles += fetch_show_news(now)
+        articles += fetch_google_news(artists, now)
     stories = score_stories(cluster(articles), cfg, now)
     sections = select_sections(stories, cfg)  # what the morning notification uses
     pool = select_pool(stories, cfg)            # what the app shows and re-ranks
@@ -158,7 +160,7 @@ def build_edition(cfg: dict, articles=None, now: datetime | None = None) -> dict
     flags = [blindspot(s) for s in multi]
     log.info("blindspot: %d flagged (left_ignores=%d, right_ignores=%d) of %d local multi-outlet stories",
              sum(1 for f in flags if f), flags.count("left"), flags.count("right"), len(multi))
-    log_multi_outlet_sample(multi)
+    log_multi_outlet_sample(multi + [s for s in stories if not s.local and len(s.outlets) >= 2])
 
     tz = ZoneInfo(cfg["notification"]["timezone"])
     return {

@@ -9,6 +9,7 @@ and the AI theme filter (a "Música" theme gets them).
 from __future__ import annotations
 
 import concurrent.futures as cf
+import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
@@ -16,13 +17,14 @@ from urllib.parse import quote
 
 import feedparser
 
-from .config import Source
+from .config import ROOT, Source
 from .fetch import SAFE_LINK, Article, _get, _published
 from .music import MAX_ARTISTS
 from .text import clean_html, normalize
 
 log = logging.getLogger(__name__)
 
+CACHE_PATH = ROOT / "build" / "gnews-cache.json"   # last good search results (kept by the workflow)
 EDITIONS = [("es", "hl=es-419&gl=AR&ceid=AR:es-419"), ("en", "hl=en-US&gl=US&ceid=US:en")]
 PER_FEED = 8
 SHOW_EDITION = EDITIONS[0][1]
@@ -132,3 +134,61 @@ def fetch_artist_news(artists: list[str], now: datetime | None = None) -> list[A
             out.append(a)
     log.info("artist news: %d articles for %d artists", len(out), min(len(artists), MAX_ARTISTS))
     return out
+
+
+def _source(outlet: str, lang: str, days: int) -> Source:
+    return Source(id="gn-" + re.sub(r"[^a-z0-9]+", "-", normalize(outlet)), outlet=outlet, url="",
+                  lang=lang, region="global", tier="commercial", topics=["culture"], max_age_hours=days * 24)
+
+
+def _pack(a: Article) -> dict:
+    return {"title": a.title, "link": a.link, "outlet": a.outlet, "lang": a.source.lang,
+            "published": a.published.isoformat(), "query": a.query}
+
+
+def _unpack(d: dict, days: int) -> Article:
+    return Article(source=_source(d["outlet"], d["lang"], days), title=d["title"], link=d["link"], summary="",
+                   published=datetime.fromisoformat(d["published"]), query=d.get("query", ""))
+
+
+def fetch_google_news(artists: list[str], now: datetime | None = None, cache_path=CACHE_PATH) -> list[Article]:
+    """Artist and show news. A list that comes back empty (outage) is replaced by the last good one
+    (artists still in your list, articles still within their age limits)."""
+    now = now or datetime.now(timezone.utc)
+    live = {"artist": fetch_artist_news(artists, now) if artists else [], "show": fetch_show_news(now)}
+    try:
+        saved = json.loads(cache_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        saved = {}
+    if not isinstance(saved, dict):
+        saved = {}
+    days = {"artist": 7, "show": SHOW_DAYS}
+    wanted = {normalize(a) for a in artists[:MAX_ARTISTS]}
+    out, reused, stamps = {}, {}, []
+    for kind, found in live.items():
+        entry = saved.get(kind)
+        if found or not isinstance(entry, dict):
+            out[kind] = found
+            continue
+        try:
+            old = [_unpack(d, days[kind]) for d in entry["items"]]
+        except (KeyError, ValueError, TypeError):
+            out[kind] = found
+            continue
+        out[kind] = [a for a in old if now - a.published <= timedelta(days=days[kind])
+                     and (kind == "show" or a.query in wanted)]
+        if out[kind]:
+            reused[kind] = len(out[kind])
+            stamps.append(entry.get("saved", "?"))
+    if reused:
+        log.warning("gnews fallback: %d artist + %d show articles from %s",
+                    reused.get("artist", 0), reused.get("show", 0), min(stamps))
+    if any(live.values()):
+        fresh = {k: ({"saved": now.isoformat(), "items": [_pack(a) for a in v]} if v else saved.get(k))
+                 for k, v in live.items()}
+        try:
+            cache_path.parent.mkdir(parents=True, exist_ok=True)
+            cache_path.write_text(json.dumps({k: v for k, v in fresh.items() if v}), encoding="utf-8")
+        except OSError as exc:
+            log.warning("gnews cache not saved: %s", exc)
+    return out["artist"] + out["show"]

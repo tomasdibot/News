@@ -59,9 +59,7 @@ DIFF = [
 
 def test_same_event_pairs_mostly_merge():
     merged = sum(_merges(*p) for p in SAME)
-    # Names count once ("Federico Luppi" is one name), so 3 paraphrased pairs (BCRA/Banco Central,
-    # Luppi murió/falleció, alerta/tormentas) split: wrong merges matter more than paraphrase recall.
-    assert merged >= 12, f"{merged}/15 same-event pairs merged"
+    assert merged >= 14, f"{merged}/15 same-event pairs merged"
 
 
 def test_different_event_pairs_rarely_merge():
@@ -118,3 +116,13 @@ def test_very_short_headlines_do_not_merge_on_overlap(pair):
 
 def test_close_figures_still_match():
     assert _merges("Clarín", "Dólar blue cerró a $1.555", "Ámbito", "Dólar blue hoy: cerró a $1.560")
+
+
+def test_same_meaning_words_share_a_token():
+    assert tokens("El BCRA compró dólares") == tokens("El Banco Central compró dólares")
+    assert tokens("Murió el actor") == tokens("Falleció el actor") == tokens("Muere el actor")
+    assert tokens("El IPC de septiembre") == tokens("La inflación de septiembre")
+    assert tokens("Dólar paralelo hoy") == tokens("Dólar blue hoy")
+    assert tokens("Acuerdo con el FMI") == tokens("Acuerdo con el Fondo Monetario Internacional")
+    assert tokens("Acuerdo con el Fondo Monetario") == tokens("Acuerdo con el FMI")
+    assert tokens("El dólar oficial") != tokens("El dólar blue")

@@ -615,6 +615,9 @@ def test_settings_have_readable_text_and_big_targets(app):
         .filter(e => e.offsetParent).map(e => { const r = e.getBoundingClientRect(); return [e.id || e.className || e.tagName, Math.round(r.height), Math.round(r.width)]; })
         .filter(x => x[1] < 44 || (x[0].includes('mv') && x[2] < 44))""")
     assert small == []
+    rows = app.evaluate("""() => [...document.querySelectorAll('dialog label')].filter(l => l.offsetParent)
+        .map(l => [l.textContent.trim().slice(0, 20), Math.round(l.getBoundingClientRect().height)]).filter(x => x[1] < 44)""")
+    assert rows == []                                   # every label row (radio, checkbox, field name) is a big target
 
 
 def test_text_size_select_has_three_options_scales_the_root_and_persists(site, browser):

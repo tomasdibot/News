@@ -88,6 +88,13 @@ jobs:
           key: themes-${{ github.run_id }}
           restore-keys: themes-
 
+      # Last good Google News results (artists and shows), reused when Google News is down.
+      - uses: actions/cache@v4
+        with:
+          path: build/gnews-cache.json
+          key: gnews-${{ github.run_id }}
+          restore-keys: gnews-
+
       - name: Build edition
         run: python -m newsdesk build
         env:

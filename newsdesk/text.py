@@ -94,8 +94,21 @@ def significant(fig: str) -> bool:
     return "." in fig or len(fig) >= 3
 
 
+# Spanish words/phrases with the same meaning -> one token, so paraphrased headlines can group.
+SYNONYMS = [
+    (r"banco central(?: de la republica argentina)?", "bcra"),
+    (r"ipc", "inflacion"),
+    (r"murio|fallecio|fallece|muere|murieron|fallecieron", "murio"),
+    (r"dolar paralelo", "dolar blue"),
+    (r"fondo monetario(?: internacional)?", "fmi"),
+]
+_SYNONYM_RES = [(re.compile(rf"\b(?:{pat})\b"), to) for pat, to in SYNONYMS]
+
+
 def tokens(s: str) -> set[str]:
     norm = normalize(s)
+    for rx, to in _SYNONYM_RES:
+        norm = rx.sub(to, norm)
     words = WORD_RE.findall(FIGURE_RE.sub(" ", norm))
     return {stem(w) for w in words if w not in STOPWORDS and len(w) > 2} | {"#" + f for f in figures(norm)}
 

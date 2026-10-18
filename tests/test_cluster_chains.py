@@ -152,3 +152,18 @@ def test_items_from_the_same_artist_search_share_no_name_bonus():
     free = similarity(features(a), features(b))
     a.query = b.query = "tool"
     assert similarity(features(a), features(b)) < free
+
+
+def test_multi_outlet_sample_also_logs_up_to_five_non_local_stories(caplog):
+    import logging
+    from newsdesk.cluster import Story, features
+    from newsdesk.edition import log_multi_outlet_sample
+    stories = []
+    for k in range(7):
+        arts = [_art("Clarín", f"Tema{k} uno dos tres cuatro", 2 * k), _art("Infobae", f"Tema{k} uno dos tres cuatro", 2 * k + 1)]
+        s = Story(articles=arts, feats=[features(a) for a in arts])
+        s.headline = arts[0]
+        stories.append(s)
+    with caplog.at_level(logging.INFO):
+        log_multi_outlet_sample(stories)
+    assert caplog.text.count("multi-outlet sample:") == 5

@@ -196,3 +196,71 @@ def test_artist_rank_keeps_headlines_about_returns_tickets_and_dates():
     assert artist_rank(story("El regreso de Tool"), ["Tool"]) == 0
     assert artist_rank(story("Cuánto cuestan las entradas de Tool en Argentina"), ["Tool"]) == 0
     assert artist_rank(story("Nsqk dijo que escuchó Radiohead en su infancia"), ["Radiohead"]) is None
+
+
+def test_google_news_outage_reuses_the_last_good_results(tmp_path, monkeypatch, caplog):
+    import logging
+    from datetime import datetime, timedelta, timezone
+    from newsdesk import artists as A
+    now = datetime(2026, 10, 18, 12, tzinfo=timezone.utc)
+    fresh = lambda t: f"<item><title>{t} - Rolling Stone</title><link>https://x/{t.replace(' ', '')}</link>" \
+                      f"<source url='https://rs'>Rolling Stone</source><pubDate>{(now - timedelta(days=1)).strftime('%a, %d %b %Y %H:%M:%S GMT')}</pubDate></item>"
+    feed = lambda *t: ("<rss><channel>" + "".join(fresh(x) for x in t) + "</channel></rss>").encode()
+
+    class R:
+        def __init__(self, c): self.content = c
+
+    cache = tmp_path / "gnews-cache.json"
+    monkeypatch.setattr(A, "_get", lambda url, *a, **k: R(feed("Tame Impala anuncia show en Buenos Aires")))
+    good = A.fetch_google_news(["Tame Impala"], now, cache)
+    assert good and cache.exists()
+
+    def down(url, *a, **k):
+        raise RuntimeError("503")
+    monkeypatch.setattr(A, "_get", down)
+    with caplog.at_level(logging.INFO):
+        again = A.fetch_google_news(["Tame Impala"], now + timedelta(hours=1), cache)
+    assert {a.link for a in again} == {a.link for a in good}
+    assert any(a.query == "tame impala" for a in again)
+    assert "gnews fallback:" in caplog.text and "artist +" in caplog.text
+    # once the stored articles are older than their limits, nothing is reused
+    assert A.fetch_google_news(["Tame Impala"], now + timedelta(days=30), cache) == []
+    # no cache, no results
+    assert A.fetch_google_news(["Tame Impala"], now, tmp_path / "none.json") == []
+
+
+def test_google_news_fallback_works_per_list_and_only_for_current_artists(tmp_path, monkeypatch, caplog):
+    import logging
+    from datetime import datetime, timedelta, timezone
+    from newsdesk import artists as A
+    now = datetime(2026, 10, 18, 12, tzinfo=timezone.utc)
+    when = (now - timedelta(days=1)).strftime('%a, %d %b %Y %H:%M:%S GMT')
+    item = lambda t: (f"<item><title>{t} - Rolling Stone</title><link>https://x/{t.replace(' ', '')}</link>"
+                      f"<source url='https://rs'>Rolling Stone</source><pubDate>{when}</pubDate></item>")
+    feed = lambda t: ("<rss><channel>" + item(t) + "</channel></rss>").encode()
+
+    class R:
+        def __init__(self, c): self.content = c
+
+    def serve(show=True, artist=True):
+        def get(url, *a, **k):
+            if "when:14d" in url and show:
+                return R(feed("Gran festival de rock en Rosario"))
+            if "when:7d" in url and artist:
+                name = "Tame Impala" if "Tame" in url else "Soda Stereo"
+                return R(feed(f"{name} anuncia show en Buenos Aires"))
+            raise RuntimeError("503")
+        monkeypatch.setattr(A, "_get", get)
+
+    cache = tmp_path / "c.json"
+    serve()
+    A.fetch_google_news(["Tame Impala", "Soda Stereo"], now, cache)
+    serve(artist=False)   # artists down, shows fine: the stored artist items come back next to the live shows
+    part = A.fetch_google_news(["Tame Impala", "Soda Stereo"], now, cache)
+    assert sum(1 for a in part if a.query) == 2 and any("festival" in a.title for a in part)
+    serve(show=False, artist=False)   # full outage: the artist items survived the partial one
+    with caplog.at_level(logging.INFO):
+        full = A.fetch_google_news(["Tame Impala"], now, cache)   # Soda Stereo was removed from the list
+    assert [a.query for a in full if a.query] == ["tame impala"]
+    assert any("festival" in a.title for a in full)
+    assert "gnews fallback: 1 artist + 1 show" in caplog.text
