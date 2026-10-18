@@ -25,6 +25,7 @@ orchestrator adds an entry for each decision and fills in the outcome after meas
 - L19 (D17): Names counted as tokens + overlap + entity bonus, and single-link chaining, glue different stories together; pair fixtures can't see chains — test with chain sets and the owner's real examples.
 - L20 (D15): Reworded prompt examples can't flip the 7B model on show/ticket headlines, even as audit CASES; fix such recall gaps with a code rule.
 - L21 (D18): Build rules from real audit rows (fixture first): "<band> announce 2027 tour" has no place, "Festival X en Escobar" no band — predictions on recall must come from running the rule on those rows.
+- L22 (D17): A total Google News outage (503) still publishes a green build with Música cut from ~20 to 4 — compare runs only when artist/show news are non-zero, and keep the last good results as a fallback.
 - L7: The owner does not trust Green API; never propose it. Paid options (Claude API) only as opt-in.
 
 ## Entry template
@@ -191,7 +192,7 @@ Review: round 1 CHANGES (case-study regex hit real launches like "How we built G
 Result: audit 39069971230 — AI feeds with when:7d: Anthropic 3, Meta AI 1, Mistral 1 items, Microsoft AI 0; known answers IA 13/14 (Itaú now OUT; calorie app still IN), Música 10/13 (BTS, U2 prices, Iron Maiden still OUT — prompt example didn't flip the 7B model), Economía 11/11, Mundo 9/9; section 2: IA 0 FP/0 misses (Mistral "Timestral" IN), Música recall ~10/15, 0 FP. Cold build only (L18). — partly
 Verdict & lesson: adjusted by D18 → L20.
 
-### D16 — Readable everywhere: modern letters, bigger text, more space, text-size choice (2026-10-17) — status: open
+### D16 — Readable everywhere: modern letters, bigger text, more space, text-size choice (2026-10-17) — status: kept
 Goal (owner): the whole app easier to read. Owner said everything is hard (text size, letter style, crowding, the opened story); chose all-modern letters and a text-size dropdown in ⚙.
 Evidence (investigator, Playwright 390×844): summaries 14.5 px/1.4 serif; story text 16.5 px with 8 px between paragraphs; 6 ALL-CAPS letter-spaced styles at 11–11.5 px (~340 chars/screen); 38–43 elements under 14 px; three font families mixed in one story; outlet list mixes pale outlet name + dark title at 14 px; settings hints 13 px, move/edit buttons 40 px; headlines 19 px Playfair with 1.22 line-height. Contrast fine (≥6.3).
 Options: A) serif headlines + legible body; B) all-sans; C) text-size dropdown.
@@ -199,7 +200,7 @@ Decision: B + C (owner's picks), plus more spacing.
 Prediction (Normal size): summary ≥16 px/≥1.45, story text 17 px/1.5 with ≥12 px between paragraphs, 45–75 chars/line, 0 text <12 px (≥13 px for anything to read), ≤2 ALL-CAPS styles and no caps run >20 chars, contrast ≥4.5, settings 0 targets <44 px and hints ≥14 px, ≥3 cards on the first screen, headline visible ≤500 ms; Large/Extra large scale all text ×1.12/×1.25 without horizontal overflow; pytest green.
 Measurement: investigator re-runs scratchpad read.py on the new code; pytest.
 
-### D17 — Stop mixing different stories together (2026-10-17) — status: open
+### D17 — Stop mixing different stories together (2026-10-17) — status: adjusted
 Goal (owner): "Cómo lo cuenta cada medio" mixes up news. Owner example: TicketNews "Tame Impala tickets on sale in Montreal at Centre Bell" + Northern Transmissions "Tame Impala announces new 2026 Tour Dates" + RTTNews "Erykah Badu Cancels Several European Tour Dates…" in one story.
 Evidence (investigator, offline chain fixture of 6 realistic sets): today's single-link cluster() wrongly merges all of them (24 wrong pairs) — a shared name gets counted three times (title token + overlap + 0.12 entity bonus), the "first word is a name" rule (D10) adds to it for summary-less gnews/artist items, and single-link chains A~B~C. The D10 pair fixture can't see this (L14). The per-outlet list shows the earliest article per outlet with no check against the lead.
 Options: A) lead/average-link; B) smaller entity bonus + avg-link (loses 3/15 same-event); C) name-only gate (loses 2/15); D) display check: drop outlet rows dissimilar to the lead and show each outlet's article closest to the lead; outlet count and lean bar from the same kept rows.
@@ -217,3 +218,10 @@ Measurement: audit.yml; warm newsdesk run.
 Review: round 1 CHANGES (rule accepted film festivals, Tour de France, football tickets, drones show) → music evidence required, deny list, lead headline only; round 2 APPROVE. Known trade-off: a comedy show at a music venue (Gran Rex) passes. Audit path judges only the first headline without artist info, so it is slightly stricter than the build.
 Result: audit 39075701904 — known answers 46/47 (Música 13/13, IA 13/14 — calorie app still IN), check-feeds 49/49; section 2 Música 12 IN, 0 FP, recall ~12/16 (was ~10/15; predicted ≥13/15 — missed): still missed Iron Maiden 2027 tour (no place/music word in the lead), Festival Daltónica en Escobar, BTS shows in cinemas. IA 0 FP. — partly
 Verdict & lesson: kept; follow-up: English "<band> … tour" headlines and named festivals + place. → L21.
+
+D16/D17 result (2026-10-18, run 291 healthy; 292 had Google News 503 everywhere): D16 read.py on HEAD — summary 16 px/1.5, story 17 px + 14 px gaps, smallest 12 px, 1 caps style, 5 cards on first screen, no overflow up to Muy grande, contrast ≥6.3; 3 settings labels still 20 px tall. D17 — 2 multi-outlet samples, both right (0 wrong merges, too few to judge); multi_outlet: Música 6→5, IA 1→1, Economía 7→2 (over-splitting likely: paraphrases like BCRA/Banco Central), Mundo 7→11; Música order artist=9 shows=7 releases=1, no non-music via the show rule. Notify run 290 failed: PUSH_SUBSCRIPTIONS empty (owner step, not a regression).
+
+### D19 — Economía paraphrases, Google News fallback, more samples, settings rows (2026-10-18) — status: open
+Decision: (1) small same-meaning list for grouping (BCRA = Banco Central, IPC = inflación, murió = falleció, dólar blue = dólar paralelo, FMI = Fondo Monetario) used as shared tokens, only for same-language pairs; (2) keep the last good artist/show search results (build cache) and reuse them when Google News returns nothing in a run, logging `gnews fallback`; (3) multi-outlet sample log covers up to 5 non-local stories too; (4) settings label rows ≥44 px.
+Prediction: D10 same-event 12/15 → ≥14/15 with wrong ≤4/10; chain fixture wrong pairs stay ≤8; owner's trio still 3 stories; Economía multi_outlet back to ≥5 on a warm run; a Google News outage keeps Música ≥15.
+Measurement: pytest fixtures; next warm newsdesk runs (Economía line, samples), simulated outage test.
