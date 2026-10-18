@@ -162,13 +162,31 @@ def log_music_order(stories: list[Story], artists: list[str]) -> None:
             log.info("music %s: %s", name, s.headline.title)
 
 
+def keep_one_per_artist(found: list[Story], tk: str, artists: list[str]) -> int:
+    """In a music theme only the best accepted story per artist stays (official, then more outlets, then a
+    show over a release, then the newest); the others stop fitting. Returns how many were dropped."""
+    by_artist: dict[int, list[Story]] = {}
+    for s in found:
+        rank = artist_rank(s, artists)
+        if s.fits.get(tk) and rank is not None:
+            by_artist.setdefault(rank, []).append(s)
+    dropped = 0
+    for group in by_artist.values():
+        group.sort(key=lambda s: (any(a.source.tier == "official" for a in s.articles), len(s.outlets),
+                                  music_tier(s, None) == 1, s.latest), reverse=True)
+        for s in group[1:]:
+            s.fits[tk] = False
+            dropped += 1
+    return dropped
+
+
 def source_counts(found: list[Story], tk: str) -> str:
-    """Per outlet: stories read / accepted (a story counts once per outlet; show searches by their gn- id)."""
+    """Per outlet: stories read / accepted (a story counts once per outlet)."""
     counts: dict[str, list[int]] = {}
     for s in found:
         names = {}
         for a in s.articles:
-            names.setdefault("show search" if a.source.id.startswith("gn-") and a.source.max_age_hours else a.outlet, a)
+            names.setdefault(a.outlet, a)
         for n in names:
             c = counts.setdefault(n, [0, 0])
             c[0] += 1
@@ -348,24 +366,55 @@ NOT_MUSIC_SUBJECT = re.compile(r"\b(presidente|ministro|ministra|gobernador|gobe
                                r"futbol|copa|francia|boca|seleccion|alquileres|drones)\b")
 
 
-def is_show_news(headline: str, artist: bool = False) -> bool:
+# With artists configured, any of these in a lead headline without your artist keeps the story out of Música.
+SHOW_REJECT_WORDS = SHOW_NEWS_WORDS + ["line up", "lineup", "grilla", "lollapalooza", "cosquin rock", "primavera sound"]
+LINEUP_WORDS = ["festival", "festivales", "line up", "lineup", "grilla", "lollapalooza", "cosquin rock", "primavera sound"]
+AI_WORDS = ["ia", "inteligencia artificial", "ai", "chatgpt", "llm"]
+AI_NAMES = ["gemini", "claude"]   # also first names: they count only next to a product word
+AI_CONTEXT = ["modelo", "modelos", "chatbot", "app", "lanza", "lanzo", "lanzan", "ia", "ai"]
+AI_DENY = ["vs", "partido", "partidos", "mundial", "seleccion", "futbol", "predice el resultado", "apuesta",
+           "apuestas", "pronostico"]
+AR_MARKERS = ["argentina", "argentino", "argentinos", "argentinas", "milei", "conicet", "mercado libre",
+              "globant", "ypf", "gobierno nacional"]
+
+
+def is_show_news(headline: str, artist: bool | None = None) -> bool:
     """A show, tour or ticket headline with music evidence (or your artist) and a place or a year is music news:
-    accepted in code, no model call. Political, film and sports "giras" and festivals are left to the model."""
+    accepted in code, no model call. Political, film and sports "giras" and festivals are left to the model.
+    `artist` is None when no artists are configured (music evidence decides); once they are, the headline
+    must be about one of them (True) and any other artist's show is out (False)."""
     text = tokens(headline)
-    if NOT_MUSIC_SUBJECT.search(text) or not has(text, SHOW_NEWS_WORDS):
+    if artist is False or NOT_MUSIC_SUBJECT.search(text) or not has(text, SHOW_NEWS_WORDS):
         return False
     if not (artist or has(text, MUSIC_EVIDENCE + VENUE_WORDS)):
         return False
     return has(text, SHOW_NEWS_PLACES + VENUE_WORDS) or bool(SHOW_NEWS_YEAR.search(text))
 
 
-def rule_verdict(theme: str, material: dict, lead: str | None = None, artist: bool = False) -> bool | None:
-    """The code rules (case study out, show news in); None leaves the story to the cache or the model.
-    Show news is judged on the lead headline (the first one without `lead`)."""
+def names_artist_in_lineup(lead: str, artists: list[str]) -> bool:
+    """A festival or line-up headline that names one of your artists anywhere ("Lollapalooza: X, Y, Tame Impala")."""
+    text = tokens(lead)
+    return has(text, LINEUP_WORDS) and any(a.strip() and has(text, [a]) for a in artists)
+
+
+def rule_verdict(theme: str, material: dict, lead: str | None = None, artist: bool = False,
+                 artists: bool = False) -> bool | None:
+    """The code rules (case study out, show news in, AI in Argentina in); None leaves the story to the cache
+    or the model. Show news is judged on the lead headline (the first one without `lead`).
+    `artist`: a story headline is about one of your artists; `artists`: you have configured any."""
     if is_case_study(theme, material):
         return False
-    if MUSIC_THEME.search(theme_key(theme)) and is_show_news(lead or material["headlines"][0], artist):
-        return True
+    head = lead or material["headlines"][0]
+    if MUSIC_THEME.search(theme_key(theme)):
+        if artists and not artist and has(tokens(head), SHOW_REJECT_WORDS):
+            return False   # Música follows your artists: another artist's show or a festival line-up is out
+        if is_show_news(head, artist if artists else None):
+            return True
+    elif AI_THEME.search(theme_key(theme)):
+        text = tokens(head)
+        ai = has(text, AI_WORDS) or (has(text, AI_NAMES) and has(text, AI_CONTEXT))
+        if ai and has(text, AR_MARKERS) and not has(text, AI_DENY):
+            return True
     return None
 
 
@@ -435,7 +484,9 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
         for s in found:
             ck = f"{th}:{story_key(s)}"
             rule = rule_verdict(theme, _material(s), s.headline.title,
-                                artist_rank(s, READER["artists"]) is not None)
+                                artist_rank(s, READER["artists"]) is not None
+                                or names_artist_in_lineup(s.headline.title, READER["artists"]),
+                                bool(READER["artists"]))
             if rule is not None:   # the rules win over a verdict cached before they existed
                 s.fits[tk] = rule
             elif ck in cache:
@@ -464,6 +515,8 @@ def judge_themes(stories: list[Story], cfg: dict, cache_path: Path = CACHE_PATH,
     log.info("themes (%s): %d themes, %d stories judged now%s", provider, len(themes), judged,
                  "; time budget used, the rest waits for the next run" if time.time() > deadline else "")
     for theme, tk, found in cands:   # how well each theme is served
+        if re.search(r"\b(musica|music)\b", theme_key(theme)) and READER["artists"]:
+            log.info("music: kept 1 per artist (%d dropped)", keep_one_per_artist(found, tk, READER["artists"]))
         ok = [s for s in found if s.fits.get(tk)]
         need = min_outlets(theme)
         log.info("theme %s: candidates=%d accepted=%d multi_outlet=%d confirmed=%d", theme, len(found), len(ok),

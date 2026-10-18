@@ -57,11 +57,6 @@ def cmd_check_feeds(cfg, args) -> int:
         print()
         for key, url, ok, text in check():
             print(f"{'OK  ' if ok else 'FAIL'} {key:10} {text:28} {url}")
-    from .artists import check_shows
-
-    print()
-    for q, url, ok, text in check_shows():
-        print(f"{'OK  ' if ok else 'FAIL'} {q:24} {text:12} {url}")
     return 0
 
 

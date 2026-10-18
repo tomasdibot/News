@@ -52,6 +52,19 @@
 - { id: meta-ai,       outlet: Meta AI (official), lang: en, region: global, tier: official, gnews: "ai.meta.com/blog", topics: [technology], gnews_days: 7, max_age_hours: 168 }
 - { id: mistral-news,  outlet: Mistral AI (official), lang: en, region: global, tier: official, gnews: "mistral.ai/news", topics: [technology], gnews_days: 7, max_age_hours: 168 }
 
+# --- Technology & AI: more sources through Google News (Spanish and English) ---
+- { id: xataka,        outlet: Xataka,     lang: es, region: global, tier: specialist, gnews: "xataka.com", topics: [technology] }
+- { id: hipertextual,  outlet: Hipertextual, lang: es, region: global, tier: specialist, gnews: "hipertextual.com", topics: [technology] }
+- { id: infobae-tecno, outlet: Infobae,    lang: es, region: global, tier: specialist, gnews: "infobae.com/tecno", topics: [technology], lean: center }
+- { id: lanacion-tecno, outlet: La Nación, lang: es, region: global, tier: specialist, gnews: "lanacion.com.ar/tecnologia", topics: [technology], lean: center-right }
+- { id: elpais-tecno,  outlet: El País,    lang: es, region: global, tier: specialist, gnews: "elpais.com/tecnologia", topics: [technology] }
+- { id: wired-es,      outlet: WIRED en español, lang: es, region: global, tier: specialist, gnews: "es.wired.com", topics: [technology] }
+- { id: venturebeat-ai, outlet: VentureBeat, lang: en, region: global, tier: specialist, gnews: "venturebeat.com/ai", topics: [technology] }
+- { id: the-decoder,   outlet: The Decoder, lang: en, region: global, tier: specialist, gnews: "the-decoder.com", topics: [technology] }
+- { id: mit-news,      outlet: MIT News,   lang: en, region: global, tier: specialist, gnews: "news.mit.edu", topics: [technology] }
+- { id: apple-ml,      outlet: Apple ML (official), lang: en, region: global, tier: official, gnews: "machinelearning.apple.com", topics: [technology] }
+- { id: xai-news,      outlet: xAI (official), lang: en, region: global, tier: official, gnews: "x.ai/news", topics: [technology], gnews_days: 7, max_age_hours: 168 }
+
 # --- Culture & music (launches, tours, festivals, awards) -------------------
 - { id: bbc-arts,      outlet: BBC,        lang: en, region: global, tier: public, url: "https://feeds.bbci.co.uk/news/entertainment_and_arts/rss.xml", topics: [culture], lean: center }
 - { id: npr-music,     outlet: NPR,        lang: en, region: global, tier: public, url: "https://feeds.npr.org/1039/rss.xml", topics: [culture], lean: center }

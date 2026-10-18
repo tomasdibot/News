@@ -59,15 +59,17 @@ def artist_rank(story: Story, artists: list[str]) -> int | None:
     return None
 
 
-def music_tier(story: Story, rank: int | None) -> int:
-    """0 your artist, 1 a show in Argentina or a big tour, 2 a release, 3 the rest."""
+def music_tier(story: Story, rank: int | None, artists: bool = False) -> int:
+    """0 your artist, 1 a show in Argentina or a big tour, 2 a release, 3 the rest.
+    With artists configured (`artists`) only your artists' stories are shows: tier 1 is not given to others."""
     if rank is not None:
         return 0
     text = _headlines(story)
-    if has(text, SHOW_WORDS + VENUE_WORDS):   # a place alone ("álbum en Argentina") is not a show
-        return 1
-    if has(text, DATE_WORDS) and has(text, DATE_CONTEXT):
-        return 1
+    if not artists:
+        if has(text, SHOW_WORDS + VENUE_WORDS):   # a place alone ("álbum en Argentina") is not a show
+            return 1
+        if has(text, DATE_WORDS) and has(text, DATE_CONTEXT):
+            return 1
     if has(text, RELEASE_WORDS):
         return 2
     return 3

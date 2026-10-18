@@ -3,7 +3,7 @@ from datetime import timedelta
 from conftest import NOW, SOURCES
 
 from newsdesk import judge
-from newsdesk.cluster import cluster
+from newsdesk.cluster import Story, cluster
 from newsdesk.config import Source
 from newsdesk.fetch import Article
 from newsdesk.rank import score_stories
@@ -379,3 +379,90 @@ def test_rules_win_over_cached_verdicts(monkeypatch, cfg, tmp_path):
     assert fits["U2"][judge.theme_key("Música")] is True       # cached False -> show rule
     assert fits["Ho"][judge.theme_key("IA: lanzamientos")] is False   # cached True -> case-study rule
     assert asked == []
+
+
+def test_with_artists_configured_a_show_headline_needs_your_artist():
+    story = {"headlines": ["U2 confirmó los precios de sus shows en Argentina"]}
+    assert judge.rule_verdict("Música", story) is True                              # no artists configured: as before
+    assert judge.rule_verdict("Música", story, artists=True) is False               # not your artist
+    assert judge.rule_verdict("Música", story, artist=True, artists=True) is True
+    festival = {"headlines": ["Lollapalooza Argentina 2026: el line up completo"]}
+    assert judge.rule_verdict("Música", festival, artists=True) is False
+    assert judge.rule_verdict("Música", festival, artist=True, artists=True) is None   # your artist: the model decides
+    release = {"headlines": ["Dua Lipa lanza su nuevo álbum"]}
+    assert judge.rule_verdict("Música", release, artists=True) is None              # not a show: the model decides
+    assert judge.rule_verdict("Economía", story, artists=True) is None
+    assert not judge.is_show_news("Show de Lali en Argentina", artist=False)
+    assert not judge.is_show_news("U2 confirmó los precios de sus shows en Argentina", artist=False)
+
+
+def test_judge_themes_rejects_other_artists_shows_before_cache_and_model(cfg, monkeypatch, tmp_path):
+    monkeypatch.setenv("NEWSDESK_THEMES", "Música")
+    monkeypatch.setenv("NEWSDESK_ARTISTS", "Lali")
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    asked = []
+    monkeypatch.setattr(judge, "_ask_one", lambda *a: asked.append(a) or True)
+    ss = score_stories(cluster([
+        Article(SOURCES["bbc"], "U2 confirmó los precios de sus shows en Argentina", "https://x/1", "", NOW - timedelta(hours=1)),
+        Article(SOURCES["dw"], "Lali anuncia show en Argentina", "https://x/2", "", NOW - timedelta(hours=1))]), cfg, NOW)
+    judge.judge_themes(ss, cfg, cache_path=tmp_path / "c.json")
+    fits = {s.headline.title[:2]: s.fits[judge.theme_key("Música")] for s in ss}
+    assert fits == {"U2": False, "La": True} and not asked
+
+
+def test_ai_headline_with_an_argentina_marker_fits_without_asking_the_model(monkeypatch):
+    sent = _count_posts(monkeypatch)
+    yes = ["Conicet presenta un modelo de inteligencia artificial para predecir sequías",
+           "Milei y la IA: el Gobierno nacional lanza un plan", "Argentina estrena su primer LLM abierto",
+           "Mercado Libre integra ChatGPT en su app", "Globant lanza agentes de AI para bancos",
+           "YPF lanza un modelo con Gemini para optimizar pozos"]
+    no = ["OpenAI lanza un nuevo modelo", "Argentina gana el partido", "Milei viaja a Estados Unidos",
+          "Cómo Mercado Libre usa la IA para vender más"]   # case study stays out (and goes nowhere near the model)
+    for h in yes:
+        assert judge.rule_verdict("IA: lanzamientos", {"headlines": [h]}) is True, h
+    for h in no[:3]:
+        assert judge.rule_verdict("IA: lanzamientos", {"headlines": [h]}) is None, h
+    assert judge.rule_verdict("IA: lanzamientos", {"headlines": [no[3]]}) is False
+    assert judge.rule_verdict("Economía", {"headlines": [yes[0]]}) is None
+    got = judge.ask_many("local", None, "m", "IA: lanzamientos", [(str(i), {"headlines": [h]}) for i, h in enumerate(yes)])
+    assert all(got.values()) and not sent
+
+
+def test_source_counts_label_gnews_sources_by_outlet():
+    from newsdesk.config import Source
+    src = Source(id="gn-xataka", outlet="Xataka", url="", lang="es", region="global", gnews="xataka.com", max_age_hours=168)
+    art = Source(id="gn-lali", outlet="Clarín", url="", lang="es", region="global", max_age_hours=168)
+    s = Story(articles=[Article(src, "IA en Argentina", "https://x/1", "", NOW)])
+    s.fits["ia"] = True
+    t = Story(articles=[Article(art, "Lali", "https://x/2", "", NOW)])
+    t.fits["ia"] = False
+    got = judge.source_counts([s, t], "ia")
+    assert "Xataka 1/1" in got and "Clarín 1/0" in got and "show search" not in got
+
+
+def test_ai_argentina_rule_skips_sports_and_betting_and_bare_product_names():
+    ai = "IA: lanzamientos"
+    for h in ["Argentina vs Brasil: la IA predice el resultado", "Apuestas: la inteligencia artificial elige a Argentina",
+              "Mundial 2026: la IA arma la selección argentina ideal", "El partido de Argentina según ChatGPT",
+              "Fútbol argentino: la IA analiza el clásico",
+              "Gemini es el nombre del nuevo hijo de un jugador argentino",   # a name, no product context
+              "Claude Monet llega a Argentina"]:
+        assert judge.rule_verdict(ai, {"headlines": [h]}) is None, h
+    assert judge.rule_verdict(ai, {"headlines": ["Argentina: Anthropic lanza Claude en español"]}) is True
+    assert judge.rule_verdict(ai, {"headlines": ["Milei se reúne con ejecutivos de IA"]}) is True
+
+
+def test_festival_with_your_artist_anywhere_in_the_lead_is_not_rejected(cfg, monkeypatch, tmp_path):
+    monkeypatch.setenv("NEWSDESK_THEMES", "Música")
+    monkeypatch.setenv("NEWSDESK_ARTISTS", "Tame Impala")
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    asked = []
+    monkeypatch.setattr(judge, "_ask_one", lambda *a: asked.append(a) or True)
+    ss = score_stories(cluster([
+        Article(SOURCES["bbc"], "Lollapalooza Argentina 2027: Wos, Duki y Tame Impala en el line up", "https://x/1", "", NOW - timedelta(hours=1)),
+        Article(SOURCES["dw"], "Primavera Sound 2027 confirmó su grilla completa", "https://x/2", "", NOW - timedelta(hours=1))]), cfg, NOW)
+    other = [s for s in ss if s.headline.title.startswith("Prim")]
+    judge.judge_themes(ss, cfg, cache_path=tmp_path / "c.json")
+    fits = {s.headline.title[:3]: s.fits[judge.theme_key("Música")] for s in ss}
+    assert fits["Lol"] is True and len(asked) == 1      # not rejected by the rule: the model read it
+    assert all(s.fits[judge.theme_key("Música")] is False for s in other)   # no artist: rejected in code

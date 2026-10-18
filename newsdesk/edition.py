@@ -109,7 +109,7 @@ def story_dict(s: Story, ui_lang: str, artists: list[str] | None = None) -> dict
         "local": s.local,
         "blind": blindspot(s),
         "artist": rank,                    # position in your artists, None if none is named
-        "mtier": music_tier(s, rank),      # 0 your artist, 1 show/tour, 2 release, 3 other
+        "mtier": music_tier(s, rank, bool(artists)),   # 0 your artist, 1 show/tour (no artists set), 2 release, 3 other
         "topics": {k: round(v, 2) for k, v in s.topic_scores.items() if v >= 0.2},
         "base": round(s.base, 4),
         "fixed": round(s.fixed, 3),

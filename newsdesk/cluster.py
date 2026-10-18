@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -9,7 +10,12 @@ from datetime import datetime, timedelta
 from .fetch import Article
 from .text import entities, figures, name_phrases, significant, tokens
 
+log = logging.getLogger(__name__)
+
 SAME_LANG_THRESHOLD = 0.42
+MERGE_THRESHOLD = 0.65       # second pass: two stories merge when their best member pair is this similar (0.55 and 0.6 merged the chain-milei events)
+MERGE_WINDOW = timedelta(hours=72)
+MERGE_MAX_KEY = 50
 CROSS_LANG_THRESHOLD = 0.5
 WINDOW = timedelta(hours=48)
 DISPLAY_MIN = 0.3   # an outlet row needs at least this similarity to the story's lead headline
@@ -170,4 +176,52 @@ def cluster(articles: list[Article]) -> list[Story]:
         stories[best].feats.append(f)
         for k in keys:
             index[k].add(best)
-    return stories
+    return _merge_repeats(stories, index)
+
+
+def _merge_repeats(stories: list[Story], index: dict[str, set[int]]) -> list[Story]:
+    """Second pass: the lead-only join leaves the same event split when a later headline matches another
+    member better than the lead (or arrives after the 48 h window). Merge two stories of one language
+    whose latest times are within 72 h and whose best member pair is similar enough."""
+    pairs = set()
+    for ids in index.values():
+        if len(ids) > MERGE_MAX_KEY:   # a word shared by that many stories says nothing and costs a lot
+            continue
+        ids = sorted(ids)
+        pairs.update((a, b) for n, a in enumerate(ids) for b in ids[n + 1:])
+    scored = []
+    for a, b in pairs:
+        sa, sb = stories[a], stories[b]
+        if sa.feats[0].lang != sb.feats[0].lang or abs(sa.latest - sb.latest) > MERGE_WINDOW:
+            continue
+        best = max(similarity(f, g) for f in sa.feats for g in sb.feats)
+        if best >= MERGE_THRESHOLD:
+            scored.append((best, a, b))
+    parent = list(range(len(stories)))
+
+    def root(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    merged = []
+    for _, a, b in sorted(scored, reverse=True):
+        ra, rb = root(a), root(b)
+        if ra != rb:
+            parent[rb] = ra
+            merged.append((stories[a].articles[0].title, stories[b].articles[0].title))
+    if not merged:
+        return stories
+    groups: dict[int, list[int]] = defaultdict(list)
+    for i in range(len(stories)):
+        groups[root(i)].append(i)
+    out = []
+    for ids in groups.values():
+        rows = sorted(((a, f) for i in ids for a, f in zip(stories[i].articles, stories[i].feats)),
+                      key=lambda r: r[0].published)
+        out.append(Story(articles=[a for a, _ in rows], feats=[f for _, f in rows]))
+    log.info("second-pass merges: %d", len(merged))
+    for x, y in merged[:8]:
+        log.info("second-pass merge: %s | %s", x, y)
+    return out

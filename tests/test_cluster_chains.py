@@ -167,3 +167,49 @@ def test_multi_outlet_sample_also_logs_up_to_five_non_local_stories(caplog):
     with caplog.at_level(logging.INFO):
         log_multi_outlet_sample(stories)
     assert caplog.text.count("multi-outlet sample:") == 5
+
+
+def _later(outlet, title, i, hours, lang="en"):
+    a = _art(outlet, title, i, lang=lang)
+    a.published = T0 + timedelta(hours=hours)
+    return a
+
+
+def test_second_pass_merges_the_same_event_reported_days_apart(caplog):
+    import logging
+    badu = [_later("TicketNews", "Erykah Badu cancels 5 European shows due to 'unforeseen circumstances'", 0, 0),
+            _later("RTTNews", "Erykah Badu Cancels Several European Tour Dates Due To 'Unforeseen Circumstances'", 1, 50)]
+    bts = [_later("Billboard", "BTS announce 2027 world tour with Buenos Aires stadium show", 2, 0),
+           _later("Rolling Stone", "BTS world tour 2027 dates, tickets and stadium shows in Buenos Aires confirmed", 3, 55)]
+    with caplog.at_level(logging.INFO):
+        stories = cluster(badu + bts)
+    assert sorted(len(s.articles) for s in stories) == [2, 2]
+    assert [sorted(s.outlets) for s in stories if "Badu" in s.articles[0].title] == [["RTTNews", "TicketNews"]]
+    assert "second-pass merges: 2" in caplog.text and "Erykah Badu" in caplog.text
+
+
+def test_second_pass_keeps_distant_or_different_stories_apart():
+    far = [_later("A", "Erykah Badu cancels 5 European shows", 0, 0),
+           _later("B", "Erykah Badu Cancels Several European Tour Dates", 1, 100)]      # more than 72 h apart
+    other = [_later("A", "Erykah Badu cancels 5 European shows", 2, 0),
+             _later("B", "Tame Impala announces new 2026 Tour Dates", 3, 50)]
+    cross = [_later("A", "Erykah Badu cancels 5 European shows", 4, 0, "en"),
+             _later("B", "Erykah Badu cancela cinco shows en Europa", 5, 50, "es")]
+    for arts in (far, other, cross):
+        assert len(cluster(arts)) == 2
+
+
+def test_second_pass_skips_index_keys_shared_by_many_stories(monkeypatch):
+    import newsdesk.cluster as c
+    def word(n, k):   # letters only, unique per (story, slot)
+        return "".join(chr(97 + (n * 31 + k * 7) // 26 ** j % 26) for j in range(4)) + "qz"
+    arts = [_later("A", f"{word(n, 1)} {word(n, 2)} {word(n, 3)} {word(n, 4)}", n, 0) for n in range(60)]
+    stories = cluster(arts)
+    assert len(stories) == 60
+    calls = []
+    real = c.similarity
+    monkeypatch.setattr(c, "similarity", lambda f, g: calls.append(1) or real(f, g))
+    c._merge_repeats(stories, {"common": set(range(60))})      # one key shared by 60 stories (> 50): ignored
+    assert calls == []
+    c._merge_repeats(stories, {"common": set(range(10))})      # a small group is still compared
+    assert len(calls) == 45

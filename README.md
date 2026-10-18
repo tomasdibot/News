@@ -149,11 +149,10 @@ In ⚙ → *Tus artistas*, type the artists you like (comma-separated) and tap *
 hour the job searches news about them and a music theme (e.g. *Música: lanzamientos, shows*)
 shows their releases, tours and concerts. Needs *Automatic themes* (above) to be connected.
 
-Music themes list **your artists first**, then shows in Argentina and big tours (also searched
-hourly in Google News, last 14 days; more Argentine music outlets are read: Indie Hoy, Billboard Argentina, Rock.com.ar, Infobae Teleshow), then releases. Up to 20 artists: Spotify's most played first, then
+Music themes list **your artists first**, then their shows and releases (searched hourly in Google News; Argentine music outlets are read too: Indie Hoy, Billboard Argentina, Rock.com.ar, Infobae Teleshow). Only one story per artist is shown, and shows of artists you did not add are left out. Up to 20 artists: Spotify's most played first, then
 followed, then the ones you typed. A story needs **3+ outlets** to count as confirmed (2+ in
 Música and IA); a tab with fewer than 4 fills with 2-outlet stories, then single-outlet ones
-marked "1 medio". Stories about your artists always show. `check-feeds` prints the show searches.
+marked "1 medio". Stories about your artists always show.
 
 #### Spotify (optional: read your artists automatically)
 

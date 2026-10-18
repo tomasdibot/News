@@ -5,7 +5,6 @@ import pytest
 from conftest import NOW, SOURCES
 
 from newsdesk import judge
-from newsdesk.artists import SHOW_QUERIES, parse_shows, show_search_url
 from newsdesk.cluster import Story
 from newsdesk.edition import build_edition, story_dict, theme_dictionary
 from newsdesk.fetch import Article
@@ -67,6 +66,14 @@ def test_music_tier_shows_before_releases_before_the_rest(title, tier):
     assert music_tier(story(title), None) == tier
 
 
+def test_with_artists_configured_only_your_artists_get_the_show_tier():
+    assert music_tier(story("Coldplay anuncia un show en Buenos Aires"), None, artists=True) == 3
+    assert music_tier(story("Lollapalooza 2027 confirmó su line up"), None, artists=True) == 3
+    assert music_tier(story("Dua Lipa lanza su nuevo álbum"), None, artists=True) == 2
+    assert music_tier(story("Lali anuncia un show en Buenos Aires"), 0, artists=True) == 0
+    assert music_tier(story("Coldplay anuncia un show en Buenos Aires"), None) == 1   # no artists configured: as before
+
+
 def test_music_tier_puts_your_artist_first_whatever_the_headline_says():
     assert music_tier(story("Lali lanza su nuevo álbum"), 0) == 0
     assert music_tier(story("Noticias"), 2) == 0
@@ -83,7 +90,7 @@ def test_story_dict_carries_artist_and_mtier_for_stories_from_any_feed(cfg):
     other = story("Se agota el show de Coldplay en Argentina")
     other.headline = other.articles[0]
     d = story_dict(other, "es", ARTISTS)
-    assert (d["artist"], d["mtier"]) == (None, 1)
+    assert (d["artist"], d["mtier"]) == (None, 3)   # with artists set, others get no show tier
 
 
 def test_your_artists_keep_their_order_and_stop_at_the_cap(monkeypatch, cfg):
@@ -112,46 +119,6 @@ def test_theme_dictionary_gives_each_theme_its_threshold(monkeypatch, cfg):
     assert got["musica"] == 2 and got["economia"] == 3          # the built-in themes too
 
 
-RSS = """<?xml version="1.0"?><rss><channel>
-<item><title>Coldplay confirma recital en Buenos Aires - Clarín</title><link>https://n/1</link>
-  <pubDate>Mon, 12 Oct 2026 10:00:00 GMT</pubDate><source url="https://clarin.com">Clarín</source></item>
-<item><title>Gira del presidente por Argentina: agenda oficial - Infobae</title><link>https://n/2</link>
-  <pubDate>Mon, 12 Oct 2026 10:00:00 GMT</pubDate><source url="https://infobae.com">Infobae</source></item>
-<item><title>Se agotaron las entradas del concierto en Buenos Aires - La Nación</title><link>https://n/3</link>
-  <pubDate>Mon, 12 Oct 2026 10:00:00 GMT</pubDate><source url="https://lanacion.com.ar">La Nación</source></item>
-<item><title>Detienen a una banda narco en Rosario - Clarín</title><link>https://n/4</link>
-  <pubDate>Mon, 12 Oct 2026 10:00:00 GMT</pubDate><source url="https://clarin.com">Clarín</source></item>
-<item><title>Obras en el estadio de River - Infobae</title><link>https://n/5</link>
-  <pubDate>Mon, 12 Oct 2026 10:00:00 GMT</pubDate><source url="https://infobae.com">Infobae</source></item>
-</channel></rss>""".encode()
-
-
-def test_show_queries_keep_the_publisher_and_need_a_music_word_in_the_headline():
-    got = parse_shows(RSS, datetime(2026, 10, 13, tzinfo=timezone.utc))
-    assert [(a.outlet, a.title) for a in got] == [
-        ("Clarín", "Coldplay confirma recital en Buenos Aires"),
-        ("La Nación", "Se agotaron las entradas del concierto en Buenos Aires"),
-    ]
-    assert all(a.source.topics == ["culture"] for a in got)
-
-
-def test_show_queries_use_the_argentine_edition_and_last_week():
-    assert len(SHOW_QUERIES) >= 9
-    for q in ["festival música Argentina", "entradas a la venta show", "gira 2026 Argentina",
-              "show en Córdoba", "show en Rosario"]:
-        assert q in SHOW_QUERIES
-    url = show_search_url(SHOW_QUERIES[0])
-    assert "gl=AR" in url and "when:14d" in url and "gira" in url
-
-
-def test_show_queries_keep_articles_up_to_two_weeks_old_but_artist_news_stays_at_one():
-    from newsdesk.artists import parse_search
-    rss = RSS.replace(b"Mon, 12 Oct 2026", b"Wed, 07 Oct 2026")   # 8 days before "now"
-    now = datetime(2026, 10, 15, tzinfo=timezone.utc)
-    assert len(parse_shows(rss, now)) == 2
-    assert parse_search(rss, "Coldplay", "es", now) == []
-
-
 def test_real_sources_yaml_has_argentine_music_outlets_and_teleshow_counts_as_infobae(cfg):
     from newsdesk.config import load_sources
     from newsdesk.fetch import feed_url
@@ -164,25 +131,20 @@ def test_real_sources_yaml_has_argentine_music_outlets_and_teleshow_counts_as_in
     assert "site:infobae.com/teleshow" in feed_url(tele)
 
 
-def test_show_and_artist_articles_outlive_the_normal_age_limit_but_normal_ones_do_not(cfg):
+def test_artist_articles_outlive_the_normal_age_limit_but_normal_ones_do_not(cfg):
     from datetime import timedelta
     from newsdesk.artists import parse_search
     from newsdesk.cluster import cluster
-    from newsdesk.judge import candidates
     from newsdesk.rank import score_stories
     five_days = NOW - timedelta(days=5)
-    rss = RSS.replace(b"Mon, 12 Oct 2026 10:00:00", b"Fri, 03 Oct 2026 12:00:00")
-    shows = parse_shows(rss, NOW)
     lali = parse_search(b"""<rss><channel><item><title>Lali anuncia recital - Clarin</title><link>https://n/9</link>
       <pubDate>Fri, 03 Oct 2026 12:00:00 GMT</pubDate><source url="https://clarin.com">Clarin</source></item></channel></rss>""",
                         "Lali", "es", NOW)
-    assert shows and lali
+    assert lali
     old_normal = Article(SOURCES["infobae"], "Nuevo recital de Lali en el Luna Park", "https://x/old", "", five_days)
-    kept = score_stories(cluster(shows + lali + [old_normal]), cfg, NOW)
+    kept = score_stories(cluster(lali + [old_normal]), cfg, NOW)
     titles = {a.title for s in kept for a in s.articles}
-    assert "Coldplay confirma recital en Buenos Aires" in titles and "Lali anuncia recital" in titles
-    assert old_normal.title not in titles
-    assert any("Coldplay" in s.headline.title for s in candidates("Música: shows", kept))
+    assert "Lali anuncia recital" in titles and old_normal.title not in titles
 
 
 def test_artist_rank_ignores_a_passing_mention():
@@ -222,14 +184,14 @@ def test_google_news_outage_reuses_the_last_good_results(tmp_path, monkeypatch, 
         again = A.fetch_google_news(["Tame Impala"], now + timedelta(hours=1), cache)
     assert {a.link for a in again} == {a.link for a in good}
     assert any(a.query == "tame impala" for a in again)
-    assert "gnews fallback:" in caplog.text and "artist +" in caplog.text
+    assert "gnews fallback:" in caplog.text and "artist articles" in caplog.text
     # once the stored articles are older than their limits, nothing is reused
     assert A.fetch_google_news(["Tame Impala"], now + timedelta(days=30), cache) == []
     # no cache, no results
     assert A.fetch_google_news(["Tame Impala"], now, tmp_path / "none.json") == []
 
 
-def test_google_news_fallback_works_per_list_and_only_for_current_artists(tmp_path, monkeypatch, caplog):
+def test_google_news_fallback_only_brings_back_artists_still_in_your_list(tmp_path, monkeypatch, caplog):
     import logging
     from datetime import datetime, timedelta, timezone
     from newsdesk import artists as A
@@ -237,30 +199,103 @@ def test_google_news_fallback_works_per_list_and_only_for_current_artists(tmp_pa
     when = (now - timedelta(days=1)).strftime('%a, %d %b %Y %H:%M:%S GMT')
     item = lambda t: (f"<item><title>{t} - Rolling Stone</title><link>https://x/{t.replace(' ', '')}</link>"
                       f"<source url='https://rs'>Rolling Stone</source><pubDate>{when}</pubDate></item>")
-    feed = lambda t: ("<rss><channel>" + item(t) + "</channel></rss>").encode()
 
     class R:
         def __init__(self, c): self.content = c
 
-    def serve(show=True, artist=True):
+    def serve(up):
         def get(url, *a, **k):
-            if "when:14d" in url and show:
-                return R(feed("Gran festival de rock en Rosario"))
-            if "when:7d" in url and artist:
-                name = "Tame Impala" if "Tame" in url else "Soda Stereo"
-                return R(feed(f"{name} anuncia show en Buenos Aires"))
-            raise RuntimeError("503")
+            if not up:
+                raise RuntimeError("503")
+            name = "Tame Impala" if "Tame" in url else "Soda Stereo"
+            return R(("<rss><channel>" + item(f"{name} anuncia show en Buenos Aires") + "</channel></rss>").encode())
         monkeypatch.setattr(A, "_get", get)
 
     cache = tmp_path / "c.json"
-    serve()
+    serve(True)
     A.fetch_google_news(["Tame Impala", "Soda Stereo"], now, cache)
-    serve(artist=False)   # artists down, shows fine: the stored artist items come back next to the live shows
-    part = A.fetch_google_news(["Tame Impala", "Soda Stereo"], now, cache)
-    assert sum(1 for a in part if a.query) == 2 and any("festival" in a.title for a in part)
-    serve(show=False, artist=False)   # full outage: the artist items survived the partial one
+    serve(False)
     with caplog.at_level(logging.INFO):
         full = A.fetch_google_news(["Tame Impala"], now, cache)   # Soda Stereo was removed from the list
-    assert [a.query for a in full if a.query] == ["tame impala"]
-    assert any("festival" in a.title for a in full)
-    assert "gnews fallback: 1 artist + 1 show" in caplog.text
+    assert [a.query for a in full] == ["tame impala"]
+    assert "gnews fallback: 1 artist articles" in caplog.text
+
+
+def test_story_dict_gives_the_show_tier_only_to_your_artists():
+    s = story("Coldplay anuncia un show en Buenos Aires")
+    s.topic_scores = {}
+    s.headline = s.articles[0]
+    assert story_dict(s, "es", ["Lali"])["mtier"] == 3
+    assert story_dict(s, "es", [])["mtier"] == 1
+    assert story_dict(s, "es", ["Coldplay"])["mtier"] == 0
+
+
+def _music_stories(cfg, monkeypatch, rows, artists="Lali\nWos"):
+    """rows: (headline, [outlets], hours ago). Judged with a model that accepts everything."""
+    monkeypatch.setenv("NEWSDESK_THEMES", "Música")
+    monkeypatch.setenv("NEWSDESK_ARTISTS", artists)
+    monkeypatch.setenv("NEWSDESK_LOCAL_MODEL", "fake")
+    monkeypatch.setattr(judge, "_ask_one", lambda *a: True)
+    from datetime import timedelta
+    from newsdesk.cluster import cluster
+    from newsdesk.rank import score_stories
+    out = []
+    for i, (title, outlets, hours) in enumerate(rows):
+        for j, o in enumerate(outlets):
+            out.append(Article(SOURCES[o], title if j == 0 else title + " hoy", f"https://x/{i}-{j}", "",
+                               NOW - timedelta(hours=hours)))
+    return score_stories(cluster(out), cfg, NOW)
+
+
+def test_music_theme_keeps_one_story_per_artist(cfg, monkeypatch, tmp_path, caplog):
+    import logging
+    rows = [("Lali anuncia gira por Argentina", ["infobae"], 5),
+            ("Lali lanza su nuevo álbum", ["infobae", "lanacion"], 4),      # more outlets: wins
+            ("Wos presenta single nuevo", ["infobae"], 3),
+            ("Wos lanza su nuevo disco", ["infobae"], 2)]                    # same outlets, release vs release: newest
+    ss = _music_stories(cfg, monkeypatch, rows)
+    with caplog.at_level(logging.INFO):
+        judge.judge_themes(ss, cfg, cache_path=tmp_path / "c.json")
+    fits = {s.headline.title: s.fits[judge.theme_key("Música")] for s in ss}
+    assert fits == {"Lali anuncia gira por Argentina": False, "Lali lanza su nuevo álbum": True,
+                    "Wos presenta single nuevo": False, "Wos lanza su nuevo disco": True}
+    assert "music: kept 1 per artist (2 dropped)" in caplog.text
+
+
+def test_one_per_artist_prefers_shows_over_releases_and_leaves_other_stories_alone(cfg, monkeypatch, tmp_path):
+    rows = [("Lali lanza su nuevo álbum", ["infobae"], 1),
+            ("Lali anuncia show en Buenos Aires", ["infobae"], 9),
+            ("Nuevo disco de una banda de Rosario", ["infobae"], 2)]
+    ss = _music_stories(cfg, monkeypatch, rows)
+    judge.judge_themes(ss, cfg, cache_path=tmp_path / "c.json")
+    tk = judge.theme_key("Música")
+    fits = {s.headline.title: s.fits[tk] for s in ss}
+    assert fits["Lali anuncia show en Buenos Aires"] is True and fits["Lali lanza su nuevo álbum"] is False
+    assert fits["Nuevo disco de una banda de Rosario"] is True      # no artist: not grouped
+
+
+def test_real_sources_yaml_has_the_extra_ai_outlets_named_like_existing_ones(cfg):
+    from newsdesk.config import load_sources
+    from newsdesk.fetch import feed_url
+    by_id = {s.id: s for s in load_sources({"profile": {"languages": ["es", "en"], "country": "AR"}})}
+    outlets = {s.outlet for s in by_id.values()}
+    for id_, outlet, lang in [("xataka", "Xataka", "es"), ("hipertextual", "Hipertextual", "es"),
+                              ("infobae-tecno", "Infobae", "es"), ("lanacion-tecno", "La Nación", "es"),
+                              ("elpais-tecno", "El País", "es"), ("wired-es", "WIRED en español", "es"),
+                              ("venturebeat-ai", "VentureBeat", "en"), ("the-decoder", "The Decoder", "en"),
+                              ("mit-news", "MIT News", "en"), ("apple-ml", "Apple ML (official)", "en"),
+                              ("xai-news", "xAI (official)", "en")]:
+        s = by_id[id_]
+        assert (s.outlet, s.lang, s.topics) == (outlet, lang, ["technology"]) and s.gnews and "site:" in feed_url(s)
+    assert by_id["apple-ml"].tier == by_id["xai-news"].tier == "official"
+    assert by_id["xai-news"].gnews_days == 7
+    assert by_id["infobae-tecno"].outlet == by_id["infobae"].outlet and by_id["lanacion-tecno"].outlet == by_id["lanacion"].outlet
+
+
+def test_one_per_artist_also_merges_repeats_across_languages(cfg, monkeypatch, tmp_path):
+    rows = [("Tame Impala tickets on sale in Montreal at Centre Bell", ["bbc"], 3),          # English story
+            ("Tame Impala lanza su nuevo álbum sorpresa", ["infobae"], 2)]  # Spanish story, same artist
+    ss = _music_stories(cfg, monkeypatch, rows, artists="Tame Impala")
+    assert len(ss) == 2                                                        # the clusterer keeps languages apart
+    judge.judge_themes(ss, cfg, cache_path=tmp_path / "c.json")
+    assert sum(bool(s.fits[judge.theme_key("Música")]) for s in ss) == 1
