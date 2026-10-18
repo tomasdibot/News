@@ -18,7 +18,7 @@ from .cluster import cluster
 from .config import load_sources
 from .fetch import fetch_all
 from .importance import importance_lines
-from .judge import PER_THEME, _material, ask_many, candidates, cap_candidates, configured_themes, set_reader, theme_key
+from .judge import PER_THEME, _material, ask_many, candidates, cap_candidates, configured_artists, configured_themes, set_reader, theme_key
 from .neutral import _provider
 from .rank import score_stories
 
@@ -159,7 +159,8 @@ def run(cfg, out=print) -> int:
     refs: dict = {}
     for theme, allc, kept, cands, accepted in judged:
         try:
-            lines += importance_lines(theme, stories, allc, kept, cands, accepted, articles, refs) \
+            lines += importance_lines(theme, stories, allc, kept, cands, accepted, articles, refs,
+                                     artists=configured_artists(cfg)) \
                 or [f"importance {theme}: _(no reference for this subject)_"]
         except Exception as exc:   # the importance check never fails the audit
             lines.append(f"importance {theme}: unavailable ({exc})")

@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 
 import feedparser
 
+from .artists import EDITIONS, _parse, search_url
 from .cluster import CROSS_LANG_THRESHOLD, Story, cluster, features, similarity
 from .config import Source
 from .fetch import SAFE_LINK, Article, _get
@@ -35,8 +36,12 @@ REFERENCES = {
     "economy": [("google", GNEWS.format("BUSINESS"), "es")],
     "world": [("google", GNEWS.format("WORLD"), "es")],
     "ai": [("google", GNEWS.format("TECHNOLOGY"), "es"), ("techmeme", TECHMEME, "en")],
-    "music": [("google", GNEWS.format("ENTERTAINMENT"), "es")],
+    "music": [],   # your artists' news (see _artist_references)
 }
+# Reference items that are not news stories (regexes on the accent-free lowercase title)
+JUNK = re.compile(r"-\s?video\b|\((video|audio)\)|^(en vivo|minuto a minuto)\b|\bhoroscopo\b|\bquiniela\b"
+                  r"|^el clima (en|hoy)\b|\bpronostico del (tiempo|clima)\b")
+ARTIST_REF_DAYS = 2
 
 
 def theme_kind(theme: str) -> str | None:
@@ -76,6 +81,10 @@ def parse_reference(content: bytes, lang: str, now: datetime | None = None) -> l
         title = clean_html(e.get("title", ""))
         if publisher:
             title = re.sub(r"\s+-\s+" + re.escape(publisher) + r"\s*$", "", title)
+        elif " - " in title:   # no <source>: the outlet is the " - Outlet" suffix
+            head, _, tail = title.rpartition(" - ")
+            if head and tail:
+                title, publisher = head, tail
         link = e.get("link", "")
         if not title or not SAFE_LINK.match(link):
             continue
@@ -84,23 +93,61 @@ def parse_reference(content: bytes, lang: str, now: datetime | None = None) -> l
     return out
 
 
-def fetch_references(kind: str, get=None, now: datetime | None = None) -> tuple[list[Article], str]:
-    """Up to PER_THEME_REFS reference stories and the label of the feeds that answered."""
+def is_junk(title: str) -> bool:
+    return bool(JUNK.search(normalize(title)))
+
+
+def _artist_references(artists: list[str], get, now: datetime | None) -> list[Article]:
+    """The newest headline of each artist from the last 2 days (Google News search), up to PER_THEME_REFS."""
+    now = now or datetime.now(timezone.utc)
+    lang, edition = EDITIONS[0]
+    out = []
+    for artist in artists:
+        if len(out) >= PER_THEME_REFS:
+            break
+        try:
+            want = normalize(artist)
+            url = search_url(artist, edition, ARTIST_REF_DAYS)
+            found = _parse(get(url, timeout=8).content, lang, now, lambda t: want in normalize(t),
+                           days=ARTIST_REF_DAYS)
+        except Exception as exc:   # one artist failing only lowers the counts
+            log.warning("importance reference for %s failed: %s", artist, exc)
+            continue
+        if found:
+            out.append(max(found, key=lambda a: a.published))
+    return out
+
+
+def _fetch(kind: str, get=None, now: datetime | None = None, artists: list[str] | None = None):
+    """-> (up to PER_THEME_REFS reference stories, label of the feeds that answered, junk items dropped)."""
     get = get or _get
-    batches, labels = [], []
+    batches, labels, dropped = [], [], 0
+    if kind == "music" and artists:
+        arts = _artist_references(artists, get, now)
+        if arts:
+            batches.append(arts)
+            labels.append("artists (self-check)")
     for label, url, lang in REFERENCES.get(kind, []):
         try:
             arts = parse_reference(get(url).content, lang, now)
         except Exception as exc:   # a broken reference only lowers the counts
             log.warning("importance reference %s failed: %s", label, exc)
             continue
-        if label == "google" and kind in ("ai", "music"):
+        kept = [a for a in arts if not is_junk(a.title)]
+        dropped += len(arts) - len(kept)
+        arts = kept
+        if label == "google" and kind == "ai":
             arts = [a for a in arts if fits_kind(a.title, kind)]
         if arts:
             batches.append(arts)
             labels.append(label)
     mixed = [a for a in itertools.chain.from_iterable(itertools.zip_longest(*batches)) if a]
-    return mixed[:PER_THEME_REFS], "+".join(labels)
+    return mixed[:PER_THEME_REFS], "+".join(labels), dropped
+
+
+def fetch_references(kind: str, get=None, now: datetime | None = None, artists: list[str] | None = None) -> tuple[list[Article], str]:
+    refs, label, _ = _fetch(kind, get, now, artists)
+    return refs, label
 
 
 def front_page_leads(articles: list[Article], kind: str, per_outlet: int = 5) -> list[Article]:
@@ -165,25 +212,47 @@ def evaluate(refs: list[Article], stories: list[Story], cands: list[Story], capp
     return top4, top10, misses
 
 
+def _tally(items) -> str:
+    """"a n, b n" sorted by count, then name."""
+    counts: dict[str, int] = {}
+    for i in items:
+        counts[i] = counts.get(i, 0) + 1
+    return ", ".join(f"{k} {n}" for k, n in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0])))
+
+
 def importance_lines(theme: str, stories: list[Story], cands: list[Story], capped: list[Story], judged: list[Story],
                      accepted: list[Story], articles: list[Article], references: dict | None = None,
-                     get=None) -> list[str]:
+                     get=None, artists: list[str] | None = None) -> list[str]:
     """The audit lines for one theme. `references` caches fetched references per kind."""
     try:
         kind = theme_kind(theme)
         if kind is None:
             return []
+        if kind == "music" and not artists:
+            return [f"importance {theme}: skipped (no artists)"]
         if references is None:
             references = {}
         if kind not in references:
-            references[kind] = fetch_references(kind, get)
-        refs, label = references[kind]
+            references[kind] = _fetch(kind, get, artists=artists)
+        refs, label, dropped = references[kind]
+        if not refs and kind == "music":
+            return [f"importance {theme}: no artist references"]
         if not refs:
             refs, label = front_page_leads(articles, kind), "leads"
         top4, top10, misses = evaluate(refs, stories, cands, capped, accepted, min_outlets(theme), judged)
         n = len(refs)
         lines = [f"importance {theme}: top4 {top4}/{n} top10 {top10}/{n} (ref: {label}, rank approx.)"]
-        lines += [f"  miss: {reason} — {title}" for reason, title in misses[:5]]
+        outlet_of = {a.title: a.outlet for a in refs if a.outlet not in ("ref", "reference")}
+        if dropped:
+            lines.append(f"ref dropped {theme}: {dropped} junk")
+        for reason, title in misses:
+            who = f" [{outlet_of[title]}]" if reason == "not fetched" and title in outlet_of else ""
+            lines.append(f"  miss: {reason} — {title}{who}")
+        if misses:
+            lines.append(f"reasons {theme}: " + _tally(r for r, _ in misses))
+        missing = [outlet_of[t] for r, t in misses if r == "not fetched" and t in outlet_of]
+        if missing:
+            lines.append(f"missing outlets {theme}: " + _tally(missing))
         return lines
     except Exception as exc:   # never fail the audit
         log.warning("importance %s failed: %s", theme, exc)

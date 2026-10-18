@@ -143,3 +143,69 @@ def test_judge_out_wins_over_split_when_a_hit_was_read():
     a, b = story(title, hours=1), story(title, hours=100)
     assert importance.evaluate([ref(title)], [a, b], [a, b], [a, b], [], need=3)[2][0][0] == "judge out"
     assert importance.evaluate([ref(title)], [a, b], [], [], [], need=3)[2][0][0] == "split"
+
+
+def feed(*items):
+    body = "".join(f"<item><title>{t}</title><link>https://g/{i}</link>{f'<source url=\"https://x\">{o}</source>' if o else ''}"
+                   f"<pubDate>Thu, 08 Oct 2026 11:00:00 GMT</pubDate></item>" for i, (t, o) in enumerate(items))
+    return f'<?xml version="1.0"?><rss version="2.0"><channel>{body}</channel></rss>'.encode()
+
+
+class Resp:
+    def __init__(self, content):
+        self.content = content
+
+
+def test_junk_reference_items_are_dropped_and_counted():
+    junk = ["Dólar hoy - Video - Infobae", "Mercados (audio) - Clarin", "EN VIVO: la sesión", "Quiniela de hoy",
+            "Horóscopo de hoy", "Minuto a minuto del dólar", "El clima en Buenos Aires"]
+    good = "El INDEC informo que la inflacion de septiembre fue de 2,1%"
+    got = Resp(feed(*[(t, None) for t in junk], (good, "Infobae")))
+    refs, label, dropped = importance._fetch("economy", lambda url: got, NOW)
+    assert [a.title for a in refs] == [good] and dropped == len(junk)
+
+
+def test_real_news_with_junk_looking_words_is_kept():
+    keep = ["Cumbre del clima: acuerdo de la COP", "El clima de tensión en el Congreso", "Pronóstico de crecimiento del FMI para 2027",
+            "Duki en vivo en el Estadio Vélez"]
+    assert not any(importance.is_junk(t) for t in keep)
+    assert all(importance.is_junk(t) for t in ["Dólar hoy - Video", "Mercados (audio)", "EN VIVO: la sesión",
+                                              "Horóscopo de hoy", "El clima en Buenos Aires", "Pronóstico del tiempo"])
+
+
+def test_artists_without_any_news_say_so_instead_of_falling_back():
+    got = importance.importance_lines("Música", [], [], [], [], [], [], artists=["Duki"], get=lambda url, timeout=None: Resp(feed()))
+    assert got == ["importance Música: no artist references"]
+
+
+def test_music_reference_is_the_news_of_your_artists_one_each_from_the_last_two_days():
+    def get(url, timeout=None):
+        assert "Duki" in url and "when:2d" in url or "Wos" in url
+        name = "Duki" if "Duki" in url else "Wos"
+        return Resp(feed((f"{name} anuncia show en Buenos Aires - Rolling Stone", "Rolling Stone"),
+                         (f"{name} lanza disco nuevo - Clarin", "Clarin")))
+    refs, label, _ = importance._fetch("music", get, NOW, artists=["Duki", "Wos"])
+    assert [a.title for a in refs] == ["Duki anuncia show en Buenos Aires", "Wos anuncia show en Buenos Aires"]
+    assert label == "artists (self-check)"
+
+
+def test_music_without_artists_is_skipped():
+    assert importance.importance_lines("Música", [], [], [], [], [], [], artists=[]) == \
+        ["importance Música: skipped (no artists)"]
+
+
+def test_every_miss_is_printed_with_reasons_and_the_outlets_google_names():
+    titles = [f"Noticia economica numero {w} sobre {w}{w}{w} del dia" for w in "abcdefg"]
+    got = Resp(feed(*[(f"{t} - {'Ambito' if i < 5 else 'Infobae'}", "Ambito" if i < 5 else "Infobae")
+                      for i, t in enumerate(titles)]))
+    lines = importance.importance_lines("Economía", [], [], [], [], [], [], get=lambda url: got)
+    misses = [l for l in lines if l.startswith("  miss:")]
+    assert len(misses) == 7
+    assert misses[0] == f"  miss: not fetched — {titles[0]} [Ambito]"
+    assert "reasons Economía: not fetched 7" in lines
+    assert "missing outlets Economía: Ambito 5, Infobae 2" in lines
+
+
+def test_outlet_comes_from_the_title_suffix_when_there_is_no_source_element():
+    refs = importance.parse_reference(feed(("Fuerte caida de las exportaciones - La Nacion", None)), "es", NOW)
+    assert refs[0].title == "Fuerte caida de las exportaciones" and refs[0].outlet == "La Nacion"

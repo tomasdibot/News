@@ -30,8 +30,8 @@ PER_FEED = 8
 ARTIST_DAYS = 7
 
 
-def search_url(artist: str, edition: str) -> str:
-    return f"https://news.google.com/rss/search?q={quote(chr(34) + artist + chr(34))}+when:7d&{edition}"
+def search_url(artist: str, edition: str, days: int = ARTIST_DAYS) -> str:
+    return f"https://news.google.com/rss/search?q={quote(chr(34) + artist + chr(34))}+when:{days}d&{edition}"
 
 
 def parse_search(content: bytes, artist: str, lang: str, now: datetime) -> list[Article]:
